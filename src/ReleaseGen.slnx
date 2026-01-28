@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ReleaseGenCli/ReleaseGenCli.csproj" />
+  <Project Path="ReleaseGenLib/ReleaseGenLib.csproj" />
+</Solution>
