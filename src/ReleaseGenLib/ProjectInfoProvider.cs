@@ -3,9 +3,9 @@ using Microsoft.Build.Evaluation;
 
 namespace ReleaseGenLib;
 
-public class ProjectConfigurationProvider : IProjectInfoProvider
+public class ProjectInfoProvider : IProjectInfoProvider
 {
-    public ProjectConfigurationProvider()
+    public ProjectInfoProvider()
     {
         
     }
