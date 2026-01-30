@@ -1,6 +1,4 @@
 ﻿using DotExtensions.IO.Files;
-using ReleaseGenLib.Models;
-using Spectre.Console;
 
 namespace ReleaseGenCli.Commands;
 
