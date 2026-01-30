@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-
-namespace ReleaseGenCli.Commands;
+﻿namespace ReleaseGenCli.Commands;
 
 [CliCommand(Name = "package", Description = "Packages a .NET project for release.",
     Parent = typeof(RootCommand))]
