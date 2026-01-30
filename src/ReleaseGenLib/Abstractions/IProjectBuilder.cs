@@ -2,9 +2,9 @@
 
 public interface IProjectBuilder
 {
-    Task<bool> BuildDebugAsync(DirectoryInfo targetDirectory,
-        bool noRestore, CancellationToken cancellationToken, string? targetFramework, DirectoryInfo? outputDirectory);
+    Task<bool> BuildDebugAsync(DirectoryInfo targetDirectory, 
+        ProjectBuildConfiguration buildConfiguration, CancellationToken cancellationToken);
 
     Task<bool> BuildReleaseAsync(DirectoryInfo targetDirectory,
-        bool noRestore, CancellationToken cancellationToken, string? targetFramework, DirectoryInfo? outputDirectory);
+        ProjectBuildConfiguration projectConfiguration, CancellationToken cancellationToken);
 }

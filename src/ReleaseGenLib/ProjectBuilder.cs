@@ -19,37 +19,31 @@ public class ProjectBuilder : IProjectBuilder
         _processInvoker = processInvoker;
         _dotnetSdkExecutable = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
     }
-    
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="targetDirectory"></param>
-    /// <param name="noRestore"></param>
-    /// <param name="cancellationToken"></param>
-    /// <param name="targetFramework"></param>
-    /// <param name="outputDirectory"></param>
-    /// <returns></returns>
-    public async Task<bool> BuildDebugAsync(DirectoryInfo targetDirectory, bool noRestore,
-        CancellationToken cancellationToken, string? targetFramework = null, DirectoryInfo? outputDirectory = null)
-        => await BuildConfigurationAsync("debug", targetDirectory,noRestore, cancellationToken, targetFramework);
-    
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="targetDirectory"></param>
-    /// <param name="noRestore"></param>
-    /// <param name="cancellationToken"></param>
-    /// <param name="targetFramework"></param>
-    /// <param name="outputDirectory"></param>
-    /// <returns></returns>
-    public async Task<bool> BuildReleaseAsync(DirectoryInfo targetDirectory,
-        bool noRestore, CancellationToken cancellationToken, string? targetFramework = null,
-        DirectoryInfo? outputDirectory = null)
-        => await BuildConfigurationAsync("release", targetDirectory,noRestore, cancellationToken, targetFramework);
 
-    private async Task<bool> BuildConfigurationAsync(string configuration, DirectoryInfo targetDirectory,
-        bool noRestore, CancellationToken cancellationToken,
-        string? targetFramework = null, DirectoryInfo? outputDirectory = null)
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="targetDirectory"></param>
+    /// <param name="cancellationToken"></param>
+    /// <param name="buildConfiguration"></param>
+    /// <returns></returns>
+    public async Task<bool> BuildDebugAsync(DirectoryInfo targetDirectory, ProjectBuildConfiguration buildConfiguration,
+        CancellationToken cancellationToken)
+        => await BuildConfigurationAsync("debug", targetDirectory, buildConfiguration, cancellationToken);
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="targetDirectory"></param>
+    /// <param name="buildConfiguration"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<bool> BuildReleaseAsync(DirectoryInfo targetDirectory, ProjectBuildConfiguration buildConfiguration,
+        CancellationToken cancellationToken)
+        => await BuildConfigurationAsync("release", targetDirectory, buildConfiguration, cancellationToken);
+
+    private async Task<bool> BuildConfigurationAsync(string configuration, DirectoryInfo targetDirectory, 
+        ProjectBuildConfiguration buildConfiguration, CancellationToken cancellationToken)
     {
         IArgumentsBuilder argumentsBuilder = new ArgumentsBuilder()
             .Add("build -c");
@@ -57,19 +51,43 @@ public class ProjectBuilder : IProjectBuilder
         argumentsBuilder = argumentsBuilder
             .Add(configuration == "release" ? "Release" : "Debug");
         
-        if (targetFramework is not null)
+        if (buildConfiguration.TargetFramework is not null)
         {
-            argumentsBuilder = argumentsBuilder.Add($"-f {targetFramework}");
+            argumentsBuilder = argumentsBuilder.Add($"-f {buildConfiguration.TargetFramework}");
         }
-        if (outputDirectory is not null)
+
+        if (buildConfiguration.RuntimeIdentifier is not null)
         {
-            argumentsBuilder = argumentsBuilder.Add($"-o {outputDirectory.FullName}");
+            argumentsBuilder = argumentsBuilder.Add($"-r {buildConfiguration.RuntimeIdentifier}");
         }
         
-        if (noRestore)
+        if (buildConfiguration.OutputDirectory is not null)
         {
-            argumentsBuilder = argumentsBuilder.Add("--no-restore");
+            argumentsBuilder = argumentsBuilder.Add($"-o {buildConfiguration.OutputDirectory.FullName}");
         }
+        
+        if (buildConfiguration.PublishSingleFile)
+        {
+            argumentsBuilder = argumentsBuilder.Add("--publish-single-file");
+        }
+
+        if (buildConfiguration.SelfContained) 
+            argumentsBuilder = argumentsBuilder.Add("--self-contained");
+        
+        if(buildConfiguration.PublishAoT)
+            argumentsBuilder = argumentsBuilder.Add("--publish-aot");
+        
+        if(buildConfiguration is { PublishTrimmed: true, PublishAoT: false })
+            argumentsBuilder = argumentsBuilder.Add("--publish-trimmed");
+        
+        if (buildConfiguration.NoRestore)
+            argumentsBuilder = argumentsBuilder.Add("--no-restore");
+        
+        if(!buildConfiguration.UseAppHost)
+            argumentsBuilder = argumentsBuilder.Add("--use-apphost false");
+        
+        if(!buildConfiguration.PublishReadyToRun)
+            argumentsBuilder = argumentsBuilder.Add("--ready-to-run");
         
         string arguments = argumentsBuilder.ToString();
 

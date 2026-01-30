@@ -3,9 +3,9 @@ using Microsoft.Build.Evaluation;
 
 namespace ReleaseGenLib;
 
-public class ProjectInfoProvider : IProjectInfoProvider
+public class ProjectConfigurationProvider : IProjectInfoProvider
 {
-    public ProjectInfoProvider()
+    public ProjectConfigurationProvider()
     {
         
     }
@@ -42,24 +42,24 @@ public class ProjectInfoProvider : IProjectInfoProvider
         }
         
         string publishAoTValue = project.GetPropertyValue("PublishAoT");
-        projectInfo.PublishAoT = publishAoTValue != string.Empty;
+        projectInfo.BuildConfiguration.PublishAoT = publishAoTValue != string.Empty;
 
-        if (projectInfo.PublishAoT)
+        if (projectInfo.BuildConfiguration.PublishAoT)
         {
-            projectInfo.PublishTrimmed = true;
-            projectInfo.PublishReadyToRun = false;
-            projectInfo.SelfContained = true;
+            projectInfo.BuildConfiguration.PublishTrimmed = true;
+            projectInfo.BuildConfiguration.PublishReadyToRun = false;
+            projectInfo.BuildConfiguration.SelfContained = true;
         }
         else
         {
-            projectInfo.PublishTrimmed = project.GetPropertyValue("PublishTrimmed") != string.Empty;
+            projectInfo.BuildConfiguration.PublishTrimmed = project.GetPropertyValue("PublishTrimmed") != string.Empty;
             
-            projectInfo.PublishReadyToRun = project.GetPropertyValue("PublishReadyToRun") != string.Empty;
-            projectInfo.SelfContained = project.GetPropertyValue("SelfContained") != string.Empty;
+            projectInfo.BuildConfiguration.PublishReadyToRun = project.GetPropertyValue("PublishReadyToRun") != string.Empty;
+            projectInfo.BuildConfiguration.SelfContained = project.GetPropertyValue("SelfContained") != string.Empty;
         }
         
-        projectInfo.PublishSingleFile = project.GetPropertyValue("PublishSingleFile") != string.Empty;
-        projectInfo.UseAppHost = project.GetPropertyValue("UseAppHost") != string.Empty;
+        projectInfo.BuildConfiguration.PublishSingleFile = project.GetPropertyValue("PublishSingleFile") != string.Empty;
+        projectInfo.BuildConfiguration.UseAppHost = project.GetPropertyValue("UseAppHost") != string.Empty;
 
         string[] runtimeIdentifiers = project.GetPropertyValue("RuntimeIdentifier") != string.Empty
             ? project.GetPropertyValue("RuntimeIdentifier").Split(';')
@@ -71,6 +71,12 @@ public class ProjectInfoProvider : IProjectInfoProvider
         return projectInfo;
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="projectFile"></param>
+    /// <param name="projectInfo"></param>
+    /// <returns></returns>
     public bool TryDetectProjectInfo(FileInfo projectFile, out ProjectInfo? projectInfo)
     {
         try
