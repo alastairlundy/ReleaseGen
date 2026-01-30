@@ -20,7 +20,7 @@ public class BuildCommand
     public bool Interactive { get; set; }
     
     [CliArgument(Order = 0, Name = "<Path to Project file>", Required = true)]
-    public string ProjectPath { get; set; }
+    public string? ProjectPath { get; set; }
     
     [CliOption(Name = "--ready-to-run", Required = false)]
     [DefaultValue(false)]
@@ -46,11 +46,11 @@ public class BuildCommand
     
     [CliOption(Name = "--framework", Alias = "-f", Required = false)]
     [DefaultValue("")]
-    public string TargetFramework { get; set; }
+    public string? TargetFramework { get; set; }
     
     [CliOption(Name = "--runtime-identifier", Alias = "-r", Required = false)]
     [DefaultValue("")]
-    public string RuntimeIdentifier { get; set; }
+    public string? RuntimeIdentifier { get; set; }
     
     
     [CliOption(Name = "--no-restore", Required = false)]
@@ -111,6 +111,24 @@ public class BuildCommand
         
         if(NoRestore != buildConfiguration.NoRestore)
             buildConfiguration.NoRestore = NoRestore;
+
+        if (TargetFramework is not null)
+        {
+            if(TargetFramework != buildConfiguration.TargetFramework)
+                buildConfiguration.TargetFramework = TargetFramework;
+        }
+
+        if (RuntimeIdentifier is null && Interactive)
+        {
+            if(PublishAot || ReadyToRun || SelfContained)
+                RuntimeIdentifier = UserInputHelper.GetRuntimeIdentifier();
+        }
+        
+        if (RuntimeIdentifier is not null)
+        {
+            if(RuntimeIdentifier != buildConfiguration.RuntimeIdentifier)
+                buildConfiguration.RuntimeIdentifier = RuntimeIdentifier;
+        }
         
         string configuration = "release";
         
