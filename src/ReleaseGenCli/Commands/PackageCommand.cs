@@ -4,6 +4,13 @@
     Parent = typeof(RootCommand))]
 public class PackageCommand
 {
+    private readonly IProjectPackager _projectPackager;
+
+    public PackageCommand(IProjectPackager projectPackager)
+    {
+        _projectPackager = projectPackager;
+    }
+    
     [CliOption(Name = "--interactive", Alias = "-i", Required = false)]
     [DefaultValue(false)]
     public bool Interactive { get; set; }
