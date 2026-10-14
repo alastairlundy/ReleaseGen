@@ -1,4 +1,4 @@
-﻿using DotExtensions.IO.Files;
+﻿using DotExtensions.IO.Directories;
 
 namespace ReleaseGenCli.Commands;
 

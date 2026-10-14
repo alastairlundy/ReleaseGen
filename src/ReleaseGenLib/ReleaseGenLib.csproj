@@ -22,9 +22,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="CliInvoke" Version="2.8.5" />
-      <PackageReference Include="CliInvoke.Core" Version="2.8.5" />
-      <PackageReference Include="Microsoft.Build" Version="18.0.2" />
+      <PackageReference Include="CliInvoke" />
+      <PackageReference Include="CliInvoke.Core" />
+      <PackageReference Include="Microsoft.Build" />
     </ItemGroup>
 
 </Project>

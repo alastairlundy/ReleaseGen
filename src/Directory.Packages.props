@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="CliInvoke" Version="2.11.5" />
+    <PackageVersion Include="CliInvoke.Core" Version="2.11.5" />
+    <PackageVersion Include="CliInvoke.Extensions" Version="2.11.5" />
+    <PackageVersion Include="DotExtensions" Version="10.6.1" />
+    <PackageVersion Include="DotMake.CommandLine" Version="3.7.0" />
+    <PackageVersion Include="Microsoft.Build" Version="18.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <PackageVersion Include="Spectre.Console" Version="0.57.2" />
+  </ItemGroup>
+</Project>

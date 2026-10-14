@@ -5,7 +5,7 @@ public static class UserInputHelper
     
     public static string GetRuntimeIdentifier()
     {
-        string[] choices;
+        string[] choices = [];
         
         string output = AnsiConsole.Prompt(
             new SelectionPrompt<string>()

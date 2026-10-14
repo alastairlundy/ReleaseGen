@@ -1,6 +1,6 @@
 ﻿namespace ReleaseGenCli.Commands;
 
-[CliCommand(Name = "package", )]
+[CliCommand(Name = "package")]
 public class PackageCommand
 {
     public abstract class SharedArgs
