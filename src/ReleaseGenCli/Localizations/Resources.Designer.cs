@@ -58,5 +58,32 @@ namespace ReleaseGenCli.Localizations {
                 resourceCulture = value;
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to storage drive.
+        /// </summary>
+        internal static string Prompts_Highlights_StorageDrive {
+            get {
+                return ResourceManager.GetString("Prompts_Highlights_StorageDrive", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to more options.
+        /// </summary>
+        internal static string Prompts_Selection_RevealMoreOptions {
+            get {
+                return ResourceManager.GetString("Prompts_Selection_RevealMoreOptions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Select a storage drive.
+        /// </summary>
+        internal static string Prompts_Selection_StorageDrive {
+            get {
+                return ResourceManager.GetString("Prompts_Selection_StorageDrive", resourceCulture);
+            }
+        }
     }
 }

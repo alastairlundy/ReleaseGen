@@ -18,4 +18,13 @@
     <resheader name="writer">
         <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
     </resheader>
+    <data name="Prompts_Highlights_StorageDrive" xml:space="preserve">
+        <value>storage drive</value>
+    </data>
+    <data name="Prompts_Selection_RevealMoreOptions" xml:space="preserve">
+        <value>more options</value>
+    </data>
+    <data name="Prompts_Selection_StorageDrive" xml:space="preserve">
+        <value>Select a storage drive</value>
+    </data>
 </root>
