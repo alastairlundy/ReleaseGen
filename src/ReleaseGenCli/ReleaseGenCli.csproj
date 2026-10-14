@@ -6,6 +6,12 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PublishAot>false</PublishAot>
+        <RepositoryUrl>https://github.com/alastairlundy/ReleaseGen</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageProjectUrl>https://github.com/alastairlundy/ReleaseGen</PackageProjectUrl>
+        <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
+        <IsPackable>true</IsPackable>
+        <PackAsTool>true</PackAsTool>
     </PropertyGroup>
 
     <ItemGroup>

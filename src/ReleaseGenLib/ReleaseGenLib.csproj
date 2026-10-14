@@ -8,6 +8,8 @@
         <IsTrimmable>true</IsTrimmable>
         <RepositoryUrl>https://github.com/alastairlundy/ReleaseGen</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
+        <PackageProjectUrl>https://github.com/alastairlundy/ReleaseGen</PackageProjectUrl>
+        <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
         <IncludeSymbols>true</IncludeSymbols>
         <EmbedUntrackedSources>true</EmbedUntrackedSources>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
