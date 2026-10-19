@@ -38,12 +38,13 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
 
     /// <summary>
     /// Walks from <paramref name="startDirectory"/> upward, stopping at the first manifest, and
-    /// fails naming the searched directories when none is found (D009).
+    /// fails naming the searched directories when none is found (D009). The build stage uses this
+    /// to learn the manifest's directory for resolving relative target project paths.
     /// </summary>
     /// <param name="startDirectory">The directory discovery starts from, typically the current directory.</param>
-    /// <returns>The parsed and validated manifest.</returns>
-    /// <exception cref="ManifestException">No manifest was found, or it failed parse or validation.</exception>
-    public Manifest LoadFromDirectory(DirectoryInfo startDirectory)
+    /// <returns>The manifest file that was found.</returns>
+    /// <exception cref="ManifestException">No manifest was found in the walk-up chain.</exception>
+    public FileInfo FindManifestFile(DirectoryInfo startDirectory)
     {
         List<string> searchedDirectories = [];
 
@@ -55,12 +56,24 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
 
             if (candidate.Exists)
             {
-                return LoadFromFile(candidate);
+                return candidate;
             }
         }
 
         throw new ManifestException(
             $"No {ManifestFileName} found. Searched directories: {string.Join(", ", searchedDirectories)}");
+    }
+
+    /// <summary>
+    /// Walks from <paramref name="startDirectory"/> upward, stopping at the first manifest, and
+    /// fails naming the searched directories when none is found (D009).
+    /// </summary>
+    /// <param name="startDirectory">The directory discovery starts from, typically the current directory.</param>
+    /// <returns>The parsed and validated manifest.</returns>
+    /// <exception cref="ManifestException">No manifest was found, or it failed parse or validation.</exception>
+    public Manifest LoadFromDirectory(DirectoryInfo startDirectory)
+    {
+        return LoadFromFile(FindManifestFile(startDirectory));
     }
 
     /// <summary>
@@ -140,6 +153,12 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
                 }
             }
 
+            if (target.Archive is not null && !ArchiveFormats.IsKnown(target.Archive))
+            {
+                throw new ManifestException(
+                    $"Manifest validation failed: the target '{target.Project}' declares unknown archive format '{target.Archive}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
+            }
+
             if (projectInfoProvider is not null && target.Kinds.Contains(ArtifactKinds.Executables))
             {
                 ValidateExecutablesOutputType(target, baseDirectory);
@@ -182,13 +201,14 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
 
     /// <summary>
     /// Resolves a target's project value to a project file. Relative paths resolve from the
-    /// manifest's directory.
+    /// manifest's directory. Shared by manifest validation and the build stage (T009) so both
+    /// stages follow one resolution rule (D009).
     /// </summary>
     /// <param name="projectPath">The target's 'project' value.</param>
     /// <param name="baseDirectory">The manifest's directory.</param>
     /// <returns>The resolved project file.</returns>
     /// <exception cref="ManifestException">The path names no project file or is ambiguous.</exception>
-    private static FileInfo ResolveProjectFile(string projectPath, string baseDirectory)
+    public static FileInfo ResolveProjectFile(string projectPath, string baseDirectory)
     {
         string fullPath = Path.IsPathRooted(projectPath)
             ? projectPath

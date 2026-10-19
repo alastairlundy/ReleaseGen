@@ -7,10 +7,10 @@ using ReleaseGenLib.Abstractions;
 
 ServiceCollection services = new();
 
-// Manual DI hookup per T002: CliInvoke v3 services plus the project provider and builder.
+// Manual DI hookup per T002: CliInvoke v3 services plus the project provider and build runner.
 services.AddCliInvoke(ServiceLifetime.Singleton);
 services.AddSingleton<IProjectInfoProvider, ProjectInfoProvider>();
-services.AddSingleton<IProjectBuilder, ProjectBuilder>();
+services.AddSingleton<IBuildStageRunner, BuildStageRunner>();
 services.AddSingleton<ManifestLoader>();
 
 using ServiceProvider provider = services.BuildServiceProvider();

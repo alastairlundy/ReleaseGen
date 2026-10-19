@@ -15,6 +15,27 @@ public class ProjectInfoProvider : IProjectInfoProvider
     private static bool _sdkResolverRegistered;
 
     /// <summary>
+    /// The environment variables in-process MSBuild export into the host process when a toolset
+    /// initializes (observed: MSBuildSDKsPath, MSBUILD_EXE_PATH, MSBuildExtensionsPath*,
+    /// MSBuildToolsPath). Left in place they leak into child processes this library spawns - a
+    /// <c>dotnet publish</c> would resolve the SDK of the MSBuildLocator-registered toolset
+    /// instead of its own muxer selection (T009), so they are saved and restored around every
+    /// evaluation.
+    /// </summary>
+    private static readonly string[] MsBuildEnvironmentVariables =
+    [
+        "MSBuildSDKsPath",
+        "MSBuildExtensionsPath",
+        "MSBuildExtensionsPath32",
+        "MSBuildExtensionsPath64",
+        "MSBuildExtensionsPathOverride",
+        "MSBuildToolsPath",
+        "MSBuildLoadMicrosoftTargetsReadOnly",
+        "MSBUILD_EXE_PATH",
+        "DOTNET_HOST_PATH",
+    ];
+
+    /// <summary>
     /// Registers the MSBuild SDK resolver once, before any Microsoft.Build assembly loads, so
     /// that SDK-style projects can be evaluated in-process (D020 evaluation path).
     /// This method must not reference Microsoft.Build types: the calling methods JIT-bind those
@@ -31,22 +52,55 @@ public class ProjectInfoProvider : IProjectInfoProvider
         _sdkResolverRegistered = true;
     }
 
-    public ProjectInfo DetectProjectInfo(FileInfo projectFile)
+    /// <summary>
+    /// Runs an MSBuild evaluation with the MSBuild-owned environment variables scoped to the
+    /// call: the previous values are restored when the evaluation completes, so processes
+    /// spawned afterwards (the build stage's per-rid publishes, T009) resolve their own SDK
+    /// rather than inheriting the toolset's paths (D020 evaluation path side effect).
+    /// </summary>
+    /// <typeparam name="T">The evaluation result type.</typeparam>
+    /// <param name="evaluation">The evaluation to run.</param>
+    /// <returns>The evaluation result.</returns>
+    private static T RunWithScopedMsBuildEnvironment<T>(Func<T> evaluation)
     {
-        EnsureSdkResolverRegistered();
-        return DetectProjectInfoCore(projectFile);
+        Dictionary<string, string?> savedVariables = new(MsBuildEnvironmentVariables.Length);
+
+        foreach (string variable in MsBuildEnvironmentVariables)
+        {
+            savedVariables[variable] = Environment.GetEnvironmentVariable(variable);
+        }
+
+        try
+        {
+            return evaluation();
+        }
+        finally
+        {
+            foreach (KeyValuePair<string, string?> variable in savedVariables)
+            {
+                Environment.SetEnvironmentVariable(variable.Key, variable.Value);
+            }
+        }
     }
+
+    public ProjectInfo DetectProjectInfo(FileInfo projectFile) =>
+        RunWithScopedMsBuildEnvironment(() =>
+        {
+            EnsureSdkResolverRegistered();
+            return DetectProjectInfoCore(projectFile);
+        });
 
     /// <summary>
     /// Evaluates the project file with Microsoft.Build and returns its OutputType (D020).
     /// </summary>
     /// <param name="projectFile">The project file to evaluate.</param>
     /// <returns>The evaluated OutputType value, or 'Library' when the project does not set one.</returns>
-    public string GetOutputType(FileInfo projectFile)
-    {
-        EnsureSdkResolverRegistered();
-        return GetOutputTypeCore(projectFile);
-    }
+    public string GetOutputType(FileInfo projectFile) =>
+        RunWithScopedMsBuildEnvironment(() =>
+        {
+            EnsureSdkResolverRegistered();
+            return GetOutputTypeCore(projectFile);
+        });
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static ProjectInfo DetectProjectInfoCore(FileInfo projectFile)
