@@ -11,7 +11,7 @@ ServiceCollection services = new();
 services.AddCliInvoke(ServiceLifetime.Singleton);
 services.AddSingleton<IProjectInfoProvider, ProjectInfoProvider>();
 services.AddSingleton<IBuildStageRunner, BuildStageRunner>();
-services.AddSingleton<ManifestLoader>();
+services.AddSingleton<ManifestLoader>(sp => new ManifestLoader(sp.GetRequiredService<IProjectInfoProvider>()));
 
 using ServiceProvider provider = services.BuildServiceProvider();
 
