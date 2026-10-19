@@ -1,15 +1,28 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-using System.CommandLine;
+﻿using System.CommandLine;
 using CliInvoke.Extensions;
 using Microsoft.Extensions.DependencyInjection;
+using ReleaseGenCli.Commands;
+using ReleaseGenLib;
+using ReleaseGenLib.Abstractions;
 
-Cli.Ext.ConfigureServices(services =>
+ServiceCollection services = new();
+
+// Manual DI hookup per T002: CliInvoke v3 services plus the project provider and builder.
+services.AddCliInvoke(ServiceLifetime.Singleton);
+services.AddSingleton<IProjectInfoProvider, ProjectInfoProvider>();
+services.AddSingleton<IProjectBuilder, ProjectBuilder>();
+
+using ServiceProvider provider = services.BuildServiceProvider();
+
+RootCommand rootCommand = RootCommandComposer.Compose(provider);
+
+try
 {
-   services.AddCliInvoke(ServiceLifetime.Singleton);
-
-   services.AddSingleton<IProjectInfoProvider, ProjectInfoProvider>();
-   services.AddSingleton<IProjectBuilder, ProjectBuilder>();
-});
-
-Cli.Run<RootCommand>(args);
+    return await rootCommand.Parse(args).InvokeAsync();
+}
+catch (Exception ex)
+{
+    // Errors stay visible under --quiet (T017); wording names the failing thing (D009).
+    CliOutput.Error(ex.Message);
+    return 1;
+}

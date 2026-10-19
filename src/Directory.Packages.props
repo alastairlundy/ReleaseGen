@@ -5,7 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="CliInvoke" Version="3.1.0" />
     <PackageVersion Include="CliInvoke.Core" Version="3.1.0" />
-    <PackageVersion Include="Microsoft.Build" Version="18.11.0" />
+    <PackageVersion Include="Microsoft.Build" Version="18.6.3" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
     <PackageVersion Include="MinVer" Version="8.0.0" />
     <PackageVersion Include="Spectre.Console" Version="0.57.2" />

@@ -1,6 +1,5 @@
 ﻿// Global using directives
 
-global using System.ComponentModel;
 global using ReleaseGenCli.Helpers;
 global using ReleaseGenCli.Localizations;
 global using ReleaseGenLib;

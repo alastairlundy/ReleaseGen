@@ -16,5 +16,5 @@ public class ProjectInfo
 
     public string[] TargetRuntimeIdentifiers { get; set; }
     
-    public ProjectBuildConfiguration BuildConfiguration { get; set; }
+    public ProjectBuildConfiguration BuildConfiguration { get; set; } = new();
 }

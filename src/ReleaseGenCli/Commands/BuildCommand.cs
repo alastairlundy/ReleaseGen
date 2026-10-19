@@ -1,152 +1,21 @@
 ﻿namespace ReleaseGenCli.Commands;
 
-[CliCommand(Name = "build", Description = "Builds a project",
-    Parent = typeof(RootCommand))]
-public class BuildCommand
+using System.CommandLine;
+
+/// <summary>
+/// The build stage: per-rid <c>dotnet publish -c Release</c> driven by the manifest's build
+/// section (T009, T010). Stage behavior is wired by the build-stage branch; this is the port's
+/// placeholder runner.
+/// </summary>
+public sealed class BuildCommand : Command
 {
-    private readonly IProjectBuilder _projectBuilder;
-    private readonly IProjectInfoProvider _projectInfoProvider;
-
-    public BuildCommand(IProjectBuilder projectBuilder, IProjectInfoProvider projectInfoProvider)
+    public BuildCommand(IServiceProvider services) : base("build", "Builds release binaries for the manifest's targets.")
     {
-        _projectBuilder = projectBuilder;
-        _projectInfoProvider = projectInfoProvider;
-    }
-    
-    [CliOption(Name = "--interactive", Alias = "-i", Required = false)]
-    [DefaultValue(false)]
-    public bool Interactive { get; set; }
-    
-    [CliArgument(Order = 0, Name = "<Path to Project file>", Required = true)]
-    public string? ProjectPath { get; set; }
-    
-    [CliOption(Name = "--ready-to-run", Required = false)]
-    [DefaultValue(false)]
-    public bool ReadyToRun { get; set; }
-    
-    [CliOption(Name = "--publish-aot", Required = false)]
-    [DefaultValue(false)]
-    public bool PublishAot { get; set; }
-    
-    [CliOption(Name = "--publish-trimmed", Required = false)]
-    public bool PublishTrimmed { get; set; }
-    
-    [CliOption(Name = "--self-contained", Required = false)]
-    public bool SelfContained { get; set; }
-    
-    [CliOption(Name = "--use-app-host")]
-    [DefaultValue(true)]
-    public bool UseAppHost { get; set; }
-    
-    [CliOption(Name = "--configuration", Alias = "-c", Required = false)]
-    [DefaultValue("release")]
-    public string Configuration { get; set; }
-    
-    [CliOption(Name = "--framework", Alias = "-f", Required = false)]
-    [DefaultValue("")]
-    public string? TargetFramework { get; set; }
-    
-    [CliOption(Name = "--runtime-identifier", Alias = "-r", Required = false)]
-    [DefaultValue("")]
-    public string? RuntimeIdentifier { get; set; }
-    
-    
-    [CliOption(Name = "--no-restore", Required = false)]
-    [DefaultValue(false)]
-    public bool NoRestore { get; set; }
-
-    public async Task<int> RunAsync(CancellationToken cancellationToken)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(ProjectPath);
-        
-        string? newProjectPath = ProjectPath;
-        
-        if (Path.GetExtension(ProjectPath) != string.Empty)
+        SetAction((parseResult, _) =>
         {
-            newProjectPath = Path.GetDirectoryName(ProjectPath) ??
-                             new FileInfo(newProjectPath).Directory?.FullName;
-        }
-
-        newProjectPath ??= ProjectPath;
-        
-        FileInfo?  projectFile = new DirectoryInfo(newProjectPath)
-            .EnumerateFiles("*", new EnumerationOptions()
-            {
-                IgnoreInaccessible = true,
-                MatchCasing = MatchCasing.CaseInsensitive
-            })
-            .FirstOrDefault(f => f.Name.StartsWith(ProjectPath) && 
-                                 (f.Name.EndsWith(".csproj") || f.Name.EndsWith(".vbproj") || f.Name.EndsWith(".fsproj")));
-
-        if (projectFile is null)
-        {
-            AnsiConsole.WriteException(new FileNotFoundException($"Could not find .NET project file in path: {ProjectPath}"));
-            return -1;
-        }
-
-        ProjectInfo projectInfo =
-            _projectInfoProvider.DetectProjectInfo(projectFile);
-    
-        ProjectBuildConfiguration buildConfiguration = projectInfo.BuildConfiguration;
-        
-        if(PublishAot != buildConfiguration.PublishAoT)
-            buildConfiguration.PublishAoT = PublishAot;
-        
-        if(PublishTrimmed != buildConfiguration.PublishTrimmed)
-            buildConfiguration.PublishTrimmed = PublishTrimmed;
-        
-        if(SelfContained != buildConfiguration.SelfContained)
-            buildConfiguration.SelfContained = SelfContained;
-        
-        if(ReadyToRun != buildConfiguration.PublishReadyToRun)
-            buildConfiguration.PublishReadyToRun = ReadyToRun;
-        
-        if(SelfContained != buildConfiguration.SelfContained)
-            buildConfiguration.SelfContained = SelfContained;
-        
-        if(UseAppHost != buildConfiguration.UseAppHost)
-            buildConfiguration.UseAppHost = UseAppHost;
-        
-        if(NoRestore != buildConfiguration.NoRestore)
-            buildConfiguration.NoRestore = NoRestore;
-
-        if (TargetFramework is not null)
-        {
-            if(TargetFramework != buildConfiguration.TargetFramework)
-                buildConfiguration.TargetFramework = TargetFramework;
-        }
-
-        if (RuntimeIdentifier is null && Interactive)
-        {
-            if(PublishAot || ReadyToRun || SelfContained)
-                RuntimeIdentifier = UserInputHelper.GetRuntimeIdentifier();
-        }
-        
-        if (RuntimeIdentifier is not null)
-        {
-            if(RuntimeIdentifier != buildConfiguration.RuntimeIdentifier)
-                buildConfiguration.RuntimeIdentifier = RuntimeIdentifier;
-        }
-        
-        string configuration = "release";
-        
-        if(Configuration.ToLower().Equals("debug"))
-            configuration = "debug";
-
-        bool success;
-
-        if (configuration.ToLower().Equals("release"))
-        {
-            success = await _projectBuilder.BuildReleaseAsync(projectFile.GetDirectory(), buildConfiguration,
-                cancellationToken);
-        }
-        else
-        {
-            success =  await _projectBuilder.BuildDebugAsync(projectFile.GetDirectory(),
-                buildConfiguration,
-                CancellationToken.None);
-        }
-        
-        return success ? 0 : -1;
+            CliOutput.ApplyQuiet(parseResult);
+            CliOutput.Note("The build stage is not wired yet; it lands with the build-stage branch.");
+            return Task.FromResult(0);
+        });
     }
 }

@@ -1,22 +1,21 @@
 ﻿namespace ReleaseGenCli.Commands;
 
-[CliCommand(Name = "package")]
-public class PackageCommand
+using System.CommandLine;
+
+/// <summary>
+/// The package stage: produces only the artifact kinds each manifest target declares (D013).
+/// Stage behavior is wired by the package-stage branch; this is the port's placeholder runner.
+/// </summary>
+public sealed class PackageCommand : Command
 {
-    public abstract class SharedArgs
+    public PackageCommand(IServiceProvider services) : base("package",
+        "Packages each target's declared artifact kinds.")
     {
-        [CliOption(Name = "--use-app-host")]
-        [DefaultValue(true)]
-        public bool UseAppHost { get; set; }
-
-        [CliOption(Name = "--configuration", Alias = "-c", Required = false)]
-        [DefaultValue("release")]
-        public string Configuration { get; set; } = "";
-
-        [CliOption(Name = "--framework", Alias = "-f", Required = false)]
-        public string? TargetFramework { get; set; }
-        
-        [CliArgument(Order = 0, Name = "<Path to Project file>", Required = true)]
-        public string? ProjectPath { get; set; }
+        SetAction((parseResult, _) =>
+        {
+            CliOutput.ApplyQuiet(parseResult);
+            CliOutput.Note("The package stage is not wired yet; it lands with the package-stage branch.");
+            return Task.FromResult(0);
+        });
     }
 }
