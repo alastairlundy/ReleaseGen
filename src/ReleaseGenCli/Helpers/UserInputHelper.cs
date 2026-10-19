@@ -5,7 +5,16 @@ public static class UserInputHelper
     
     public static string GetRuntimeIdentifier()
     {
-        string[] choices = [];
+        string[] choices =
+        [
+            "win-x64",
+            "win-arm64",
+            "linux-x64",
+            "linux-arm",
+            "linux-arm64",
+            "osx-x64",
+            "osx-arm64"
+        ];
         
         string output = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
