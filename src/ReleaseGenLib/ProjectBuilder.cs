@@ -1,6 +1,4 @@
-﻿using CliInvoke.Builders;
-
-namespace ReleaseGenLib;
+﻿namespace ReleaseGenLib;
 
 /// <summary>
 /// 
@@ -45,63 +43,56 @@ public class ProjectBuilder : IProjectBuilder
     private async Task<bool> BuildConfigurationAsync(string configuration, DirectoryInfo targetDirectory, 
         ProjectBuildConfiguration buildConfiguration, CancellationToken cancellationToken)
     {
-        IArgumentsBuilder argumentsBuilder = new ArgumentsBuilder()
-            .Add("build -c");
+        List<string> argumentList = ["build", "-c", configuration == "release" ? "Release" : "Debug"];
 
-        argumentsBuilder = argumentsBuilder
-            .Add(configuration == "release" ? "Release" : "Debug");
-        
         if (buildConfiguration.TargetFramework is not null)
         {
-            argumentsBuilder = argumentsBuilder.Add($"-f {buildConfiguration.TargetFramework}");
+            argumentList.Add("-f");
+            argumentList.Add(buildConfiguration.TargetFramework);
         }
 
         if (buildConfiguration.RuntimeIdentifier is not null)
         {
-            argumentsBuilder = argumentsBuilder.Add($"-r {buildConfiguration.RuntimeIdentifier}");
+            argumentList.Add("-r");
+            argumentList.Add(buildConfiguration.RuntimeIdentifier);
         }
         
         if (buildConfiguration.OutputDirectory is not null)
         {
-            argumentsBuilder = argumentsBuilder.Add($"-o {buildConfiguration.OutputDirectory.FullName}");
+            argumentList.Add("-o");
+            argumentList.Add(buildConfiguration.OutputDirectory.FullName);
         }
         
         if (buildConfiguration.PublishSingleFile)
         {
-            argumentsBuilder = argumentsBuilder.Add("--publish-single-file");
+            argumentList.Add("--publish-single-file");
         }
 
         if (buildConfiguration.SelfContained) 
-            argumentsBuilder = argumentsBuilder.Add("--self-contained");
+            argumentList.Add("--self-contained");
         
         if(buildConfiguration.PublishAoT)
-            argumentsBuilder = argumentsBuilder.Add("--publish-aot");
+            argumentList.Add("--publish-aot");
         
         if(buildConfiguration is { PublishTrimmed: true, PublishAoT: false })
-            argumentsBuilder = argumentsBuilder.Add("--publish-trimmed");
+            argumentList.Add("--publish-trimmed");
         
         if (buildConfiguration.NoRestore)
-            argumentsBuilder = argumentsBuilder.Add("--no-restore");
+            argumentList.Add("--no-restore");
         
         if(!buildConfiguration.UseAppHost)
-            argumentsBuilder = argumentsBuilder.Add("--use-apphost false");
+            argumentList.Add("--use-apphost false");
         
         if(!buildConfiguration.PublishReadyToRun)
-            argumentsBuilder = argumentsBuilder.Add("--ready-to-run");
-        
-        string arguments = argumentsBuilder.ToString();
+            argumentList.Add("--ready-to-run");
 
-        IProcessConfigurationBuilder processConfigurationBuilder = new ProcessConfigurationBuilder(_dotnetSdkExecutable)
-            .SetArguments(arguments)
-            .SetWorkingDirectory(targetDirectory.FullName)
-            .ConfigureWindowCreation(false)
-            .RedirectStandardOutput(true)
-            .RedirectStandardError(true);
-        
-        using ProcessConfiguration processConfiguration =  processConfigurationBuilder.Build();
+        ProcessConfiguration processConfiguration = new ProcessConfiguration(_dotnetSdkExecutable, argumentList)
+        {
+            WorkingDirectoryPath = targetDirectory.FullName
+        };
 
-        ProcessResult result = await _processInvoker.ExecuteAsync(processConfiguration, 
-            ProcessExitConfiguration.DefaultNoException, false, cancellationToken);
+        ProcessResult result = await _processInvoker.ExecuteAsync(processConfiguration,
+            ProcessExitConfiguration.Default, cancellationToken);
         
         return result.ExitCode == 0;
     }

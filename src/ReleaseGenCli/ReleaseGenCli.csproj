@@ -12,14 +12,24 @@
         <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
         <IsPackable>true</IsPackable>
         <PackAsTool>true</PackAsTool>
+        <PackageId>ReleaseGen</PackageId>
+        <ToolCommandName>releasegen</ToolCommandName>
+        <Description>Opinionated .NET CLI for building, packaging, and publishing .NET projects, with cross-platform packaging targets and project-file-prioritized build settings.</Description>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <!-- Static version fallback per T019; MinVer pins untagged builds to the 1.0 line. -->
+        <Version>1.0.0</Version>
+        <MinVerMinimumMajorMinor>1.0</MinVerMinimumMajorMinor>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="CliInvoke.Extensions" />
-      <PackageReference Include="DotExtensions" />
-      <PackageReference Include="DotMake.CommandLine" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+      <PackageReference Include="MinVer" PrivateAssets="All" />
       <PackageReference Include="Spectre.Console" />
+      <PackageReference Include="System.CommandLine" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
     <ItemGroup>

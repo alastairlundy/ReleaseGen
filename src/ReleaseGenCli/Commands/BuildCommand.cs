@@ -1,6 +1,4 @@
-﻿using DotExtensions.IO.Directories;
-
-namespace ReleaseGenCli.Commands;
+﻿namespace ReleaseGenCli.Commands;
 
 [CliCommand(Name = "build", Description = "Builds a project",
     Parent = typeof(RootCommand))]
