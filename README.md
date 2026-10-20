@@ -1,31 +1,56 @@
 # ReleaseGen
-ReleaseGen is an opinionated tool for building, packaging, and publishing .NET projects.
 
-Where build settings are set in a Project file ReleaseGen will prioritize using those settings unless passed arguments conflict with them.
+ReleaseGen is an opinionated .NET CLI for building, packaging, and publishing .NET projects.
+One strict `releasegen.json` manifest (the Manifest) drives every stage of a release: build,
+test, package, and publish.
 
-## Defaults
-### Building
-* Build Configuration defaults to ``Release`` unless specified otherwise
+## Install
 
-### Packaging
-Both OS Version Specific and non OS version specific packaging targets are supported
+```bash
+dotnet tool install -g ReleaseGen
+```
 
-The following are supported packaging targets that are not OS Version Specific:
+The tool command name is `releasegen`. Running bare `releasegen` prints command help; no stage
+executes without an explicit verb.
 
-| Platform | Architectures Supported | Packaging Formats Supported|
-|-|-|-|
-| Windows | X64, ARM64 | |
-| Linux | X64, ARM (32 Bit), ARM64 | |
-| macOS | X64 <sup>1</sup>, ARM64 | |
+## Quickstart
 
-<sup>1</sup> - Note: Apple is discontinuing support for all X64 based macs from macOS 27 and onwards. ReleaseGen intends to support x86-64 based Macs for as long as the .NET SDK supports it.
+```bash
+# 1. Write a minimal releasegen.json in your repository
+releasegen init
 
-For OS Version Specific Targets, the same principles apply except that the OS version will be added to the target framework and only versions equal to or newer than the required version will be able to run the executables.
+# 2. Edit releasegen.json: name your targets (projects and their artifact kinds),
+#    declare runtimeIdentifiers, and optionally add test and publish sections
+
+# 3. Run the whole pipeline - build, test, package, publish - in manifest order
+releasegen run
+```
+
+`init` refuses to overwrite an existing manifest unless you pass `--overwrite`, and
+`--preset <name>` seeds the manifest's build preset. `run` is the chained run: it executes the
+stages the manifest names in manifest order, stops at the first failed stage, and notes any
+skipped stages. Each stage is also its own command - `releasegen build`, `releasegen test`,
+`releasegen package`, and `releasegen publish` - and all of them share the same Manifest.
+
+Build output stays local under a `release/` directory; the only network destination is the
+publish stage's NuGet source. Publishing is gated on your tests: a Manifest declaring a test
+section blocks publish when that section's stage fails.
+
+## Documentation
+
+- [Command reference](https://github.com/alastairlundy/ReleaseGen/blob/main/docs/commands.md)
+- [Manifest schema](https://github.com/alastairlundy/ReleaseGen/blob/main/docs/manifest-schema.md)
+- [Build presets](https://github.com/alastairlundy/ReleaseGen/blob/main/docs/presets.md)
+- [Single-file rules](https://github.com/alastairlundy/ReleaseGen/blob/main/docs/single-file-rules.md)
+- [Trusted publishing in CI](https://github.com/alastairlundy/ReleaseGen/blob/main/docs/trusted-publishing.md)
+- [Stage handoff contract](https://github.com/alastairlundy/ReleaseGen/blob/main/docs/stage-handoff.md)
+- [Glossary](https://github.com/alastairlundy/ReleaseGen/blob/main/GLOSSARY.md)
 
 ## What ReleaseGen isn't
-* A changelog or release notes generator/formatter
-* A test coverage checker
 
-
-## Alternatives
-* [dotnet-releaser](https://github.com/xoofx/dotnet-releaser)
+- A changelog or release notes generator/formatter.
+- A test coverage checker.
+- An artifact uploader: ReleaseGen writes release binaries and archives to a local `release/`
+  directory and performs no upload of them.
+- A token broker: ReleaseGen performs no OIDC token acquisition; see the trusted publishing
+  page for the CI-side procedure.

@@ -1,0 +1,64 @@
+# Single-file rules
+
+Single-file deployment bundles an app's dependencies into one executable. ReleaseGen applies
+single-file defaults per the build preset rules (T010), exposes the opt-out key (T014), and
+surfaces the .NET SDK's incompatible-API diagnostics - ReleaseGen performs no IL-level
+detection of its own.
+
+## When single-file applies
+
+- For the four named [build presets](presets.md), single-file defaults to **on on Unix-based
+  OSes**, and **on Windows only when the target's resolved archive format is zip** - declared
+  through the target's `archive` key, or defaulted to zip per T016.
+- Preset `none` contributes no implicit single-file switch; the project file's own
+  `PublishSingleFile` setting stays authoritative (T013).
+- The `build.singleFile` key in the Manifest is the opt-out: `"singleFile": false` disables
+  the defaults; `"singleFile": true` forces them on. The explicit key always wins over the OS
+  rules (T014).
+
+## Incompatible APIs
+
+The most common cause of single-file problems is dependence on file paths for files or DLLs
+shipped with the application. The .NET runtime documents these API incompatibilities for
+single-file apps:
+
+| API | Note |
+|-----|------|
+| `Assembly.CodeBase` | Throws `PlatformNotSupportedException`. |
+| `Assembly.EscapedCodeBase` | Throws `PlatformNotSupportedException`. |
+| `Assembly.GetFile` | Throws `IOException`. |
+| `Assembly.GetFiles` | Throws `IOException`. |
+| `Assembly.Location` | Returns an empty string. |
+| `AssemblyName.CodeBase` | Returns `null`. |
+| `AssemblyName.EscapedCodeBase` | Returns `null`. |
+| `Module.FullyQualifiedName` | Returns a string with the value of `<Unknown>` or throws an exception. |
+| `Module.Name` | Returns a string with the value of `<Unknown>`. |
+| `Marshal.GetHINSTANCE` | Returns -1. |
+
+Related behavior changes for single-file publishing (.NET 5 and later): bundled assemblies
+are loaded from memory instead of extracted to disk, `AppContext.BaseDirectory` is the
+containing directory of the host executable, and `Environment.GetCommandLineArgs()[0]` is the
+name of the host executable. To access files next to the executable, use
+`AppContext.BaseDirectory`.
+
+## ReleaseGen's handling
+
+- The SDK's IL3000-family single-file analyzer warnings surface during publish as console
+  warnings, so they stay visible under `--quiet` (T014).
+- ReleaseGen itself performs no IL-level detection (T014); the table above is the
+  documentation backing the opt-out, not a ReleaseGen check.
+- If your project (or a package it uses) depends on an incompatible API, set
+  `"singleFile": false` in the Manifest's build section and the single-file defaults are
+  disabled.
+
+## Sources
+
+This page's incompatible-API reference is sourced from the official .NET documentation:
+
+- [Single-file deployment - API incompatibility](https://learn.microsoft.com/dotnet/core/deploying/single-file/overview#other-considerations)
+- [Assembly-related API behavior changes for single-file publishing format](https://learn.microsoft.com/dotnet/core/compatibility/core-libraries/5.0/assembly-api-behavior-changes-for-single-file-publish)
+
+## See also
+
+- [Build presets](presets.md)
+- [Manifest schema](manifest-schema.md) - the `singleFile` key
