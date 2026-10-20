@@ -117,51 +117,62 @@ public class ProjectInfoProvider : IProjectInfoProvider
             Interactive = false
         });
 
-        string[] targets;
-
-        bool usesPlural = project.GetPropertyValue("TargetFramework") == string.Empty;
-
-        ProjectInfo projectInfo = new ProjectInfo([], []);
-
-        if (usesPlural)
+        try
         {
-            string targetFrameworkString = project.GetPropertyValue("TargetFrameworks");
+            string[] targets;
 
-            targets = targetFrameworkString.Split(';');
+            bool usesPlural = project.GetPropertyValue("TargetFramework") == string.Empty;
+
+            ProjectInfo projectInfo = new ProjectInfo([], []);
+
+            if (usesPlural)
+            {
+                string targetFrameworkString = project.GetPropertyValue("TargetFrameworks");
+
+                targets = targetFrameworkString.Split(';');
+            }
+            else
+            {
+                targets = [project.GetPropertyValue("TargetFramework")];
+            }
+
+            string publishAoTValue = project.GetPropertyValue("PublishAoT");
+            projectInfo.BuildConfiguration.PublishAoT = publishAoTValue != string.Empty;
+
+            if (projectInfo.BuildConfiguration.PublishAoT)
+            {
+                projectInfo.BuildConfiguration.PublishTrimmed = true;
+                projectInfo.BuildConfiguration.PublishReadyToRun = false;
+                projectInfo.BuildConfiguration.SelfContained = true;
+            }
+            else
+            {
+                projectInfo.BuildConfiguration.PublishTrimmed = project.GetPropertyValue("PublishTrimmed") != string.Empty;
+
+                projectInfo.BuildConfiguration.PublishReadyToRun = project.GetPropertyValue("PublishReadyToRun") != string.Empty;
+                projectInfo.BuildConfiguration.SelfContained = project.GetPropertyValue("SelfContained") != string.Empty;
+            }
+
+            projectInfo.BuildConfiguration.PublishSingleFile = project.GetPropertyValue("PublishSingleFile") != string.Empty;
+            projectInfo.BuildConfiguration.UseAppHost = project.GetPropertyValue("UseAppHost") != string.Empty;
+
+            string[] runtimeIdentifiers = project.GetPropertyValue("RuntimeIdentifier") != string.Empty
+                ? project.GetPropertyValue("RuntimeIdentifier").Split(';')
+                : [];
+
+            projectInfo.TargetFrameworks = targets;
+            projectInfo.TargetRuntimeIdentifiers = runtimeIdentifiers;
+
+            return projectInfo;
         }
-        else
+        finally
         {
-            targets = [project.GetPropertyValue("TargetFramework")];
+            // Unload so a later load of the same project path in this process re-evaluates
+            // instead of failing on a duplicate entry in the global collection: the chained
+            // run loads the manifest once per stage, and several targets may name one project
+            // (D013).
+            project.ProjectCollection.UnloadProject(project);
         }
-
-        string publishAoTValue = project.GetPropertyValue("PublishAoT");
-        projectInfo.BuildConfiguration.PublishAoT = publishAoTValue != string.Empty;
-
-        if (projectInfo.BuildConfiguration.PublishAoT)
-        {
-            projectInfo.BuildConfiguration.PublishTrimmed = true;
-            projectInfo.BuildConfiguration.PublishReadyToRun = false;
-            projectInfo.BuildConfiguration.SelfContained = true;
-        }
-        else
-        {
-            projectInfo.BuildConfiguration.PublishTrimmed = project.GetPropertyValue("PublishTrimmed") != string.Empty;
-
-            projectInfo.BuildConfiguration.PublishReadyToRun = project.GetPropertyValue("PublishReadyToRun") != string.Empty;
-            projectInfo.BuildConfiguration.SelfContained = project.GetPropertyValue("SelfContained") != string.Empty;
-        }
-
-        projectInfo.BuildConfiguration.PublishSingleFile = project.GetPropertyValue("PublishSingleFile") != string.Empty;
-        projectInfo.BuildConfiguration.UseAppHost = project.GetPropertyValue("UseAppHost") != string.Empty;
-
-        string[] runtimeIdentifiers = project.GetPropertyValue("RuntimeIdentifier") != string.Empty
-            ? project.GetPropertyValue("RuntimeIdentifier").Split(';')
-            : [];
-
-        projectInfo.TargetFrameworks = targets;
-        projectInfo.TargetRuntimeIdentifiers = runtimeIdentifiers;
-
-        return projectInfo;
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -172,10 +183,19 @@ public class ProjectInfoProvider : IProjectInfoProvider
             Interactive = false
         });
 
-        string outputType = project.GetPropertyValue("OutputType");
+        try
+        {
+            string outputType = project.GetPropertyValue("OutputType");
 
-        // MSBuild defaults an unset OutputType to Library.
-        return outputType == string.Empty ? "Library" : outputType;
+            // MSBuild defaults an unset OutputType to Library.
+            return outputType == string.Empty ? "Library" : outputType;
+        }
+        finally
+        {
+            // Same unload as DetectProjectInfoCore: repeated in-process manifest loads (the
+            // chained run re-loads per stage) must not collide on the global collection.
+            project.ProjectCollection.UnloadProject(project);
+        }
     }
 
     /// <summary>
