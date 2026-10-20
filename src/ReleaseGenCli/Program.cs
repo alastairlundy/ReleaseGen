@@ -7,7 +7,7 @@ using ReleaseGenLib.Abstractions;
 
 ServiceCollection services = new();
 
-// Manual DI hookup per T002: CliInvoke v3 services plus the project provider and build runner.
+// Manual DI hookup: CliInvoke v3 services plus the project provider and build runner.
 services.AddCliInvoke(ServiceLifetime.Singleton);
 services.AddSingleton<IProjectInfoProvider, ProjectInfoProvider>();
 services.AddSingleton<IBuildStageRunner, BuildStageRunner>();
@@ -23,7 +23,7 @@ try
 }
 catch (Exception ex)
 {
-    // Errors stay visible under --quiet (T017); wording names the failing thing (D009).
+    // Errors stay visible under --quiet; wording names the failing thing.
     CliOutput.Error(ex.Message);
     return 1;
 }

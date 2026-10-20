@@ -1,17 +1,17 @@
 namespace ReleaseGenLib.Abstractions;
 
 /// <summary>
-/// Runs the build stage (T009): one <c>dotnet publish -c Release -r &lt;rid&gt;</c> invocation
+/// Runs the build stage: one <c>dotnet publish -c Release -r &lt;rid&gt;</c> invocation
 /// per configured rid, per executables-kind target, into per-rid folders under the local output
-/// root (D012). Supersedes the legacy IProjectBuilder surface, whose publish-only flags on
-/// <c>dotnet build</c> and inverted ReadyToRun check are retired rather than patched (T009).
+/// root. Supersedes the legacy IProjectBuilder surface, whose publish-only flags on
+/// <c>dotnet build</c> and inverted ReadyToRun check are retired rather than patched.
 /// </summary>
 public interface IBuildStageRunner
 {
     /// <summary>
     /// Executes the build stage. Textual publish output is streamed line-by-line through the
-    /// request's output callbacks (IL3000-family analyzer warnings pass through unfiltered,
-    /// T014); on the first failing rid a <see cref="BuildStageException"/> naming the target,
+    /// request's output callbacks (IL3000-family analyzer warnings pass through unfiltered);
+    /// on the first failing rid a <see cref="BuildStageException"/> naming the target,
     /// rid, and exit code aborts the stage (fail-fast).
     /// </summary>
     /// <param name="request">The resolved build-stage inputs: manifest, preset, and output locations.</param>

@@ -69,7 +69,7 @@ internal sealed class TestWorkspace : IDisposable
     }
 
     /// <summary>
-    /// Writes the workspace's root <c>releasegen.json</c> (T003) with the given contents.
+    /// Writes the workspace's root <c>releasegen.json</c> with the given contents.
     /// </summary>
     /// <param name="contents">The manifest JSON.</param>
     /// <returns>The full path of the manifest.</returns>

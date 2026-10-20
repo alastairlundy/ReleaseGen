@@ -5,11 +5,11 @@ using System.IO.Compression;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// Creates the per-(target, rid) release archives (T016): zip by default via
+/// Creates the per-(target, rid) release archives: zip by default via
 /// System.IO.Compression.ZipFile, tar.gz via System.Formats.Tar plus GZipStream, and none to
 /// leave the per-rid folder unarchived. Archives are written beside the per-rid folder under the
 /// local output root and are never uploaded - the only network destination in v1 is the publish
-/// stage's NuGet source (D012). Both APIs are in-box for net10.0, so no package is added (T005).
+/// stage's NuGet source. Both APIs are in-box for net10.0, so no package is added.
 /// </summary>
 public static class BuildArchiver
 {
@@ -20,7 +20,7 @@ public static class BuildArchiver
     /// </summary>
     /// <param name="sourceDirectory">The per-rid output folder to archive (its project-name folder under the rid folder).</param>
     /// <param name="archiveFile">The archive file to create beside the per-rid folder.</param>
-    /// <param name="format">One of <see cref="ArchiveFormats.All"/> (T016).</param>
+    /// <param name="format">One of <see cref="ArchiveFormats.All"/>.</param>
     /// <exception cref="BuildStageException">The directory to archive does not exist.</exception>
     /// <exception cref="ManifestException"><paramref name="format"/> is not a known archive format.</exception>
     public static void CreateArchive(DirectoryInfo sourceDirectory, FileInfo archiveFile, string format)
@@ -40,7 +40,7 @@ public static class BuildArchiver
                 break;
 
             default:
-                // D009 error style: names the bad value and the allowed set.
+                // The error style: names the bad value and the allowed set.
                 throw new ManifestException(
                     $"Unknown archive format '{format}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
         }
@@ -68,7 +68,7 @@ public static class BuildArchiver
         if (format == ArchiveFormats.Zip)
         {
             // includeBaseDirectory: false - the archive is named <project-name>-<rid>.zip, so the
-            // per-rid project folder itself does not need to wrap the entries (T016).
+            // per-rid project folder itself does not need to wrap the entries.
             ZipFile.CreateFromDirectory(
                 sourceDirectory.FullName, archiveFile.FullName, CompressionLevel.Optimal, false);
         }
@@ -80,7 +80,7 @@ public static class BuildArchiver
 
     /// <summary>
     /// Writes the source folder's file tree as a gzip-compressed tar archive, with entry names
-    /// relative to the source folder (T016).
+    /// relative to the source folder.
     /// </summary>
     /// <param name="sourceDirectory">The per-rid output folder to archive.</param>
     /// <param name="archiveFile">The .tar.gz file to create.</param>

@@ -6,10 +6,10 @@ using ReleaseGenCli.Commands;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// The publish stage's invocation mapping (T012, D011): each declared package kind becomes a
+/// The publish stage's invocation mapping: each declared package kind becomes a
 /// <c>dotnet nuget push</c> for every staged package, in manifest target order, to the resolved
 /// source with the API key from the CLI option or the environment channel - and the integration
-/// leg pushes a real package to a local folder source instead of nuget.org (T018).
+/// leg pushes a real package to a local folder source instead of nuget.org.
 /// </summary>
 public class PublishMappingTests
 {
@@ -91,7 +91,7 @@ public class PublishMappingTests
 
             await Assert.That(exitCode).IsEqualTo(0);
 
-            // D013/D015: release binaries are the build stage's product, not a NuGet package.
+            // Release binaries are the build stage's product, not a NuGet package.
             await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
             await Assert.That(Arguments(invoker.Invocations[0])).Contains(package);
         });
@@ -183,7 +183,7 @@ public class PublishMappingTests
                     await Assert.That(exitCode).IsEqualTo(1);
                 });
 
-                // D011: the key travels only through the CLI option or the environment.
+                // The key travels only through the CLI option or the environment.
                 await Assert.That(console).Contains("no API key");
                 await Assert.That(console).Contains("NUGET_API_KEY");
                 await Assert.That(invoker.Invocations.Count).IsEqualTo(0);
@@ -212,7 +212,7 @@ public class PublishMappingTests
             using ServiceProvider services = ReleaseGenServices.CreateWithRealInvoker();
 
             // The real invoker runs dotnet nuget push against the local folder source - never
-            // nuget.org (T018).
+            // nuget.org.
             int exitCode = await CliHarness.InvokeAsync(
                 new PublishCommand(services), "publish", "--api-key", "local-key");
 

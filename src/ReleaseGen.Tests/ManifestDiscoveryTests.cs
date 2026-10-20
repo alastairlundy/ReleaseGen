@@ -4,10 +4,9 @@ using ReleaseGenLib;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// The manifest location contract (D009): walk-up discovery from a subdirectory like
+/// The manifest location contract: walk-up discovery from a subdirectory like
 /// <c>global.json</c> lookup, the explicit-path override that wins when given, and the not-found
-/// error that names every searched directory. The manifest file name is <c>releasegen.json</c>
-/// (T003).
+/// error that names every searched directory. The manifest file name is <c>releasegen.json</c>.
 /// </summary>
 public class ManifestDiscoveryTests
 {
@@ -24,7 +23,7 @@ public class ManifestDiscoveryTests
         ManifestLoader loader = new();
         FileInfo found = loader.FindManifestFile(new DirectoryInfo(nestedDirectory));
 
-        // Discovery stops at the first manifest walking upward (D009): the nearest one wins.
+        // Discovery stops at the first manifest walking upward: the nearest one wins.
         await Assert.That(found.FullName).IsEqualTo(Path.GetFullPath(nestedManifest));
     }
 

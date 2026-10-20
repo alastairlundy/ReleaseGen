@@ -3,7 +3,7 @@ namespace ReleaseGen.Tests;
 using Spectre.Console;
 
 /// <summary>
-/// Captures the ReleaseGen console surface (T017) by swapping the process-wide Spectre console
+/// Captures the ReleaseGen console surface by swapping the process-wide Spectre console
 /// for a StringWriter-backed one for the duration of one test body, restoring the previous
 /// console afterwards. Because command-level tests are serialized by <see cref="TestWorkspace"/>,
 /// no other test writes through the swapped console mid-capture.

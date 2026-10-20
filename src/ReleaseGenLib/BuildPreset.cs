@@ -1,15 +1,15 @@
 namespace ReleaseGenLib;
 
 /// <summary>
-/// The canonical build preset names a manifest's <c>build.preset</c> key may hold (T013).
-/// The set lives here so the init stage (T008) and the build stage (T006) resolve the same
-/// names: unknown names fail with an error listing this set (D009), and <see cref="None"/>
+/// The canonical build preset names a manifest's <c>build.preset</c> key may hold.
+/// The set lives here so the init stage and the build stage resolve the same
+/// names: unknown names fail with an error listing this set, and <see cref="None"/>
 /// (like an absent key) means preset none.
 /// </summary>
 public static class BuildPreset
 {
     /// <summary>
-    /// Preset none (T013): no preset key in the manifest; per-key defaults apply.
+    /// Preset none: no preset key in the manifest; per-key defaults apply.
     /// </summary>
     public const string None = "none";
 
@@ -34,7 +34,7 @@ public static class BuildPreset
     public const string FrameworkDependent = "framework-dependent";
 
     /// <summary>
-    /// The full set of known preset names (T013), in canonical spelling.
+    /// The full set of known preset names, in canonical spelling.
     /// </summary>
     public static readonly string[] All = [AotPlusTrimming, ReadyToRun, TrimmingOnly, FrameworkDependent, None];
 
@@ -45,8 +45,8 @@ public static class BuildPreset
     public static bool IsKnown(string? name) => TryParse(name, out _);
 
     /// <summary>
-    /// Attempts to resolve <paramref name="name"/> to its canonical spelling (T013). Callers
-    /// report a failed parse by naming the unknown value alongside <see cref="All"/> (D009).
+    /// Attempts to resolve <paramref name="name"/> to its canonical spelling. Callers
+    /// report a failed parse by naming the unknown value alongside <see cref="All"/>.
     /// </summary>
     /// <param name="name">The candidate preset name.</param>
     /// <param name="preset">The canonical preset name when known; empty string otherwise.</param>

@@ -3,7 +3,7 @@ namespace ReleaseGenLib.Models;
 using System.Text.Json.Serialization;
 
 /// <summary>
-/// The publish section (T007): NuGet source URLs. Empty means the nuget.org default (D011).
+/// The publish section: NuGet source URLs. Empty means the nuget.org default.
 /// </summary>
 public sealed class ManifestPublishSection
 {

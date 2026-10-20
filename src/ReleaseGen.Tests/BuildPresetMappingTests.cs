@@ -6,10 +6,10 @@ using ReleaseGenLib;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// The build preset and flag mapping (T009, T010, T013): each of the four shipped presets plus
+/// The build preset and flag mapping: each of the four shipped presets plus
 /// none resolves to its documented dotnet publish switch set, manifest keys override the preset
 /// defaults tri-state, <c>--preset</c> beats the manifest key for one invocation without ever
-/// writing the file, and an unknown preset is refused naming the known set (D009).
+/// writing the file, and an unknown preset is refused naming the known set.
 /// </summary>
 public class BuildPresetMappingTests
 {
@@ -19,7 +19,7 @@ public class BuildPresetMappingTests
         PublishSwitchSet switches = BuildSwitchResolver.Resolve(
             BuildPreset.AotPlusTrimming, new ManifestBuildSection(), ArchiveFormats.Zip, isWindows: true);
 
-        // AOT implies trimming, so no separate trimming switch rides along (T010).
+        // AOT implies trimming, so no separate trimming switch rides along.
         await Assert.That(Render(switches.ToArguments())).IsEqualTo(
             "-p:PublishAot=true | --self-contained=true | -p:PublishSingleFile=true");
     }
@@ -51,7 +51,7 @@ public class BuildPresetMappingTests
             BuildPreset.FrameworkDependent, new ManifestBuildSection(), ArchiveFormats.Zip, isWindows: true);
 
         // Minor covers patch too: RollForward=Minor rolls forward within the major for minor and
-        // patch releases (T010).
+        // patch releases.
         await Assert.That(Render(switches.ToArguments())).IsEqualTo(
             "--self-contained=false | -p:RollForward=Minor | -p:PublishSingleFile=true");
     }
@@ -99,7 +99,7 @@ public class BuildPresetMappingTests
         PublishSwitchSet switches = BuildSwitchResolver.Resolve(
             BuildPreset.None, section, ArchiveFormats.Zip, isWindows: true);
 
-        // Preset none plus explicit keys: only what the config specifies (T013), with trimming
+        // Preset none plus explicit keys: only what the config specifies, with trimming
         // still suppressed behind the AOT switch.
         await Assert.That(Render(switches.ToArguments())).IsEqualTo(
             "-p:PublishAot=true | -p:PublishReadyToRun=true | --self-contained=false");
@@ -113,7 +113,7 @@ public class BuildPresetMappingTests
         PublishSwitchSet switches = BuildSwitchResolver.Resolve(
             BuildPreset.AotPlusTrimming, section, ArchiveFormats.Zip, isWindows: true);
 
-        // AOT off re-exposes the preset's trimming default (T010).
+        // AOT off re-exposes the preset's trimming default.
         await Assert.That(Render(switches.ToArguments())).IsEqualTo(
             "-p:PublishTrimmed=true | --self-contained=true | -p:PublishSingleFile=true");
     }
@@ -172,7 +172,7 @@ public class BuildPresetMappingTests
             await Assert.That(published).Contains("-p:PublishAot=true");
             await Assert.That(published.Contains("RollForward", StringComparison.Ordinal)).IsFalse();
 
-            // T013: the flag never writes to the file, so D002's no per-key override rule stands.
+            // The flag never writes to the file, so the no-per-key-override rule stands.
             await Assert.That(File.ReadAllText(manifestPath)).IsEqualTo(before);
         });
     }

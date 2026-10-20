@@ -4,8 +4,8 @@ using System.CommandLine;
 using System.CommandLine.Help;
 using ReleaseGenLib.Abstractions;
 /// <summary>
-/// Composes the ReleaseGen root command: a help-dispensing root (T015) with one command per
-/// stage plus the chained run (D003, D010), wired by hand against the DI container (T002).
+/// Composes the ReleaseGen root command: a help-dispensing root with one command per
+/// stage plus the chained run, wired by hand against the DI container.
 /// </summary>
 public static class RootCommandComposer
 {
@@ -22,7 +22,7 @@ public static class RootCommandComposer
         rootCommand.Add(new RunCommand(services));
         rootCommand.Add(CliOptions.Quiet);
 
-        // T015: bare `releasegen` prints command help; no stage runs without an explicit verb.
+        // Bare `releasegen` prints command help; no stage runs without an explicit verb.
         rootCommand.SetAction(parseResult => new HelpAction().Invoke(parseResult));
 
         return rootCommand;

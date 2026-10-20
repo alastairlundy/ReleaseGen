@@ -3,16 +3,16 @@ namespace ReleaseGenLib;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// The fully resolved dotnet publish switch set for one (target, rid) publish (T009, T010).
+/// The fully resolved dotnet publish switch set for one (target, rid) publish.
 /// Preset defaults are resolved first, then any tri-state key present in the manifest's build
-/// section overrides its preset default (T013); preset none contributes nothing implicit.
+/// section overrides its preset default; preset none contributes nothing implicit.
 /// </summary>
 /// <param name="PublishAot">Whether <c>--publish-aot</c> is in force.</param>
-/// <param name="PublishTrimmed">Whether trimming is in force (rendered only when AOT is not, since AOT implies trimming - T010).</param>
+/// <param name="PublishTrimmed">Whether trimming is in force (rendered only when AOT is not, since AOT implies trimming).</param>
 /// <param name="PublishReadyToRun">Whether ready-to-run compilation is in force.</param>
 /// <param name="SelfContained">Self-contained state; null means no <c>--self-contained</c> switch (preset none with no manifest key).</param>
 /// <param name="RollForward">Roll-forward policy for framework-dependent publishes; null means no switch.</param>
-/// <param name="PublishSingleFile">Single-file state; null means no switch - the default-off case leaves the project file's own setting alone (T010, T014).</param>
+/// <param name="PublishSingleFile">Single-file state; null means no switch - the default-off case leaves the project file's own setting alone.</param>
 public sealed record PublishSwitchSet(
     bool PublishAot,
     bool PublishTrimmed,
@@ -40,7 +40,7 @@ public sealed record PublishSwitchSet(
             arguments.Add("-p:PublishAot=true");
         }
 
-        // AOT implies trimming: never a separate trimming switch alongside publish-aot (T010).
+        // AOT implies trimming: never a separate trimming switch alongside publish-aot.
         if (PublishTrimmed && !PublishAot)
         {
             arguments.Add("-p:PublishTrimmed=true");
@@ -72,19 +72,19 @@ public sealed record PublishSwitchSet(
 
 /// <summary>
 /// Resolves the build preset in force plus the manifest build section's explicit keys into a
-/// <see cref="PublishSwitchSet"/> (T010, T013, T014). Pure logic - no I/O - so the preset-to-
-/// switch mapping stays directly testable (T018). Supersedes the legacy ProjectBuilder flag
-/// mapping, including the inverted ReadyToRun check, rather than patching it (T009).
+/// <see cref="PublishSwitchSet"/>. Pure logic - no I/O - so the preset-to-
+/// switch mapping stays directly testable. Supersedes the legacy ProjectBuilder flag
+/// mapping, including the inverted ReadyToRun check, rather than patching it.
 /// </summary>
 public static class BuildSwitchResolver
 {
     /// <summary>
     /// Resolves the switch set for one (target, rid) publish.
     /// </summary>
-    /// <param name="preset">The canonical preset name in force (flag override already applied by the CLI - T013).</param>
+    /// <param name="preset">The canonical preset name in force (flag override already applied by the CLI).</param>
     /// <param name="section">The manifest's build section; each present tri-state key overrides its preset default.</param>
-    /// <param name="archiveFormat">The target's resolved archive format (declared or defaulted to zip - T016); drives the Windows single-file default (T010).</param>
-    /// <param name="isWindows">Host OS override for the single-file OS rule; defaults to the current OS (T010).</param>
+    /// <param name="archiveFormat">The target's resolved archive format (declared or defaulted to zip); drives the Windows single-file default.</param>
+    /// <param name="isWindows">Host OS override for the single-file OS rule; defaults to the current OS.</param>
     /// <returns>The resolved switch set.</returns>
     /// <exception cref="BuildStageException"><paramref name="preset"/> is not a known preset name.</exception>
     public static PublishSwitchSet Resolve(
@@ -111,7 +111,7 @@ public static class BuildSwitchResolver
         switch (preset)
         {
             case BuildPreset.AotPlusTrimming:
-                // Self-contained; trimming implied by AOT so no separate trimming switch (T010).
+                // Self-contained; trimming implied by AOT so no separate trimming switch.
                 publishAot = true;
                 publishTrimmed = true;
                 publishReadyToRun = false;
@@ -144,7 +144,7 @@ public static class BuildSwitchResolver
                 break;
 
             default:
-                // Preset none: apply only what the build section specifies (T013).
+                // Preset none: apply only what the build section specifies.
                 publishAot = false;
                 publishTrimmed = false;
                 publishReadyToRun = false;
@@ -153,7 +153,7 @@ public static class BuildSwitchResolver
                 break;
         }
 
-        // Explicit manifest keys override the preset defaults (tri-state: present wins - T013).
+        // Explicit manifest keys override the preset defaults (tri-state: present wins).
         if (section.PublishAot is bool publishAotOverride)
         {
             publishAot = publishAotOverride;
@@ -174,10 +174,10 @@ public static class BuildSwitchResolver
             selfContained = selfContainedOverride;
         }
 
-        // Single-file rules (T010, T014, T016): the explicit key always wins; otherwise the OS
+        // Single-file rules: the explicit key always wins; otherwise the OS
         // defaults apply for the four named presets - ON on Unix-based OSes, and on Windows only
         // when the target is zip-archived (declared or defaulted to zip). Preset none contributes
-        // no implicit single-file switch (T013), and default-off emits no switch so a project
+        // no implicit single-file switch, and default-off emits no switch so a project
         // file's own PublishSingleFile setting stays authoritative.
         bool? publishSingleFile;
 

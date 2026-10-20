@@ -9,9 +9,9 @@ using ReleaseGenLib;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// Archive creation (T016): zip is the executable-kind default, tar.gz and none are the declared
+/// Archive creation: zip is the executable-kind default, tar.gz and none are the declared
 /// opt-outs, package kinds never archive, archives replace any stale file, and an unknown format
-/// fails naming the known set (D009). Output stays local under <c>release/</c> (D012).
+/// fails naming the known set. Output stays local under <c>release/</c>.
 /// </summary>
 public class ArchiveTests
 {
@@ -106,7 +106,7 @@ public class ArchiveTests
 
         BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip);
 
-        // A previous run's stale archive must not survive into this run's output (D012).
+        // A previous run's stale archive must not survive into this run's output.
         foreach (string file in Directory.GetFiles(source.FullName, "*", SearchOption.AllDirectories))
         {
             File.Delete(file);
@@ -130,7 +130,7 @@ public class ArchiveTests
             workspace,
             """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"] } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
 
-        // T016: archiving is opt-out, not opt-in - the zip default is implicit.
+        // Archiving is opt-out, not opt-in - the zip default is implicit.
         await Assert.That(File.Exists(archivePath)).IsTrue();
 
         using ZipArchive zip = ZipFile.OpenRead(archivePath);
@@ -192,7 +192,7 @@ public class ArchiveTests
 
             await Assert.That(exitCode).IsEqualTo(0);
 
-            // D013/D016: package kinds produce no archives, even with the zip default in force.
+            // Package kinds produce no archives, even with the zip default in force.
             await Assert.That(Directory.GetFiles(Path.Combine(workspace.Root, "release"), "*.zip"))
                 .Count().IsEqualTo(0);
             await Assert.That(Directory.GetFiles(Path.Combine(workspace.Root, "release"), "*.tar.gz"))

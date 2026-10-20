@@ -4,9 +4,9 @@ using CliInvoke.Core;
 
 /// <summary>
 /// A fake <see cref="IProcessInvoker"/> that records every invocation instead of starting a
-/// process, so tests can assert on the exact command lines the stages build (T009, T011, T012)
+/// process, so tests can assert on the exact command lines the stages build
 /// without network access or a real toolchain run. Publish integration tests, which push to a
-/// local source, use the real invoker instead (T018).
+/// local source, use the real invoker instead.
 /// </summary>
 internal sealed class RecordingProcessInvoker : IProcessInvoker
 {
@@ -26,7 +26,7 @@ internal sealed class RecordingProcessInvoker : IProcessInvoker
     /// <summary>
     /// Gets or sets an optional per-invocation side effect, used to materialize the publish
     /// output folder a fake <c>dotnet publish</c> would have produced before the build stage
-    /// archives it (T016).
+    /// archives it.
     /// </summary>
     public Action<ProcessConfiguration>? OnInvocation { get; set; }
 
@@ -75,7 +75,7 @@ internal sealed class RecordingProcessInvoker : IProcessInvoker
 
     /// <summary>
     /// A fake <c>dotnet publish</c> side effect: creates the <c>-o</c> output folder with one
-    /// fixture file inside, so the build stage's archive step (T016) sees the folder a real
+    /// fixture file inside, so the build stage's archive step sees the folder a real
     /// publish would have produced.
     /// </summary>
     /// <param name="configuration">The recorded publish invocation.</param>

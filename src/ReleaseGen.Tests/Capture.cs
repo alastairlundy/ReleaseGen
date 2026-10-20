@@ -1,7 +1,7 @@
 namespace ReleaseGen.Tests;
 
 /// <summary>
-/// Expected-exception capture for the D009 error style: the ReleaseGen surface reports failures
+/// Expected-exception capture for the house error style: the ReleaseGen surface reports failures
 /// as messages naming the failing thing, so tests capture the exception and assert on the
 /// message text rather than on the throw site.
 /// </summary>

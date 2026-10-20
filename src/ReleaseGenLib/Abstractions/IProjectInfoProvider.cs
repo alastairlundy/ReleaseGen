@@ -8,7 +8,7 @@ public interface IProjectInfoProvider
 
     /// <summary>
     /// Evaluates the project file with Microsoft.Build and returns its OutputType, defaulting to
-    /// 'Library' when the project does not set it. Used by the D020 manifest cross-check.
+    /// 'Library' when the project does not set it. Used by the manifest's OutputType cross-check.
     /// </summary>
     /// <param name="projectFile">The project file to evaluate.</param>
     /// <returns>The evaluated OutputType value.</returns>

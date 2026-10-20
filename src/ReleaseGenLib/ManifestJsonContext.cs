@@ -4,8 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 /// <summary>
-/// The source-generated System.Text.Json context for the manifest (T003): strict defaults with
-/// unknown fields failing parse (D002), no inline comments, and no trailing commas. Source
+/// The source-generated System.Text.Json context for the manifest: strict defaults with
+/// unknown fields failing parse, no inline comments, and no trailing commas. Source
 /// generation keeps the trimming and AOT path open.
 /// </summary>
 [JsonSourceGenerationOptions(

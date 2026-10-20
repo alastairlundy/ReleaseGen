@@ -6,26 +6,26 @@ using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// The build stage runner (T009): runs <c>dotnet publish -c Release -r &lt;rid&gt;</c> once per
+/// The build stage runner: runs <c>dotnet publish -c Release -r &lt;rid&gt;</c> once per
 /// (target project x configured rid) through CliInvoke 3.1.0, fail-fast on the first failing
-/// target/rid with an error naming both plus the exit code (D009), and attaches per-target
-/// archives for executables-kind outputs (T016). This type supersedes the legacy
+/// target/rid with an error naming both plus the exit code, and attaches per-target
+/// archives for executables-kind outputs. This type supersedes the legacy
 /// <c>ProjectBuilder</c> - the publish-only flags on <c>dotnet build</c> and the inverted
-/// ReadyToRun check are retired, not patched (T009).
+/// ReadyToRun check are retired, not patched.
 ///
 /// <para>
-/// Output layout, all under the invocation directory (D012 local-only - nothing here uploads;
+/// Output layout, all under the invocation directory (local-only - nothing here uploads;
 /// the only network destination in v1 is the publish stage's NuGet source):
 /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> holds one target's publish binaries for that
 /// rid, and <c>release/&lt;project-name&gt;-&lt;rid&gt;.zip|.tar.gz</c> sits beside the per-rid
 /// folders as that folder's archive. The archive format is the target's declared
-/// <c>archive</c> key, defaulting to zip (T016); package-kind-only targets are never archived.
+/// <c>archive</c> key, defaulting to zip; package-kind-only targets are never archived.
 /// </para>
 ///
 /// <para>
 /// Publish output reaches the caller only through the request's line sinks - this type never
 /// writes to the console - and no publish line is filtered or suppressed, so the SDK's
-/// IL3000-family analyzer warnings pass through intact (T014). CliInvoke 3.1.0 exposes no
+/// IL3000-family analyzer warnings pass through intact. CliInvoke 3.1.0 exposes no
 /// line-level process events, so each publish's captured output is replayed to the sinks as
 /// soon as that publish completes rather than interleaved live; fail-fast still stops the
 /// stage at the first failing rid.
@@ -35,7 +35,7 @@ public sealed class BuildStageRunner(IProcessInvoker processInvoker) : IBuildSta
 {
     /// <summary>
     /// Generous cap on captured publish output so long builds do not truncate warnings before
-    /// they reach the console (T014); <see cref="BufferedProcessResult.WasTruncated"/> still
+    /// they reach the console; <see cref="BufferedProcessResult.WasTruncated"/> still
     /// reports any overflow.
     /// </summary>
     private const long MaxBufferedOutputBytes = 64 * 1024 * 1024;
@@ -44,7 +44,7 @@ public sealed class BuildStageRunner(IProcessInvoker processInvoker) : IBuildSta
 
     /// <inheritdoc />
     /// <exception cref="BuildStageException">A publish invocation exited nonzero, or the output folder is missing when archiving.</exception>
-    /// <exception cref="ManifestException">A target's project path or archive format fails validation (D009).</exception>
+    /// <exception cref="ManifestException">A target's project path or archive format fails validation.</exception>
     public async Task RunAsync(BuildStageRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -54,7 +54,7 @@ public sealed class BuildStageRunner(IProcessInvoker processInvoker) : IBuildSta
 
         if (manifest.Targets.Count == 0)
         {
-            // D009: an expected condition is a named report, not an exception.
+            // An expected condition is a named report, not an exception.
             request.WriteErrorLine?.Invoke("build: the manifest declares no targets; nothing to publish.");
             return;
         }
@@ -88,7 +88,7 @@ public sealed class BuildStageRunner(IProcessInvoker processInvoker) : IBuildSta
                     $"{projectName}-{rid}{(archiveFormat == ArchiveFormats.TarGz ? ".tar.gz" : ".zip")}"));
 
                 // Deterministic local output: a previous run's stale folder or archive must not
-                // leak into this run's binaries (D012 - the release/ tree is ours to manage).
+                // leak into this run's binaries (the release/ tree is ours to manage).
                 // Fresh OS-level checks: DirectoryInfo/FileInfo cache their first probe.
                 if (Directory.Exists(outputDirectory.FullName))
                 {
@@ -114,7 +114,7 @@ public sealed class BuildStageRunner(IProcessInvoker processInvoker) : IBuildSta
                 ];
 
                 // Streamed args note: makes the resolved switch set for this (target, rid)
-                // visible on the console (T009/T010 evidence surface).
+                // visible on the console (the evidence surface).
                 request.WriteLine?.Invoke($"build: dotnet {string.Join(' ', argumentList)}");
 
                 ProcessConfiguration configuration =
@@ -141,12 +141,12 @@ public sealed class BuildStageRunner(IProcessInvoker processInvoker) : IBuildSta
 
                 if (result.ExitCode != 0)
                 {
-                    // D009 error style: names the target, the rid, and the exit code.
+                    // The error style: names the target, the rid, and the exit code.
                     throw new BuildStageException(
                         $"build: dotnet publish failed for target '{target.Project}' with runtime identifier '{rid}' (exit code {result.ExitCode}).");
                 }
 
-                // T016: only executables-kind outputs get archives; package kinds never do,
+                // Only executables-kind outputs get archives; package kinds never do,
                 // and 'none' leaves the per-rid folder unarchived.
                 if (target.Kinds.Contains(ArtifactKinds.Executables) &&
                     !string.Equals(archiveFormat, ArchiveFormats.None, StringComparison.Ordinal))
@@ -164,7 +164,7 @@ public sealed class BuildStageRunner(IProcessInvoker processInvoker) : IBuildSta
 
     /// <summary>
     /// Replays captured process output to the sink one line at a time, dropping only empty
-    /// lines. No content-based filtering: IL3000-family analyzer warnings pass through (T014).
+    /// lines. No content-based filtering: IL3000-family analyzer warnings pass through.
     /// </summary>
     /// <param name="text">The captured stdout or stderr text.</param>
     /// <param name="sink">The line sink; null swallows the lines.</param>

@@ -5,7 +5,7 @@ using System.IO.Compression;
 /// <summary>
 /// Builds the hand-crafted <c>.nupkg</c> fixture the publish integration test stages as the
 /// package stage's local product: a zip carrying a valid nuspec, which is all
-/// <c>dotnet nuget push</c> reads when the destination is a local folder source (T018).
+/// <c>dotnet nuget push</c> reads when the destination is a local folder source.
 /// </summary>
 internal static class TestPackage
 {
@@ -32,7 +32,7 @@ internal static class TestPackage
                 <id>{{id}}</id>
                 <version>{{version}}</version>
                 <authors>ReleaseGen.Tests</authors>
-                <description>Local-source push fixture for ReleaseGen's own suite (T018).</description>
+                <description>Local-source push fixture for ReleaseGen's own suite.</description>
               </metadata>
             </package>
             """;

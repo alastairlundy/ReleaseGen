@@ -4,11 +4,11 @@ using System.CommandLine;
 
 /// <summary>
 /// The init stage: writes a minimal valid <c>releasegen.json</c> skeleton to the current
-/// directory (T008) following the per-stage manifest layout (T007). <c>--preset</c> seeds the
-/// build section's <c>preset</c> key (T013); without the flag, or with <c>none</c>, the key
+/// directory following the per-stage manifest layout. <c>--preset</c> seeds the
+/// build section's <c>preset</c> key; without the flag, or with <c>none</c>, the key
 /// stays out of the skeleton (absence means preset none). An existing manifest is refused with
-/// exit code 1 unless <c>--overwrite</c> is passed (D009). Init is a one-shot command and takes
-/// no part in the chained run (D003).
+/// exit code 1 unless <c>--overwrite</c> is passed. Init is a one-shot command and takes
+/// no part in the chained run.
 /// </summary>
 public sealed class InitCommand : Command
 {
@@ -31,7 +31,7 @@ public sealed class InitCommand : Command
         {
             CliOutput.ApplyQuiet(parseResult);
 
-            // T013: only a known preset may reach the skeleton; 'none' — like absence — seeds no key.
+            // Only a known preset may reach the skeleton; 'none' — like absence — seeds no key.
             string? seededPreset = null;
             string? preset = parseResult.GetValue(presetOption);
 
@@ -52,7 +52,7 @@ public sealed class InitCommand : Command
 
             FileInfo manifestFile = new(Path.Combine(Environment.CurrentDirectory, ManifestLoader.ManifestFileName));
 
-            // D009: refusing an expected condition is control flow, not an exception.
+            // Refusing an expected condition is control flow, not an exception.
             if (manifestFile.Exists && !parseResult.GetValue(overwriteOption))
             {
                 CliOutput.Error(
@@ -72,11 +72,11 @@ public sealed class InitCommand : Command
     }
 
     /// <summary>
-    /// Composes the T008 skeleton: the per-stage layout (T007) carrying an empty target list, a
-    /// build section, and a publish section with empty sources. The optional test section (D004)
+    /// Composes the init skeleton: the per-stage layout carrying an empty target list, a
+    /// build section, and a publish section with empty sources. The optional test section
     /// is omitted to keep the skeleton minimal, and <c>build.preset</c> is written only when a
-    /// preset was chosen (T013). Every key matches a JsonPropertyName on the manifest model, so
-    /// the emitted file parses strictly through <see cref="ManifestLoader.Parse"/> (D002).
+    /// preset was chosen. Every key matches a JsonPropertyName on the manifest model, so
+    /// the emitted file parses strictly through <see cref="ManifestLoader.Parse"/>.
     /// </summary>
     /// <param name="preset">The preset name to seed, or null when none.</param>
     /// <returns>The complete file contents: pretty-printed manifest JSON indented with two spaces.</returns>

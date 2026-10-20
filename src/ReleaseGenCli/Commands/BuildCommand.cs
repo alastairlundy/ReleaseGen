@@ -7,18 +7,18 @@ using ReleaseGenLib.Models;
 
 /// <summary>
 /// The build stage: per-rid <c>dotnet publish -c Release -r &lt;rid&gt;</c> through the
-/// <see cref="IBuildStageRunner"/> (T009), driven by the manifest's build section. The
+/// <see cref="IBuildStageRunner"/>, driven by the manifest's build section. The
 /// <c>--preset</c> flag overrides the manifest's <c>build.preset</c> for this invocation only
-/// and never writes the file (T013); an unknown preset from either source fails with an error
-/// naming it and the known set, exit 1 (D009). Output stays local under
+/// and never writes the file; an unknown preset from either source fails with an error
+/// naming it and the known set, exit 1. Output stays local under
 /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> with per-target archives beside the rid
-/// folders - nothing is uploaded (D012).
+/// folders - nothing is uploaded.
 /// </summary>
 /// <remarks>
-/// Publish output is routed through the conventions layer (T017): stdout lines become stage
+/// Publish output is routed through the conventions layer: stdout lines become stage
 /// notes, MSBuild diagnostic lines (<c>: warning </c>/<c>: error </c>, which is how the SDK's
 /// IL3000-family analyzer warnings surface) and all stderr lines become warnings so they stay
-/// visible under <c>--quiet</c> (T014). No publish line is dropped.
+/// visible under <c>--quiet</c>. No publish line is dropped.
 /// </remarks>
 public sealed class BuildCommand : Command
 {
@@ -26,7 +26,7 @@ public sealed class BuildCommand : Command
     {
         Option<string?> presetOption = new("--preset")
         {
-            Description = "Override the manifest's build.preset for this invocation only (T013). Does not write the manifest.",
+            Description = "Override the manifest's build.preset for this invocation only. Does not write the manifest.",
         };
 
         Add(presetOption);
@@ -37,14 +37,14 @@ public sealed class BuildCommand : Command
 
             // System.CommandLine swallows exceptions thrown by async action handlers and prints
             // them with a raw stack trace, so every failure surface - refused preset, manifest
-            // error, failed publish - is caught here and rendered as D009's one-line error.
+            // error, failed publish - is caught here and rendered as the one-line error.
             try
             {
-                // T013 precedence: --preset beats the manifest key; neither present means preset none.
+                // Preset precedence: --preset beats the manifest key; neither present means preset none.
                 string? flagPreset = parseResult.GetValue(presetOption);
                 string? effectivePreset = !string.IsNullOrWhiteSpace(flagPreset) ? flagPreset : null;
 
-                // D009: an unknown preset is a refused condition, not an exception.
+                // An unknown preset is a refused condition, not an exception.
                 if (effectivePreset is not null && !BuildPreset.TryParse(effectivePreset, out _))
                 {
                     CliOutput.Error(
@@ -58,7 +58,7 @@ public sealed class BuildCommand : Command
 
                 if (effectivePreset is null)
                 {
-                    // The manifest's own preset still validates: unknown names fail with the set (D009).
+                    // The manifest's own preset still validates: unknown names fail with the set.
                     string? manifestPreset = manifest.Build.Preset;
 
                     if (!string.IsNullOrWhiteSpace(manifestPreset) && !BuildPreset.TryParse(manifestPreset, out _))
@@ -96,8 +96,8 @@ public sealed class BuildCommand : Command
     }
 
     /// <summary>
-    /// Routes one captured publish stdout line through the conventions layer (T017): MSBuild
-    /// diagnostic lines - the shape IL3000-family analyzer warnings arrive in (T014) - become
+    /// Routes one captured publish stdout line through the conventions layer: MSBuild
+    /// diagnostic lines - the shape IL3000-family analyzer warnings arrive in - become
     /// warnings so they survive <c>--quiet</c>; everything else becomes a stage note.
     /// </summary>
     /// <param name="line">The stdout line exactly as the publish emitted it.</param>

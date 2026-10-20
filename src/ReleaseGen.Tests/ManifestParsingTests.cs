@@ -5,10 +5,10 @@ using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// The manifest contract (D002, T003): strict System.Text.Json parsing where an unknown field,
+/// The manifest contract: strict System.Text.Json parsing where an unknown field,
 /// an inline comment, or a trailing comma fails with an error naming the offender, plus the
-/// validation rules that keep targets, artifact kinds, archives, and the D020 executables
-/// cross-check honest. The stages' behavior claims rest on this contract (T018).
+/// validation rules that keep targets, artifact kinds, archives, and the executables-kind
+/// cross-check honest. The stages' behavior claims rest on this contract.
 /// </summary>
 public class ManifestParsingTests
 {
@@ -33,7 +33,7 @@ public class ManifestParsingTests
             () => loader.Parse(
                 """{ "targets": [], "publish": { "sources": [], "apiKey": "secret-value" } }"""));
 
-        // D011: no key-bearing manifest field can ever load - strict parse rejects it first.
+        // No key-bearing manifest field can ever load - strict parse rejects it first.
         await Assert.That(exception.Message).Contains("apiKey");
     }
 
@@ -46,7 +46,7 @@ public class ManifestParsingTests
             () => loader.Parse(
                 """
                 {
-                  // comments are not part of the format (T003)
+                  // comments are not part of the format
                   "targets": []
                 }
                 """));
@@ -109,7 +109,7 @@ public class ManifestParsingTests
 
         await Assert.That(manifest.Build.Preset).IsNull();
         await Assert.That(manifest.Build.RuntimeIdentifiers).Count().IsEqualTo(0);
-        await Assert.That(manifest.Test).IsNull(); // D004: an absent test section warns, never fails.
+        await Assert.That(manifest.Test).IsNull(); // An absent test section warns, never fails.
         await Assert.That(manifest.Publish.Sources).Count().IsEqualTo(0);
     }
 
@@ -165,7 +165,7 @@ public class ManifestParsingTests
             () => loader.Validate(manifest, ManifestFileAtTemp()));
 
         await Assert.That(exception.Message).Contains("'rar'");
-        await Assert.That(exception.Message).Contains("zip, tar.gz, none"); // D009 error style.
+        await Assert.That(exception.Message).Contains("zip, tar.gz, none"); // Error style.
     }
 
     [Test]
@@ -207,7 +207,7 @@ public class ManifestParsingTests
 
         loader.Validate(manifest, ManifestFileAtTemp());
 
-        // D020's cross-check keys on the declared executables kind only.
+        // The cross-check keys on the declared executables kind only.
         await Assert.That(provider.OutputTypeReads).IsEqualTo(0);
     }
 
@@ -216,7 +216,7 @@ public class ManifestParsingTests
 
     /// <summary>
     /// A fixed OutputType source standing in for the Microsoft.Build evaluation path, counting
-    /// how often the D020 cross-check reads it.
+    /// how often the OutputType cross-check reads it.
     /// </summary>
     /// <param name="outputType">The OutputType the stub reports.</param>
     private sealed class StubProjectInfoProvider(string outputType) : IProjectInfoProvider

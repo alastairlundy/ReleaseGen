@@ -6,8 +6,8 @@ using ReleaseGenLib;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// The init stage (T008, T013): the skeleton it writes is minimal, valid, and parses under the
-/// same strict contract every other stage reads (D002); an existing manifest is refused unless
+/// The init stage: the skeleton it writes is minimal, valid, and parses under the
+/// same strict contract every other stage reads; an existing manifest is refused unless
 /// <c>--overwrite</c> is passed; <c>--preset</c> seeds the build section's preset key and only a
 /// known preset may reach the file.
 /// </summary>
@@ -29,7 +29,7 @@ public class InitCommandTests
             string manifestPath = Path.Combine(workspace.Root, ManifestLoader.ManifestFileName);
             await Assert.That(File.Exists(manifestPath)).IsTrue();
 
-            // The skeleton must load through the same strict parser every stage uses (D002).
+            // The skeleton must load through the same strict parser every stage uses.
             Manifest manifest = new ManifestLoader().Parse(File.ReadAllText(manifestPath));
 
             await Assert.That(manifest.Targets).Count().IsEqualTo(0);
@@ -120,7 +120,7 @@ public class InitCommandTests
             Manifest manifest = new ManifestLoader().Parse(
                 File.ReadAllText(Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)));
 
-            // Absence means preset none (T013); 'none' written as a key would be redundant.
+            // Absence means preset none; 'none' written as a key would be redundant.
             await Assert.That(manifest.Build.Preset).IsNull();
         });
     }

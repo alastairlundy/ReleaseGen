@@ -1,7 +1,7 @@
 namespace ReleaseGenLib.Models;
 
 /// <summary>
-/// The release artifact kinds a manifest target can declare (D015).
+/// The release artifact kinds a manifest target can declare.
 /// </summary>
 public static class ArtifactKinds
 {

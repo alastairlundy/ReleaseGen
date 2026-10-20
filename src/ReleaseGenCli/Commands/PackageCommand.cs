@@ -9,16 +9,16 @@ using ReleaseGenLib.Models;
 /// <summary>
 /// The package stage: runs <c>dotnet pack -c Release -o &lt;output&gt;</c> once per declared
 /// package kind per target, producing exactly the artifact kinds each manifest target declares
-/// and nothing more (D013). No inference from project file type: a <c>tool-package</c> is
+/// and nothing more. No inference from project file type: a <c>tool-package</c> is
 /// produced by declaring the kind, not by inspecting the csproj, and every declared kind of
 /// every target gets its own invocation even when several targets name the same project.
-/// Output stays local under <c>release/packages/lib|tool/&lt;project-name&gt;/</c> (D012) -
+/// Output stays local under <c>release/packages/lib|tool/&lt;project-name&gt;/</c> -
 /// nothing is uploaded here.
 /// </summary>
 /// <remarks>
 /// The <c>executables</c> kind is a valid declaration whose release artifacts are the build
-/// stage's product (D015); this stage skips it rather than failing. Pack output is routed
-/// through the conventions layer (T017): stdout lines become stage notes and stderr lines
+/// stage's product; this stage skips it rather than failing. Pack output is routed
+/// through the conventions layer: stdout lines become stage notes and stderr lines
 /// become warnings so they stay visible under <c>--quiet</c>.
 /// </remarks>
 public sealed class PackageCommand : Command
@@ -32,7 +32,7 @@ public sealed class PackageCommand : Command
 
             // System.CommandLine swallows exceptions thrown by async action handlers and prints
             // them with a raw stack trace, so every failure surface - manifest error, unknown
-            // kind, failed pack - is caught here and rendered as D009's one-line error.
+            // kind, failed pack - is caught here and rendered as the one-line error.
             try
             {
                 ManifestLoader manifestLoader = services.GetRequiredService<ManifestLoader>();
@@ -41,7 +41,7 @@ public sealed class PackageCommand : Command
 
                 if (manifest.Targets.Count == 0)
                 {
-                    // D009: an expected condition is a named report, not an exception.
+                    // An expected condition is a named report, not an exception.
                     CliOutput.Error("package: the manifest declares no targets; nothing to package.");
                     return 1;
                 }
@@ -62,7 +62,7 @@ public sealed class PackageCommand : Command
                         cancellationToken.ThrowIfCancellationRequested();
 
                         // The executables kind is the build stage's product, not a package
-                        // stage output (D013/D015): skip it here, never fail on it.
+                        // stage output: skip it here, never fail on it.
                         if (string.Equals(kind, ArtifactKinds.Executables, StringComparison.Ordinal))
                         {
                             continue;

@@ -4,7 +4,7 @@ using System.CommandLine;
 using Spectre.Console;
 
 /// <summary>
-/// Spectre-styled console output with the v1 verbosity rules (T017): default output is styled
+/// Spectre-styled console output with the v1 verbosity rules: default output is styled
 /// with stage notes, warnings, and errors; <c>--quiet</c> suppresses notes and progress while
 /// warnings and errors stay visible.
 /// </summary>
@@ -25,7 +25,7 @@ public static class CliOutput
     /// <summary>
     /// Writes a stage note. Suppressed under <c>--quiet</c>.
     /// </summary>
-    /// <param name="message">The note text. Should name the stage and what it did (D009 error style).</param>
+    /// <param name="message">The note text. Should name the stage and what it did.</param>
     public static void Note(string message)
     {
         if (Quiet)
@@ -46,7 +46,7 @@ public static class CliOutput
     /// <summary>
     /// Writes an error. Always visible, even under <c>--quiet</c>.
     /// </summary>
-    /// <param name="message">The error text; names the failing thing (D009 error style).</param>
+    /// <param name="message">The error text; names the failing thing.</param>
     public static void Error(string message) =>
         AnsiConsole.MarkupLine($"[red]error:[/] {Markup.Escape(message)}");
 }

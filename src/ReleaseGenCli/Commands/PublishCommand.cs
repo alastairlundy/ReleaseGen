@@ -8,29 +8,29 @@ using ReleaseGenLib.Models;
 
 /// <summary>
 /// The publish stage: pushes each target's declared package kinds with
-/// <c>dotnet nuget push</c> through CliInvoke (T012), in manifest target order, to the
-/// resolved sources (D011). The API key arrives only through the <c>--api-key</c> option or the
+/// <c>dotnet nuget push</c> through CliInvoke, in manifest target order, to the
+/// resolved sources. The API key arrives only through the <c>--api-key</c> option or the
 /// <see cref="ApiKeyEnvironmentVariable"/> environment variable - never the manifest, whose
-/// strict parse rejects any key-bearing field outright (D011, D002). Before the first push the
-/// stage consults the test gate (D004): a blocked outcome stops the stage with an error before
+/// strict parse rejects any key-bearing field outright. Before the first push the
+/// stage consults the test gate: a blocked outcome stops the stage with an error before
 /// any network call, and an absent test section proceeds with a warning. Failure detail is
-/// textual, not structured, in v1 (T012): the first failing push aborts the stage with a
-/// one-line error naming the package, the source, and the exit code (D009).
+/// textual, not structured, in v1: the first failing push aborts the stage with a
+/// one-line error naming the package, the source, and the exit code.
 /// </summary>
 /// <remarks>
-/// Packages are the package stage's local product (D012): each declared package kind maps to
+/// Packages are the package stage's local product: each declared package kind maps to
 /// <c>release/packages/lib|tool/&lt;project-name&gt;/*.nupkg</c> under the invocation
 /// directory, and the full push list is collected before the first push so a missing package
 /// fails the stage with no partial upload. The executables kind is the build stage's product,
-/// not a NuGet package, and is skipped here, never pushed (D013/D015). Push output reaches the
-/// console through the conventions layer (T017) - stdout lines become stage notes and stderr
+/// not a NuGet package, and is skipped here, never pushed. Push output reaches the
+/// console through the conventions layer - stdout lines become stage notes and stderr
 /// lines become warnings - and the streamed-args note redacts the API key so the key never
-/// reaches the console (D011).
+/// reaches the console.
 /// </remarks>
 public sealed class PublishCommand : Command
 {
     /// <summary>
-    /// The environment-variable channel for the API key (D011), consulted when the
+    /// The environment-variable channel for the API key, consulted when the
     /// <c>--api-key</c> option carries no value.
     /// </summary>
     private const string ApiKeyEnvironmentVariable = "NUGET_API_KEY";
@@ -41,7 +41,7 @@ public sealed class PublishCommand : Command
         Option<string?> apiKeyOption = new("--api-key")
         {
             Description =
-                $"The NuGet API key. Falls back to the {ApiKeyEnvironmentVariable} environment variable. Never read from the manifest (D011).",
+                $"The NuGet API key. Falls back to the {ApiKeyEnvironmentVariable} environment variable. Never read from the manifest.",
         };
 
         Add(apiKeyOption);
@@ -53,27 +53,27 @@ public sealed class PublishCommand : Command
             // System.CommandLine swallows exceptions thrown by async action handlers and prints
             // them with a raw stack trace, so every failure surface - manifest error, missing
             // key, blocked gate, missing package, failed push - is caught here and rendered as
-            // D009's one-line error.
+            // the one-line error.
             try
             {
                 ManifestLoader manifestLoader = services.GetRequiredService<ManifestLoader>();
                 FileInfo manifestFile = manifestLoader.FindManifestFile(new DirectoryInfo(Environment.CurrentDirectory));
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
 
-                // D011: the key travels only through the CLI option or the environment. The
-                // manifest model has no key-bearing field and strict parse (D002) rejects any
+                // The key travels only through the CLI option or the environment. The
+                // manifest model has no key-bearing field and strict parse rejects any
                 // stray one, so nothing on disk can carry a key or key reference.
                 string? apiKey = ResolveApiKey(parseResult.GetValue(apiKeyOption));
 
                 if (apiKey is null)
                 {
-                    // D009: a refused condition is a named report, not an exception.
+                    // A refused condition is a named report, not an exception.
                     CliOutput.Error(
-                        $"publish: no API key. Pass --api-key or set the {ApiKeyEnvironmentVariable} environment variable (D011).");
+                        $"publish: no API key. Pass --api-key or set the {ApiKeyEnvironmentVariable} environment variable.");
                     return 1;
                 }
 
-                // D004: the gate consult happens before the first push, so a blocked manifest
+                // The gate consult happens before the first push, so a blocked manifest
                 // stops with no network call.
                 TestGateResult gate = await ConsultGateAsync(services, manifest, CliOutput.Quiet, cancellationToken);
 
@@ -81,12 +81,12 @@ public sealed class PublishCommand : Command
                 {
                     case TestGateOutcome.Blocked:
                         CliOutput.Error(
-                            $"publish: blocked by the test gate; dotnet test exited {gate.ExitCode} and no packages were pushed (D004).");
+                            $"publish: blocked by the test gate; dotnet test exited {gate.ExitCode} and no packages were pushed.");
                         return 1;
 
                     case TestGateOutcome.NoSection:
                         CliOutput.Warning(
-                            "publish: no test section in the manifest; the test gate passes by default (D004).");
+                            "publish: no test section in the manifest; the test gate passes by default.");
                         break;
                 }
 
@@ -140,7 +140,7 @@ public sealed class PublishCommand : Command
     }
 
     /// <summary>
-    /// Resolves the API key through the D011 channels: the <c>--api-key</c> option wins, then
+    /// Resolves the API key through the API-key channels: the <c>--api-key</c> option wins, then
     /// the <c>NUGET_API_KEY</c> environment variable; both blank yields null and the command
     /// refuses before any work. Nothing on disk is ever consulted.
     /// </summary>
@@ -159,17 +159,17 @@ public sealed class PublishCommand : Command
     }
 
     /// <summary>
-    /// Consults the test gate (D004) before the first push. An outcome recorded in this process
+    /// Consults the test gate before the first push. An outcome recorded in this process
     /// - the chained run records the test stage's result through <see cref="StageContext"/>
-    /// (D010) - is consumed as-is. Otherwise an absent test section lands on the warning path,
+    /// - is consumed as-is. Otherwise an absent test section lands on the warning path,
     /// and a declared section is consulted by running the test stage itself: the gate consumes
-    /// that invocation's exit code (T011), so a standalone publish cannot bypass it.
+    /// that invocation's exit code, so a standalone publish cannot bypass it.
     /// </summary>
     /// <param name="services">The DI container the stage commands resolve from.</param>
     /// <param name="manifest">The loaded manifest.</param>
     /// <param name="quiet">Whether stage notes are suppressed, forwarded to the test consult.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
-    /// <returns>The gate outcome (D004).</returns>
+    /// <returns>The gate outcome.</returns>
     private static async Task<TestGateResult> ConsultGateAsync(
         IServiceProvider services,
         Manifest manifest,
@@ -183,13 +183,13 @@ public sealed class PublishCommand : Command
 
         if (manifest.Test is null)
         {
-            // D004 warning path: an absent test section passes by default; nothing runs.
+            // Warning path: an absent test section passes by default; nothing runs.
             return TestGateResult.FromStage(exitCode: 0, hasTestSection: false);
         }
 
-        // Standalone publish consults the gate by running the test stage (T011): a declared
-        // section must exit 0 before the first push (D004).
-        CliOutput.Note("publish: consulting the test gate; running the test stage (D004).");
+        // Standalone publish consults the gate by running the test stage: a declared
+        // section must exit 0 before the first push.
+        CliOutput.Note("publish: consulting the test gate; running the test stage.");
 
         int exitCode = await InvokeTestStageAsync(services, quiet, cancellationToken);
         TestGateResult gate = TestGateResult.FromStage(exitCode, hasTestSection: true);
@@ -201,7 +201,7 @@ public sealed class PublishCommand : Command
 
     /// <summary>
     /// Runs the test stage command in-process so the gate consult consumes exactly the stage's
-    /// exit code (T011), replaying its console output through the conventions layer (T017).
+    /// exit code, replaying its console output through the conventions layer.
     /// </summary>
     /// <param name="services">The DI container the test command resolves from.</param>
     /// <param name="quiet">Whether <c>--quiet</c> was set on this invocation; forwarded so the consult stays as quiet.</param>
@@ -229,11 +229,10 @@ public sealed class PublishCommand : Command
     }
 
     /// <summary>
-    /// Collects the full push list before the first push (T012): every declared package kind of
+    /// Collects the full push list before the first push: every declared package kind of
     /// every target, in manifest target order, each kind's packages enumerated from the package
     /// stage's local output. A kind with no package output fails the stage naming the directory
-    /// (D009) with no partial upload; the executables kind is skipped, never pushed
-    /// (D013/D015).
+    /// with no partial upload; the executables kind is skipped, never pushed.
     /// </summary>
     /// <param name="manifest">The loaded manifest.</param>
     /// <param name="manifestDirectory">The manifest's directory, for resolving relative project paths.</param>
@@ -251,7 +250,7 @@ public sealed class PublishCommand : Command
 
             foreach (string kind in target.Kinds)
             {
-                // D013/D015: the executables kind is the build stage's product, not a package.
+                // The executables kind is the build stage's product, not a package.
                 if (string.Equals(kind, ArtifactKinds.Executables, StringComparison.Ordinal))
                 {
                     continue;
@@ -299,14 +298,14 @@ public sealed class PublishCommand : Command
     }
 
     /// <summary>
-    /// Runs one <c>dotnet nuget push</c> through CliInvoke (T012) for one package and one
+    /// Runs one <c>dotnet nuget push</c> through CliInvoke for one package and one
     /// source. A nonzero exit fails fast with <see cref="PublishStageException"/> naming the
-    /// package, the source, and the exit code (D009); failure detail stays textual (T012).
+    /// package, the source, and the exit code; failure detail stays textual.
     /// </summary>
-    /// <param name="processInvoker">The CliInvoke process invoker (T005).</param>
+    /// <param name="processInvoker">The CliInvoke process invoker.</param>
     /// <param name="push">The package to push.</param>
-    /// <param name="source">The resolved push source (D011).</param>
-    /// <param name="apiKey">The API key from the D011 channels; redacted from the console.</param>
+    /// <param name="source">The resolved push source.</param>
+    /// <param name="apiKey">The API key from the API-key channels; redacted from the console.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     private static async Task PushAsync(
         IProcessInvoker processInvoker,
@@ -315,9 +314,9 @@ public sealed class PublishCommand : Command
         string apiKey,
         CancellationToken cancellationToken)
     {
-        // No --non-interactive: the API key is always supplied through the D011 channels, so
+        // No --non-interactive: the API key is always supplied through the API-key channels, so
         // no auth prompt can occur, and the flag makes NuGet's local-folder symbols probe fail
-        // the push with 'File does not exist' after the package landed (T018's local-source
+        // the push with 'File does not exist' after the package landed (the local-source
         // integration destination would never exit 0 with it).
         List<string> argumentList =
         [
@@ -331,7 +330,7 @@ public sealed class PublishCommand : Command
         ];
 
         // Streamed args note with the key redacted: the resolved invocation stays visible on
-        // the console (T010/T017 evidence surface) without leaking the credential (D011).
+        // the console (the evidence surface) without leaking the credential.
         CliOutput.Note(
             $"publish: dotnet nuget push {push.PackageFile.FullName} --source {source} --api-key **** (kind '{push.Kind}' for target '{push.TargetProject}').");
 
@@ -351,7 +350,7 @@ public sealed class PublishCommand : Command
 
         if (result.ExitCode != 0)
         {
-            // T012 textual failure posture in D009's error style: names the package, the
+            // Textual failure posture in the error style: names the package, the
             // source, and the exit code.
             throw new PublishStageException(
                 $"publish: dotnet nuget push failed for package '{push.PackageFile.Name}' (kind '{push.Kind}', target '{push.TargetProject}') to source '{source}' (exit code {result.ExitCode}).");
@@ -360,7 +359,7 @@ public sealed class PublishCommand : Command
 
     /// <summary>
     /// Replays captured process output to the sink one line at a time, dropping only empty
-    /// lines. No content-based filtering, mirroring the other stages' replay (T014).
+    /// lines. No content-based filtering, mirroring the other stages' replay.
     /// </summary>
     /// <param name="text">The captured stdout or stderr text.</param>
     /// <param name="sink">The line sink; null swallows the lines.</param>
@@ -385,7 +384,7 @@ public sealed class PublishCommand : Command
 
     /// <summary>
     /// One package the publish stage pushes: the package file, its declared kind, and the
-    /// target that declared it - the textual failure detail names all three (D009, T012).
+    /// target that declared it - the textual failure detail names all three.
     /// </summary>
     /// <param name="PackageFile">The .nupkg file produced by the package stage.</param>
     /// <param name="Kind">The target's declared package kind.</param>
@@ -395,7 +394,7 @@ public sealed class PublishCommand : Command
 
 /// <summary>
 /// Thrown when the publish stage cannot push: a declared kind has no package output, or a push
-/// invocation exits nonzero; the message names the failing thing (D009), and the publish stage
+/// invocation exits nonzero; the message names the failing thing, and the publish stage
 /// command renders it as a one-line error.
 /// </summary>
 public sealed class PublishStageException(string message) : Exception(message);

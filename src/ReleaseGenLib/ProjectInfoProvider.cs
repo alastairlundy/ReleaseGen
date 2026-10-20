@@ -19,7 +19,7 @@ public class ProjectInfoProvider : IProjectInfoProvider
     /// initializes (observed: MSBuildSDKsPath, MSBUILD_EXE_PATH, MSBuildExtensionsPath*,
     /// MSBuildToolsPath). Left in place they leak into child processes this library spawns - a
     /// <c>dotnet publish</c> would resolve the SDK of the MSBuildLocator-registered toolset
-    /// instead of its own muxer selection (T009), so they are saved and restored around every
+    /// instead of its own muxer selection, so they are saved and restored around every
     /// evaluation.
     /// </summary>
     private static readonly string[] MsBuildEnvironmentVariables =
@@ -37,7 +37,7 @@ public class ProjectInfoProvider : IProjectInfoProvider
 
     /// <summary>
     /// Registers the MSBuild SDK resolver once, before any Microsoft.Build assembly loads, so
-    /// that SDK-style projects can be evaluated in-process (D020 evaluation path).
+    /// that SDK-style projects can be evaluated in-process (the evaluation path).
     /// This method must not reference Microsoft.Build types: the calling methods JIT-bind those
     /// assemblies only after registration completes.
     /// </summary>
@@ -55,8 +55,8 @@ public class ProjectInfoProvider : IProjectInfoProvider
     /// <summary>
     /// Runs an MSBuild evaluation with the MSBuild-owned environment variables scoped to the
     /// call: the previous values are restored when the evaluation completes, so processes
-    /// spawned afterwards (the build stage's per-rid publishes, T009) resolve their own SDK
-    /// rather than inheriting the toolset's paths (D020 evaluation path side effect).
+    /// spawned afterwards (the build stage's per-rid publishes) resolve their own SDK
+    /// rather than inheriting the toolset's paths (an evaluation-path side effect).
     /// </summary>
     /// <typeparam name="T">The evaluation result type.</typeparam>
     /// <param name="evaluation">The evaluation to run.</param>
@@ -91,7 +91,7 @@ public class ProjectInfoProvider : IProjectInfoProvider
         });
 
     /// <summary>
-    /// Evaluates the project file with Microsoft.Build and returns its OutputType (D020).
+    /// Evaluates the project file with Microsoft.Build and returns its OutputType.
     /// </summary>
     /// <param name="projectFile">The project file to evaluate.</param>
     /// <returns>The evaluated OutputType value, or 'Library' when the project does not set one.</returns>
@@ -169,8 +169,7 @@ public class ProjectInfoProvider : IProjectInfoProvider
         {
             // Unload so a later load of the same project path in this process re-evaluates
             // instead of failing on a duplicate entry in the global collection: the chained
-            // run loads the manifest once per stage, and several targets may name one project
-            // (D013).
+            // run loads the manifest once per stage, and several targets may name one project.
             project.ProjectCollection.UnloadProject(project);
         }
     }

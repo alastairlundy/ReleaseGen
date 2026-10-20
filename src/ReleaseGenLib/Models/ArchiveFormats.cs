@@ -1,9 +1,9 @@
 namespace ReleaseGenLib.Models;
 
 /// <summary>
-/// The archive formats a manifest target may declare for its executables-kind outputs (T016).
+/// The archive formats a manifest target may declare for its executables-kind outputs.
 /// Exactly these three values are accepted in v1; anything else fails manifest validation
-/// with an error naming the target and this set (D009).
+/// with an error naming the target and this set.
 /// </summary>
 public static class ArchiveFormats
 {
@@ -24,7 +24,7 @@ public static class ArchiveFormats
     public const string None = "none";
 
     /// <summary>
-    /// The full set of archive formats valid in a manifest (T016).
+    /// The full set of archive formats valid in a manifest.
     /// </summary>
     public static readonly string[] All = [Zip, TarGz, None];
 

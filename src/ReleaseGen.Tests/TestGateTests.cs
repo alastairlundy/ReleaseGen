@@ -5,7 +5,7 @@ using ReleaseGenCli.Commands;
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// The test gate (D004, T011) and the chained run's fail-fast ordering (D010): a declared test
+/// The test gate and the chained run's fail-fast ordering: a declared test
 /// section with a nonzero exit blocks publish before any network call, an absent section warns
 /// and proceeds, a standalone publish consults the gate by running the test stage itself, and a
 /// failed test stage aborts the chain before publish.
@@ -100,7 +100,7 @@ public class TestGateTests
                     await Assert.That(exitCode).IsEqualTo(0);
                 });
 
-                // D004: an absent section is the opt-in default - a warning, never a failure.
+                // An absent section is the opt-in default - a warning, never a failure.
                 await Assert.That(console).Contains("warning:");
                 await Assert.That(console).Contains("no test section in the manifest");
                 await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
@@ -141,8 +141,8 @@ public class TestGateTests
                     await Assert.That(exitCode).IsEqualTo(1);
                 });
 
-                // T011: the gate consumes the test stage's own exit code, so a standalone
-                // publish cannot bypass a declared test section (D004).
+                // The gate consumes the test stage's own exit code, so a standalone
+                // publish cannot bypass a declared test section.
                 await Assert.That(console).Contains("running the test stage");
                 await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
                 await Assert.That(invoker.Invocations[0].ArgumentList[0]).IsEqualTo("test");
@@ -217,7 +217,7 @@ public class TestGateTests
                 await Assert.That(console).Contains("the test stage failed");
                 await Assert.That(console).Contains("aborting the run before the remaining stages");
 
-                // Fail-fast (D010): package and publish never ran, so the staged package was
+                // Fail-fast: package and publish never ran, so the staged package was
                 // never pushed and the publish stage never consulted the gate.
                 await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
                 await Assert.That(invoker.Invocations[0].ArgumentList[0]).IsEqualTo("test");
@@ -259,7 +259,7 @@ public class TestGateTests
                     await Assert.That(exitCode).IsEqualTo(0);
                 });
 
-                // D010 skip notes: the executed stage set stays honest on the console.
+                // Skip notes: the executed stage set stays honest on the console.
                 await Assert.That(console).Contains("skipping the test stage");
                 await Assert.That(console).Contains("the manifest declares no test section");
                 await Assert.That(console).Contains("skipping the package stage");

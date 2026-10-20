@@ -7,20 +7,20 @@ using ReleaseGenLib.Models;
 
 /// <summary>
 /// The chained run: <c>releasegen run</c> executes the stages the manifest names in manifest
-/// order (D010), aborting the chain at the first failed stage with a one-line error naming it
-/// and its exit code (D009, D010), and reporting each skipped unnamed stage with a console
-/// note. Each stage runs through its own stage command invoked in-process (D003 - the stage
-/// commands remain the separately invocable implementations), so the chained run and separate
+/// order, aborting the chain at the first failed stage with a one-line error naming it
+/// and its exit code, and reporting each skipped unnamed stage with a console
+/// note. Each stage runs through its own stage command invoked in-process (the stage commands
+/// remain the separately invocable implementations), so the chained run and separate
 /// stage invocations share one behavior surface and write the identical <c>release/</c>
-/// artifact tree documented by the cross-process handoff contract (D003, D018). init is a
-/// one-shot command and takes no part in the chain (D003). The <c>--preset</c> flag overrides
-/// the manifest's <c>build.preset</c> for this invocation only and never writes the file
-/// (T013); stage flags and retry logic stay out of v1 (D010).
+/// artifact tree documented by the cross-process handoff contract. init is a
+/// one-shot command and takes no part in the chain. The <c>--preset</c> flag overrides
+/// the manifest's <c>build.preset</c> for this invocation only and never writes the file;
+/// stage flags and retry logic stay out of v1.
 /// </summary>
 /// <remarks>
 /// Stage selection follows the manifest: build always runs; test is named by a declared test
-/// section (D004); package and publish are named by targets declaring package kinds (D013).
-/// The test stage's gate outcome is recorded in <see cref="StageContext"/> (D004, D010) so the
+/// section; package and publish are named by targets declaring package kinds.
+/// The test stage's gate outcome is recorded in <see cref="StageContext"/> so the
 /// publish stage consumes it instead of re-running tests inside the same chain.
 /// </remarks>
 public sealed class RunCommand : Command
@@ -30,7 +30,7 @@ public sealed class RunCommand : Command
     {
         Option<string?> presetOption = new("--preset")
         {
-            Description = "Override the manifest's build.preset for this invocation only (T013). Does not write the manifest.",
+            Description = "Override the manifest's build.preset for this invocation only. Does not write the manifest.",
         };
 
         Add(presetOption);
@@ -41,10 +41,10 @@ public sealed class RunCommand : Command
 
             // System.CommandLine swallows exceptions thrown by async action handlers and prints
             // them with a raw stack trace, so every failure surface - manifest error, refused
-            // preset, failed stage - is caught here and rendered as D009's one-line error.
+            // preset, failed stage - is caught here and rendered as the one-line error.
             try
             {
-                // T013 precedence: --preset beats the manifest key for this invocation only.
+                // Preset precedence: --preset beats the manifest key for this invocation only.
                 string? flagPreset = parseResult.GetValue(presetOption);
 
                 if (!string.IsNullOrWhiteSpace(flagPreset) && !BuildPreset.TryParse(flagPreset, out _))
@@ -64,30 +64,30 @@ public sealed class RunCommand : Command
 
                 List<StagePlan> stages =
                 [
-                    // Build is always named: every stage reads the same manifest (D003).
+                    // Build is always named: every stage reads the same manifest.
                     new("build", Included: true, SkipReason: null, Arguments: presetArguments),
 
-                    // The test stage is named by a declared test section (D004).
+                    // The test stage is named by a declared test section.
                     new("test",
                         Included: manifest.Test is not null,
-                        SkipReason: "the manifest declares no test section (D004)",
+                        SkipReason: "the manifest declares no test section",
                         Arguments: []),
 
-                    // Package and publish are named by targets declaring package kinds (D013).
+                    // Package and publish are named by targets declaring package kinds.
                     new("package",
                         Included: DeclaresPackageKinds(manifest),
-                        SkipReason: "no target declares a package kind (D013)",
+                        SkipReason: "no target declares a package kind",
                         Arguments: []),
                     new("publish",
                         Included: DeclaresPackageKinds(manifest),
-                        SkipReason: "no target declares a package kind (D013)",
+                        SkipReason: "no target declares a package kind",
                         Arguments: []),
                 ];
 
                 CliOutput.Note(
-                    $"run: chained run starting; stages in manifest order: {string.Join(", ", stages.Where(static s => s.Included).Select(static s => s.Name))} (D010).");
+                    $"run: chained run starting; stages in manifest order: {string.Join(", ", stages.Where(static s => s.Included).Select(static s => s.Name))}.");
 
-                // A stale in-process gate outcome must never leak into this chain (D004).
+                // A stale in-process gate outcome must never leak into this chain.
                 StageContext.Reset();
 
                 bool quiet = CliOutput.Quiet;
@@ -97,8 +97,8 @@ public sealed class RunCommand : Command
                 {
                     if (!stage.Included)
                     {
-                        // D010 skip notes: the executed stage set stays honest on the console.
-                        CliOutput.Note($"run: skipping the {stage.Name} stage; {stage.SkipReason} (D010).");
+                        // Skip notes: the executed stage set stays honest on the console.
+                        CliOutput.Note($"run: skipping the {stage.Name} stage; {stage.SkipReason}.");
                         continue;
                     }
 
@@ -107,16 +107,16 @@ public sealed class RunCommand : Command
 
                     if (exitCode != 0)
                     {
-                        // D010 fail-fast: the first failed stage aborts the chain, so later
-                        // stages - notably publish behind a failed test stage (D004) - never run.
+                        // Fail-fast: the first failed stage aborts the chain, so later
+                        // stages - notably publish behind a failed test stage - never run.
                         CliOutput.Error(
-                            $"run: the {stage.Name} stage failed (exit code {exitCode}); aborting the run before the remaining stages (D010).");
+                            $"run: the {stage.Name} stage failed (exit code {exitCode}); aborting the run before the remaining stages.");
                         return exitCode;
                     }
 
                     if (string.Equals(stage.Name, "test", StringComparison.Ordinal))
                     {
-                        // D004 gate handoff: the chain already ran the test stage, so the
+                        // Gate handoff: the chain already ran the test stage, so the
                         // publish stage consults this outcome instead of re-running it.
                         StageContext.TestGate = TestGateResult.FromStage(exitCode, hasTestSection: true);
                     }
@@ -136,7 +136,7 @@ public sealed class RunCommand : Command
     }
 
     /// <summary>
-    /// Returns whether any target declares a package kind (D013), which names the package and
+    /// Returns whether any target declares a package kind, which names the package and
     /// publish stages for the chain; executables-kind-only manifests have nothing to package or
     /// push.
     /// </summary>
@@ -147,10 +147,10 @@ public sealed class RunCommand : Command
                 kind is ArtifactKinds.LibPackage or ArtifactKinds.ToolPackage));
 
     /// <summary>
-    /// Runs one stage in-process through its stage command (D003), so the chain and a separate
+    /// Runs one stage in-process through its stage command, so the chain and a separate
     /// invocation of the same stage share one behavior surface. The stage re-resolves the
     /// manifest itself; <c>--quiet</c> (and, for build, <c>--preset</c>) forward so the stage
-    /// sees the chain's invocation flags (T013, T017).
+    /// sees the chain's invocation flags.
     /// </summary>
     /// <param name="services">The DI container the stage commands resolve from.</param>
     /// <param name="stageName">The stage command to invoke: build, test, package, or publish.</param>
@@ -192,8 +192,8 @@ public sealed class RunCommand : Command
     }
 
     /// <summary>
-    /// One planned chain stage: whether the manifest names it (D010), why it is skipped when
-    /// not, and the extra stage flags the chain forwards (T013).
+    /// One planned chain stage: whether the manifest names it, why it is skipped when
+    /// not, and the extra stage flags the chain forwards.
     /// </summary>
     /// <param name="Name">The stage command name.</param>
     /// <param name="Included">Whether the manifest names this stage.</param>

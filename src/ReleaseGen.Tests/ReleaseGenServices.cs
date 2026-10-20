@@ -10,7 +10,7 @@ using ReleaseGenLib.Models;
 /// <summary>
 /// DI composition for command-level tests, mirroring <c>Program.cs</c> minus the MSBuild
 /// evaluation provider: the suite's manifests declare package-kind targets (or rely on the
-/// loader without a provider), so the D020 cross-check stays out of stage tests and is covered
+/// loader without a provider), so the OutputType cross-check stays out of stage tests and is covered
 /// directly in <see cref="ManifestParsingTests"/> instead.
 /// </summary>
 internal static class ReleaseGenServices
@@ -34,7 +34,7 @@ internal static class ReleaseGenServices
 
     /// <summary>
     /// Builds a container with the real CliInvoke invoker, used by the publish integration test
-    /// that pushes to a local source instead of nuget.org (T018).
+    /// that pushes to a local source instead of nuget.org.
     /// </summary>
     /// <returns>The provider; the caller disposes it.</returns>
     public static ServiceProvider CreateWithRealInvoker()

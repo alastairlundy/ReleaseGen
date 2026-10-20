@@ -5,8 +5,8 @@ using ReleaseGenCli;
 using ReleaseGenCli.Commands;
 
 /// <summary>
-/// Invokes one ReleaseGen command through a throwaway root the same way the shipped CLI does
-/// (D003): the command plus the shared recursive <c>--quiet</c> option, parsed and invoked, with
+/// Invokes one ReleaseGen command through a throwaway root the same way the shipped CLI does:
+/// the command plus the shared recursive <c>--quiet</c> option, parsed and invoked, with
 /// the command's exit code returned. Mirrors the chained run's in-process stage invocation so
 /// tests exercise the production behavior surface.
 /// </summary>
