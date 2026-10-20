@@ -1,0 +1,43 @@
+# CI evidence on every push (T020): one workflow that builds and tests on pull requests and
+# main. Releases are deliberate manual `releasegen run` executions using the D011 channels, so
+# this workflow carries no tag trigger and no restore-independent publishing or push step, and
+# no trusted-publishing setup exists here (D001). Adding a release workflow later is a new
+# decision (T020).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          # MinVer resolves package versions from git tags (T019), so versioning needs the
+          # repository's full history and tags rather than a shallow checkout.
+          fetch-depth: 0
+
+      - name: Set up the .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          # Everything targets net10.0 only (T001), and the TUnit suite runs on that TFM (T018).
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore src/ReleaseGen.slnx
+
+      - name: Build
+        run: dotnet build src/ReleaseGen.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --project src/ReleaseGen.Tests/ReleaseGen.Tests.csproj --configuration Release --no-build
