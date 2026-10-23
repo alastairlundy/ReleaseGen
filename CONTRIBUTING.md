@@ -1,7 +1,6 @@
 # Contributing to ReleaseGen
 
-Thanks for your interest in contributing. The
-guidelines below keep changes reviewable.
+Thanks for your interest in contributing. The guidelines below keep changes reviewable.
 
 ## Prerequisites
 
