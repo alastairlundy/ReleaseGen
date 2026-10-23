@@ -2,7 +2,7 @@ using ReleaseGenLib.Exceptions;
 
 namespace ReleaseGenLib;
 
-using ReleaseGenLib.Models;
+using Models;
 
 /// <summary>
 /// Resolves the build preset in force plus the manifest build section's explicit keys into a

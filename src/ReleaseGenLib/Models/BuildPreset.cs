@@ -1,4 +1,4 @@
-namespace ReleaseGenLib;
+namespace ReleaseGenLib.Models;
 
 /// <summary>
 /// The canonical build preset names a manifest's <c>build.preset</c> key may hold.

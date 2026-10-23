@@ -4,8 +4,8 @@ namespace ReleaseGenLib;
 
 using System.Linq;
 using System.Text.Json;
-using ReleaseGenLib.Abstractions;
-using ReleaseGenLib.Models;
+using Abstractions;
+using Models;
 
 /// <summary>
 /// Loads and validates <c>releasegen.json</c> manifests: strict System.Text.Json parsing,

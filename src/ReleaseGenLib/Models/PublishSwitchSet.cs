@@ -1,4 +1,4 @@
-﻿namespace ReleaseGenLib;
+﻿namespace ReleaseGenLib.Models;
 
 /// <summary>
 /// The fully resolved dotnet publish switch set for one (target, rid) publish.

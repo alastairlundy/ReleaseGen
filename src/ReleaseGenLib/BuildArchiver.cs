@@ -4,7 +4,7 @@ namespace ReleaseGenLib;
 
 using System.Formats.Tar;
 using System.IO.Compression;
-using ReleaseGenLib.Models;
+using Models;
 
 /// <summary>
 /// Creates the per-(target, rid) release archives: zip by default via

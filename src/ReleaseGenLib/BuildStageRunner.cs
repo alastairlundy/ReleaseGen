@@ -4,8 +4,8 @@ namespace ReleaseGenLib;
 
 using System.Linq;
 using CliInvoke.Core;
-using ReleaseGenLib.Abstractions;
-using ReleaseGenLib.Models;
+using Abstractions;
+using Models;
 
 /// <summary>
 /// The build stage runner: runs <c>dotnet publish -c Release -r &lt;rid&gt;</c> once per
