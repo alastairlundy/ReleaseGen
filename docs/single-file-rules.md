@@ -1,7 +1,7 @@
 # Single-file rules
 
 Single-file deployment bundles an app's dependencies into one executable. ReleaseGen applies
-single-file defaults per the build preset rules (T010), exposes the opt-out key (T014), and
+single-file defaults per the build preset rules, exposes the opt-out key, and
 surfaces the .NET SDK's incompatible-API diagnostics - ReleaseGen performs no IL-level
 detection of its own.
 
@@ -9,12 +9,12 @@ detection of its own.
 
 - For the four named [build presets](presets.md), single-file defaults to **on on Unix-based
   OSes**, and **on Windows only when the target's resolved archive format is zip** - declared
-  through the target's `archive` key, or defaulted to zip per T016.
+  through the target's `archive` key, or defaulted to zip.
 - Preset `none` contributes no implicit single-file switch; the project file's own
-  `PublishSingleFile` setting stays authoritative (T013).
+  `PublishSingleFile` setting stays authoritative.
 - The `build.singleFile` key in the Manifest is the opt-out: `"singleFile": false` disables
   the defaults; `"singleFile": true` forces them on. The explicit key always wins over the OS
-  rules (T014).
+  rules.
 
 ## Incompatible APIs
 
@@ -44,8 +44,8 @@ name of the host executable. To access files next to the executable, use
 ## ReleaseGen's handling
 
 - The SDK's IL3000-family single-file analyzer warnings surface during publish as console
-  warnings, so they stay visible under `--quiet` (T014).
-- ReleaseGen itself performs no IL-level detection (T014); the table above is the
+  warnings, so they stay visible under `--quiet`.
+- ReleaseGen itself performs no IL-level detection; the table above is the
   documentation backing the opt-out, not a ReleaseGen check.
 - If your project (or a package it uses) depends on an incompatible API, set
   `"singleFile": false` in the Manifest's build section and the single-file defaults are
