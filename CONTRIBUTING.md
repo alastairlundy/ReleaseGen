@@ -1,8 +1,7 @@
 # Contributing to ReleaseGen
 
-Thanks for your interest in contributing. ReleaseGen is a .NET CLI tool, and the
-guidelines below keep changes reviewable and consistent with the project's
-conventions.
+Thanks for your interest in contributing. The
+guidelines below keep changes reviewable.
 
 ## Prerequisites
 
@@ -10,8 +9,7 @@ conventions.
   Microsoft.Testing.Platform runner).
 - git.
 
-A newer SDK (e.g. the 11.0 preview) will build the project fine; the warning about
-using a preview SDK is harmless.
+A newer SDK (e.g. the 11.0 preview) will build the project fine; the warning about using a preview SDK is harmless.
 
 ## Clone and build
 
