@@ -17,7 +17,7 @@ public class ManifestParsingTests
     [Test]
     public async Task Unknown_root_field_fails_parse_naming_the_field()
     {
-        ManifestLoader loader = new();
+        ManifestLoader loader = new()
 
         ManifestException exception = Capture.Exception<ManifestException>(
             () => loader.Parse("""{ "targets": [], "apiKey": "secret-value" }"""));
