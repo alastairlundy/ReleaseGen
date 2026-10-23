@@ -60,12 +60,13 @@ If you use AI tooling (Copilot, ChatGPT, Claude, etc.) to produce any part of a
 commit or pull request, **disclose it**:
 
 - In commit messages, note AI assistance (e.g. `Co-authored-by` or a short
-  `AI-assisted:` note).
-- In the body of the pull request, state what was AI-generated and what was
-  reviewed/edited by hand.
+  `AI-assisted:` note). Note that GitHub attributes `Co-authored-by` trailers to
+  GitHub user names, not display names — use the contributor's GitHub username
+  (e.g. `Co-authored-by: octocat <octocat@users.noreply.github.com>`).
+- In the body of the pull request, state the level of AI-generated code and what
+  LLM(s) was used.
 
-Reviewers need this to calibrate review depth. Undisclosed AI-generated code may be
-rejected.
+Reviewers need this to calibrate review depth. Undisclosed AI-generated code may be rejected.
 
 ## Pull requests
 
