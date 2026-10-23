@@ -50,6 +50,12 @@ name of the host executable. To access files next to the executable, use
 - If your project (or a package it uses) depends on an incompatible API, set
   `"singleFile": false` in the Manifest's build section and the single-file defaults are
   disabled.
+- Apps that resolve the .NET SDK at runtime (for example through
+  `Microsoft.Build.Locator`, as ReleaseGen itself does) are incompatible with
+  **self-contained single-file** publishing: the bundled runtime's hostfxr cannot discover
+  an installed SDK, so MSBuild evaluation fails at runtime. Framework-dependent single-file
+  builds still work provided the target machine has the .NET SDK on `PATH`/`DOTNET_ROOT`.
+  Set `"singleFile": false` for such targets, or keep them framework-dependent.
 
 ## Sources
 
