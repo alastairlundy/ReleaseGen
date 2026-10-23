@@ -23,7 +23,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out string[] expectedEntries);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip, CancellationToken.None);
+        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsTrue();
 
@@ -40,7 +40,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out string[] expectedEntries);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.tar.gz"));
 
-        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.TarGz, CancellationToken.None);
+        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.TarGz, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsTrue();
 
@@ -65,7 +65,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out _);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.None, CancellationToken.None);
+        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.None, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsFalse();
     }
@@ -78,7 +78,7 @@ public class ArchiveTests
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.rar"));
 
         ManifestException exception = Capture.Exception<ManifestException>(
-            () => _ = BuildArchiver.CreateArchive(source, archive, "rar", CancellationToken.None));
+            () => _ = BuildArchiver.CreateArchiveAsync(source, archive, "rar", CancellationToken.None));
 
         await Assert.That(exception.Message).Contains("Unknown archive format 'rar'");
         await Assert.That(exception.Message).Contains("zip, tar.gz, none");
@@ -92,7 +92,7 @@ public class ArchiveTests
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
         BuildStageException exception = Capture.Exception<BuildStageException>(
-            () => _ = BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip, CancellationToken.None));
+            () => _ = BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None));
 
         await Assert.That(exception.Message).Contains("does not exist");
         await Assert.That(exception.Message).Contains(archive.FullName);
@@ -105,7 +105,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out _);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip, CancellationToken.None);
+        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         // A previous run's stale archive must not survive into this run's output.
         foreach (string file in Directory.GetFiles(source.FullName, "*", SearchOption.AllDirectories))
@@ -115,7 +115,7 @@ public class ArchiveTests
 
         Directory.Delete(Path.Combine(source.FullName, "runtimes"), recursive: true);
         await File.WriteAllTextAsync(Path.Combine(source.FullName, "replacement.txt"), "new content");
-        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip, CancellationToken.None);
+        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         await using ZipArchive zip = await ZipFile.OpenReadAsync(archive.FullName);
         string[] entries = [.. zip.Entries.Select(static entry => entry.FullName)];

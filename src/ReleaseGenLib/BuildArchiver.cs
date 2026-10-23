@@ -13,7 +13,7 @@ using Models;
 /// local output root and are never uploaded - the only network destination in v1 is the publish
 /// stage's NuGet source. Both APIs are in-box for net10.0, so no package is added.
 /// </summary>
-public static class BuildArchiver
+public class BuildArchiver : IBuildArchiver
 {
     /// <summary>
     /// Archives <paramref name="sourceDirectory"/>'s contents into <paramref name="archiveFile"/>
@@ -26,7 +26,7 @@ public static class BuildArchiver
     /// <param name="cancellationToken"></param>
     /// <exception cref="BuildStageException">The directory to archive does not exist.</exception>
     /// <exception cref="ManifestException"><paramref name="format"/> is not a known archive format.</exception>
-    public static async Task CreateArchive(DirectoryInfo sourceDirectory, FileInfo archiveFile, string format, CancellationToken cancellationToken)
+    public async Task CreateArchiveAsync(DirectoryInfo sourceDirectory, FileInfo archiveFile, string format, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sourceDirectory);
         ArgumentNullException.ThrowIfNull(archiveFile);
@@ -90,7 +90,7 @@ public static class BuildArchiver
     /// <param name="sourceDirectory">The per-rid output folder to archive.</param>
     /// <param name="archiveFile">The .tar.gz file to create.</param>
     /// <param name="cancellationToken"></param>
-    private static async Task CreateTarGz(DirectoryInfo sourceDirectory, FileInfo archiveFile, CancellationToken cancellationToken)
+    private async Task CreateTarGz(DirectoryInfo sourceDirectory, FileInfo archiveFile, CancellationToken cancellationToken)
     {
 #pragma warning disable MA0004
         await using FileStream fileStream = new(archiveFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None);

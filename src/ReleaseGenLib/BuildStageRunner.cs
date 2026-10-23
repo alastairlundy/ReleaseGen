@@ -43,6 +43,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
     private const long MaxBufferedOutputBytes = 64 * 1024 * 1024;
 
     private readonly IProcessInvoker _processInvoker;
+    private readonly IBuildArchiver _buildArchiver;
 
     /// <summary>
     /// The build stage runner: runs <c>dotnet publish -c Release -r &lt;rid&gt;</c> once per
@@ -65,14 +66,15 @@ public sealed class BuildStageRunner : IBuildStageRunner
     /// Publish output reaches the caller only through the request's line sinks - this type never
     /// writes to the console - and no publish line is filtered or suppressed, so the SDK's
     /// IL3000-family analyzer warnings pass through intact. CliInvoke 3.1.0 exposes no
-    /// line-level process events, so each publish's captured output is replayed to the sinks as
+    /// line-level process events, so each publish command invocation's captured output is replayed to the sinks as
     /// soon as that publish completes rather than interleaved live; fail-fast still stops the
     /// stage at the first failing rid.
     /// </para>
     /// </summary>
-    public BuildStageRunner(IProcessInvoker processInvoker)
+    public BuildStageRunner(IProcessInvoker processInvoker, IBuildArchiver buildArchiver)
     {
         _processInvoker = processInvoker;
+        _buildArchiver = buildArchiver;
     }
 
     /// <inheritdoc />
@@ -194,7 +196,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
                 if (target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase) &&
                     !string.Equals(archiveFormat, ArchiveFormats.None, StringComparison.Ordinal))
                 {
-                    await BuildArchiver.CreateArchive(outputDirectory, archiveFile, archiveFormat, cancellationToken)
+                    await _buildArchiver.CreateArchiveAsync(outputDirectory, archiveFile, archiveFormat, cancellationToken)
                         .ConfigureAwait(false);
                     request.WriteLine?.Invoke(
                         $"build: archived '{outputDirectory.FullName}' to '{archiveFile.FullName}' ({archiveFormat}).");

@@ -12,9 +12,9 @@ using Models;
 /// walk-up discovery with an explicit-path override, and the executable-kind cross-check
 /// against the evaluated OutputType.
 /// </summary>
-public sealed class ManifestLoader
+public sealed class ManifestLoader : IManifestLoader
 {
-    private readonly IProjectInfoProvider? _projectInfoProvider;
+    private readonly IProjectInfoProvider _projectInfoProvider;
 
     /// <summary>
     /// Loads and validates <c>releasegen.json</c> manifests: strict System.Text.Json parsing,
@@ -25,7 +25,7 @@ public sealed class ManifestLoader
     /// The Microsoft.Build evaluation path used for the OutputType cross-check. When null, only
     /// manifest-internal validation runs.
     /// </param>
-    public ManifestLoader(IProjectInfoProvider? projectInfoProvider = null)
+    public ManifestLoader(IProjectInfoProvider projectInfoProvider)
     {
         _projectInfoProvider = projectInfoProvider;
     }
@@ -174,7 +174,7 @@ public sealed class ManifestLoader
                     $"Manifest validation failed: the target '{target.Project}' declares unknown archive format '{target.Archive}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
             }
 
-            if (_projectInfoProvider is not null && target.Kinds.Contains(ArtifactKinds.Executables))
+            if (_projectInfoProvider is not null && target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase))
             {
                 ValidateExecutablesOutputType(target, baseDirectory);
             }
@@ -195,7 +195,7 @@ public sealed class ManifestLoader
 
         try
         {
-            outputType = _projectInfoProvider?.GetOutputType(projectFile);
+            outputType = _projectInfoProvider.GetOutputType(projectFile);
         }
         catch (Exception ex)
         {
