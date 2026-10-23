@@ -6,6 +6,10 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PublishAot>false</PublishAot>
+        <!-- ReleaseGen evaluates projects at runtime via Microsoft.Build.Locator, which needs
+             the .NET SDK's on-disk MSBuild. Single-file publishing bundles assemblies and breaks
+             that resolution, so ReleaseGen itself must never be published as a single file. -->
+        <PublishSingleFile>false</PublishSingleFile>
         <RepositoryUrl>https://github.com/alastairlundy/ReleaseGen</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <PackageProjectUrl>https://github.com/alastairlundy/ReleaseGen</PackageProjectUrl>
