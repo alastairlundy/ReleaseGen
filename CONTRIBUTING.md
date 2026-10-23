@@ -63,8 +63,9 @@ commit or pull request, **disclose it**:
   `AI-assisted:` note). Note that GitHub attributes `Co-authored-by` trailers to
   GitHub user names, not display names — use the AI/bot account's GitHub username
   (e.g. `Co-authored-by: your-bot <your-bot@users.noreply.github.com>`).
-- In the body of the pull request, state the level of AI-generated code and what
-  LLM(s) was used.
+- In the body of the pull request, disclose how much of the change was
+  AI-assisted and the nature of that assistance (e.g. which parts were
+  generated, refactored, or reviewed by AI), along with which LLM(s) was used.
 
 Reviewers need this to calibrate review depth. Undisclosed AI-generated code may be rejected.
 
