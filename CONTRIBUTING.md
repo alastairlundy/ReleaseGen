@@ -61,8 +61,8 @@ commit or pull request, **disclose it**:
 
 - In commit messages, note AI assistance (e.g. `Co-authored-by` or a short
   `AI-assisted:` note). Note that GitHub attributes `Co-authored-by` trailers to
-  GitHub user names, not display names — use the contributor's GitHub username
-  (e.g. `Co-authored-by: octocat <octocat@users.noreply.github.com>`).
+  GitHub user names, not display names — use the AI/bot account's GitHub username
+  (e.g. `Co-authored-by: your-bot <your-bot@users.noreply.github.com>`).
 - In the body of the pull request, state the level of AI-generated code and what
   LLM(s) was used.
 
