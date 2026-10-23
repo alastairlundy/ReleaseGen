@@ -91,6 +91,12 @@ public sealed class PackageKindRunner(IProcessInvoker processInvoker)
             ProcessExitConfiguration.Default,
             cancellationToken);
 
+        if (result.WasTruncated)
+        {
+            writeErrorLine?.Invoke(
+                $"package: pack output for target '{projectName}' with kind '{kind}' was truncated; some lines did not reach the console.");
+        }
+
         ReplayLines(result.StandardOutput, writeLine);
         ReplayLines(result.StandardError, writeErrorLine);
 

@@ -95,9 +95,18 @@ public sealed class BuildStageRunner(IProcessInvoker processInvoker) : IBuildSta
                     Directory.Delete(outputDirectory.FullName, recursive: true);
                 }
 
-                if (File.Exists(archiveFile.FullName))
+                // Remove any stale archive for this (target, rid), regardless of the format a
+                // previous run may have used, so switching archive formats never leaves an
+                // orphaned file beside the new one.
+                string archiveStem = Path.Combine(
+                    request.OutputRoot.FullName, $"{projectName}-{rid}");
+                foreach (string staleExtension in new[] { ".zip", ".tar.gz" })
                 {
-                    File.Delete(archiveFile.FullName);
+                    string stalePath = archiveStem + staleExtension;
+                    if (File.Exists(stalePath))
+                    {
+                        File.Delete(stalePath);
+                    }
                 }
 
                 List<string> argumentList =

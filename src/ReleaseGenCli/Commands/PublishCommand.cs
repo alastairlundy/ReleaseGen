@@ -345,6 +345,12 @@ public sealed class PublishCommand : Command
             ProcessExitConfiguration.Default,
             cancellationToken);
 
+        if (result.WasTruncated)
+        {
+            CliOutput.Warning(
+                $"publish: push output for package '{push.PackageFile.Name}' to source '{source}' was truncated; some lines did not reach the console.");
+        }
+
         ReplayLines(result.StandardOutput, static line => CliOutput.Note(line));
         ReplayLines(result.StandardError, static line => CliOutput.Warning(line));
 

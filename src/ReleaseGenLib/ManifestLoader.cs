@@ -89,7 +89,8 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
             throw new ManifestException($"Manifest file not found: {manifestFile.FullName}");
         }
 
-        Manifest manifest = Parse(manifestFile.OpenText().ReadToEnd());
+        using StreamReader reader = manifestFile.OpenText();
+        Manifest manifest = Parse(reader.ReadToEnd());
 
         Validate(manifest, manifestFile);
 
@@ -224,15 +225,25 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
             return new FileInfo(fullPath);
         }
 
-        List<FileInfo> projectFiles =
-            [.. new DirectoryInfo(fullPath).EnumerateFiles("*", new EnumerationOptions
-            {
-                IgnoreInaccessible = true,
-                MatchCasing = MatchCasing.CaseInsensitive,
-            }).Where(f =>
-                f.Name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) ||
-                f.Name.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase) ||
-                f.Name.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase))];
+        List<FileInfo> projectFiles;
+
+        try
+        {
+            projectFiles =
+                [.. new DirectoryInfo(fullPath).EnumerateFiles("*", new EnumerationOptions
+                {
+                    IgnoreInaccessible = true,
+                    MatchCasing = MatchCasing.CaseInsensitive,
+                }).Where(f =>
+                    f.Name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) ||
+                    f.Name.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase) ||
+                    f.Name.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase))];
+        }
+        catch (Exception ex) when (ex is DirectoryNotFoundException or IOException or UnauthorizedAccessException)
+        {
+            throw new ManifestException(
+                $"Manifest validation failed: no .NET project file found at '{projectPath}'. {ex.Message}");
+        }
 
         return projectFiles.Count switch
         {

@@ -148,6 +148,13 @@ public sealed class TestCommand : Command
             ProcessExitConfiguration.Default,
             cancellationToken);
 
+        if (result.WasTruncated)
+        {
+            CliOutput.Warning(project is null
+                ? "test: dotnet test output from the current directory was truncated; some lines did not reach the console."
+                : $"test: dotnet test output for project '{project}' was truncated; some lines did not reach the console.");
+        }
+
         ReplayLines(result.StandardOutput, RouteStdoutLine);
         ReplayLines(result.StandardError, static line => CliOutput.Warning(line));
 
