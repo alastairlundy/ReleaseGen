@@ -1,5 +1,8 @@
 # ReleaseGen
 
+[![CI](https://img.shields.io/github/actions/workflow/status/alastairlundy/ReleaseGen/ci.yml?branch=main)](https://github.com/alastairlundy/ReleaseGen/actions/workflows/ci.yml)
+[![License: MPL-2.0](https://img.shields.io/github/license/alastairlundy/ReleaseGen)](https://github.com/alastairlundy/ReleaseGen/blob/main/LICENSE.txt)
+
 ReleaseGen is an opinionated .NET CLI for building, packaging, and publishing .NET projects.
 One strict `releasegen.json` manifest (the Manifest) drives every stage of a release: build,
 test, package, and publish.
