@@ -71,7 +71,7 @@ public sealed class BuildCommand : Command
                     effectivePreset = manifestPreset;
                 }
 
-                string preset = string.IsNullOrWhiteSpace(effectivePreset) ? BuildPreset.None : effectivePreset!;
+                string preset = string.IsNullOrWhiteSpace(effectivePreset) ? BuildPreset.None : effectivePreset;
 
                 BuildStageRequest request = new()
                 {
@@ -84,7 +84,7 @@ public sealed class BuildCommand : Command
                 };
 
                 IBuildStageRunner runner = services.GetRequiredService<IBuildStageRunner>();
-                await runner.RunAsync(request, cancellationToken);
+                await runner.RunAsync(request, cancellationToken).ConfigureAwait(true);
                 return 0;
             }
             catch (Exception ex)

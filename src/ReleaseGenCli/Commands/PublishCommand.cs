@@ -75,7 +75,7 @@ public sealed class PublishCommand : Command
 
                 // The gate consult happens before the first push, so a blocked manifest
                 // stops with no network call.
-                TestGateResult gate = await ConsultGateAsync(services, manifest, CliOutput.Quiet, cancellationToken);
+                TestGateResult gate = await ConsultGateAsync(services, manifest, CliOutput.Quiet, cancellationToken).ConfigureAwait(true);
 
                 switch (gate.Outcome)
                 {
@@ -97,7 +97,7 @@ public sealed class PublishCommand : Command
                     CliOutput.Note($"publish: pushing to {sources.Length} sources: {string.Join(", ", sources)}.");
                 }
 
-                List<PushEntry> pushes = CollectPushEntries(manifest, manifestFile.Directory!.FullName);
+                List<PushEntry> pushes = CollectPushEntries(manifest, manifestFile.Directory?.FullName);
 
                 if (pushes.Count == 0)
                 {
@@ -116,7 +116,7 @@ public sealed class PublishCommand : Command
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        await PushAsync(processInvoker, push, source, apiKey, cancellationToken);
+                        await PushAsync(processInvoker, push, source, apiKey, cancellationToken).ConfigureAwait(true);
                         pushedCount++;
 
                         if (!pushedKinds.Contains(push.Kind))
@@ -191,7 +191,7 @@ public sealed class PublishCommand : Command
         // section must exit 0 before the first push.
         CliOutput.Note("publish: consulting the test gate; running the test stage.");
 
-        int exitCode = await InvokeTestStageAsync(services, quiet, cancellationToken);
+        int exitCode = await InvokeTestStageAsync(services, quiet, cancellationToken).ConfigureAwait(true);
         TestGateResult gate = TestGateResult.FromStage(exitCode, hasTestSection: true);
 
         StageContext.TestGate = gate;
@@ -212,9 +212,11 @@ public sealed class PublishCommand : Command
         bool quiet,
         CancellationToken cancellationToken)
     {
-        RootCommand temporaryRoot = new("ReleaseGen stage invocation root.");
-        temporaryRoot.Add(new TestCommand(services));
-        temporaryRoot.Add(CliOptions.Quiet);
+        RootCommand temporaryRoot = new("ReleaseGen stage invocation root.")
+        {
+            new TestCommand(services),
+            CliOptions.Quiet,
+        };
 
         List<string> argv = ["test"];
 
@@ -225,7 +227,7 @@ public sealed class PublishCommand : Command
 
         ParseResult result = temporaryRoot.Parse(argv);
 
-        return await result.InvokeAsync(cancellationToken: cancellationToken);
+        return await result.InvokeAsync(cancellationToken: cancellationToken).ConfigureAwait(true);
     }
 
     /// <summary>
@@ -343,7 +345,7 @@ public sealed class PublishCommand : Command
         BufferedProcessResult result = await processInvoker.ExecuteBufferedAsync(
             configuration,
             ProcessExitConfiguration.Default,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(true);
 
         if (result.WasTruncated)
         {
@@ -397,10 +399,3 @@ public sealed class PublishCommand : Command
     /// <param name="TargetProject">The target's project name, for console wording.</param>
     private sealed record PushEntry(FileInfo PackageFile, string Kind, string TargetProject);
 }
-
-/// <summary>
-/// Thrown when the publish stage cannot push: a declared kind has no package output, or a push
-/// invocation exits nonzero; the message names the failing thing, and the publish stage
-/// command renders it as a one-line error.
-/// </summary>
-public sealed class PublishStageException(string message) : Exception(message);

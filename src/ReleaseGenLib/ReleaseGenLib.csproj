@@ -26,6 +26,10 @@
     <ItemGroup>
       <PackageReference Include="CliInvoke" />
       <PackageReference Include="CliInvoke.Core" />
+      <PackageReference Include="Meziantou.Analyzer">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
       <!-- Compile-time only; Microsoft.Build.Locator supplies the runtime assemblies from the installed SDK. -->
       <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" PrivateAssets="all" />
       <PackageReference Include="Microsoft.Build.Locator" />

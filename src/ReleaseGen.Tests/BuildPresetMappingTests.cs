@@ -1,3 +1,5 @@
+using ReleaseGenLib.Exceptions;
+
 namespace ReleaseGen.Tests;
 
 using Microsoft.Extensions.DependencyInjection;

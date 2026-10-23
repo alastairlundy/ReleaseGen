@@ -1,3 +1,5 @@
+using ReleaseGenLib.Exceptions;
+
 namespace ReleaseGenLib;
 
 using System.Formats.Tar;
@@ -21,9 +23,10 @@ public static class BuildArchiver
     /// <param name="sourceDirectory">The per-rid output folder to archive (its project-name folder under the rid folder).</param>
     /// <param name="archiveFile">The archive file to create beside the per-rid folder.</param>
     /// <param name="format">One of <see cref="ArchiveFormats.All"/>.</param>
+    /// <param name="cancellationToken"></param>
     /// <exception cref="BuildStageException">The directory to archive does not exist.</exception>
     /// <exception cref="ManifestException"><paramref name="format"/> is not a known archive format.</exception>
-    public static void CreateArchive(DirectoryInfo sourceDirectory, FileInfo archiveFile, string format)
+    public static async Task CreateArchive(DirectoryInfo sourceDirectory, FileInfo archiveFile, string format, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sourceDirectory);
         ArgumentNullException.ThrowIfNull(archiveFile);
@@ -65,16 +68,18 @@ public static class BuildArchiver
             parent.Create();
         }
 
-        if (format == ArchiveFormats.Zip)
+        if (string.Equals(format, ArchiveFormats.Zip, StringComparison.OrdinalIgnoreCase))
         {
             // includeBaseDirectory: false - the archive is named <project-name>-<rid>.zip, so the
             // per-rid project folder itself does not need to wrap the entries.
-            ZipFile.CreateFromDirectory(
-                sourceDirectory.FullName, archiveFile.FullName, CompressionLevel.Optimal, false);
+            await ZipFile.CreateFromDirectoryAsync(
+                    sourceDirectory.FullName, archiveFile.FullName, CompressionLevel.Optimal, includeBaseDirectory: false,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
         }
         else
         {
-            CreateTarGz(sourceDirectory, archiveFile);
+            await CreateTarGz(sourceDirectory, archiveFile, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -84,16 +89,19 @@ public static class BuildArchiver
     /// </summary>
     /// <param name="sourceDirectory">The per-rid output folder to archive.</param>
     /// <param name="archiveFile">The .tar.gz file to create.</param>
-    private static void CreateTarGz(DirectoryInfo sourceDirectory, FileInfo archiveFile)
+    /// <param name="cancellationToken"></param>
+    private static async Task CreateTarGz(DirectoryInfo sourceDirectory, FileInfo archiveFile, CancellationToken cancellationToken)
     {
-        using FileStream fileStream = new(archiveFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None);
-        using GZipStream gzipStream = new(fileStream, CompressionLevel.Optimal, false);
-        using TarWriter writer = new(gzipStream, false);
+#pragma warning disable MA0004
+        await using FileStream fileStream = new(archiveFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None);
+        await using GZipStream gzipStream = new(fileStream, CompressionLevel.Optimal, false);
+        await using TarWriter writer = new(gzipStream, false);
+#pragma warning restore MA0004
 
         foreach (string file in Directory.EnumerateFiles(sourceDirectory.FullName, "*", SearchOption.AllDirectories))
         {
             string entryName = Path.GetRelativePath(sourceDirectory.FullName, file).Replace('\\', '/');
-            writer.WriteEntry(file, entryName);
+            await writer.WriteEntryAsync(file, entryName, cancellationToken).ConfigureAwait(false);
         }
     }
 }

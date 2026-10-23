@@ -1,3 +1,5 @@
+using ReleaseGenLib.Exceptions;
+
 namespace ReleaseGen.Tests;
 
 using ReleaseGenLib;
@@ -96,7 +98,9 @@ public class ManifestParsingTests
             .IsEqualTo("linux-x64, win-x64");
         await Assert.That(manifest.Build.PublishAot).IsFalse();
         await Assert.That(manifest.Build.SingleFile).IsFalse();
-        await Assert.That(manifest.Test!.Projects[0]).IsEqualTo("tests/App.Tests/App.Tests.csproj");
+
+        await Assert.That(manifest.Test).IsNotNull();
+        await Assert.That(manifest.Test.Projects[0]).IsEqualTo("tests/App.Tests/App.Tests.csproj");
         await Assert.That(manifest.Publish.Sources[0]).IsEqualTo("https://example.test/v3/index.json");
     }
 

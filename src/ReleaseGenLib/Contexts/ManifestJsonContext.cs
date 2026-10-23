@@ -1,7 +1,7 @@
-namespace ReleaseGenLib;
-
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
+namespace ReleaseGenLib.Contexts;
 
 /// <summary>
 /// The source-generated System.Text.Json context for the manifest: strict defaults with

@@ -5,7 +5,6 @@ using CliInvoke.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenLib;
 using ReleaseGenLib.Abstractions;
-using ReleaseGenLib.Models;
 
 /// <summary>
 /// DI composition for command-level tests, mirroring <c>Program.cs</c> minus the MSBuild

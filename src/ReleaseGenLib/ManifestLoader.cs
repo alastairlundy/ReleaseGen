@@ -1,3 +1,5 @@
+using ReleaseGenLib.Exceptions;
+
 namespace ReleaseGenLib;
 
 using System.Linq;
@@ -10,12 +12,24 @@ using ReleaseGenLib.Models;
 /// walk-up discovery with an explicit-path override, and the executable-kind cross-check
 /// against the evaluated OutputType.
 /// </summary>
-/// <param name="projectInfoProvider">
-/// The Microsoft.Build evaluation path used for the OutputType cross-check. When null, only
-/// manifest-internal validation runs.
-/// </param>
-public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = null)
+public sealed class ManifestLoader
 {
+    private readonly IProjectInfoProvider? _projectInfoProvider;
+
+    /// <summary>
+    /// Loads and validates <c>releasegen.json</c> manifests: strict System.Text.Json parsing,
+    /// walk-up discovery with an explicit-path override, and the executable-kind cross-check
+    /// against the evaluated OutputType.
+    /// </summary>
+    /// <param name="projectInfoProvider">
+    /// The Microsoft.Build evaluation path used for the OutputType cross-check. When null, only
+    /// manifest-internal validation runs.
+    /// </param>
+    public ManifestLoader(IProjectInfoProvider? projectInfoProvider = null)
+    {
+        _projectInfoProvider = projectInfoProvider;
+    }
+
     /// <summary>
     /// The manifest file name resolved by discovery.
     /// </summary>
@@ -108,7 +122,7 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
     {
         try
         {
-            return JsonSerializer.Deserialize(json, ManifestJsonContext.Default.Manifest)
+            return JsonSerializer.Deserialize(json, Contexts.ManifestJsonContext.Default.Manifest)
                    ?? throw new ManifestException("Manifest parse failed: the manifest is empty.");
         }
         catch (JsonException ex)
@@ -160,7 +174,7 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
                     $"Manifest validation failed: the target '{target.Project}' declares unknown archive format '{target.Archive}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
             }
 
-            if (projectInfoProvider is not null && target.Kinds.Contains(ArtifactKinds.Executables))
+            if (_projectInfoProvider is not null && target.Kinds.Contains(ArtifactKinds.Executables))
             {
                 ValidateExecutablesOutputType(target, baseDirectory);
             }
@@ -181,7 +195,7 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
 
         try
         {
-            outputType = projectInfoProvider!.GetOutputType(projectFile);
+            outputType = _projectInfoProvider?.GetOutputType(projectFile);
         }
         catch (Exception ex)
         {
@@ -230,14 +244,14 @@ public sealed class ManifestLoader(IProjectInfoProvider? projectInfoProvider = n
         try
         {
             projectFiles =
-                [.. new DirectoryInfo(fullPath).EnumerateFiles("*", new EnumerationOptions
-                {
-                    IgnoreInaccessible = true,
-                    MatchCasing = MatchCasing.CaseInsensitive,
-                }).Where(f =>
-                    f.Name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) ||
-                    f.Name.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase) ||
-                    f.Name.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase))];
+            [.. new DirectoryInfo(fullPath).EnumerateFiles("*", new EnumerationOptions
+            {
+                IgnoreInaccessible = true,
+                MatchCasing = MatchCasing.CaseInsensitive,
+            }).Where(f =>
+                f.Name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) ||
+                f.Name.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase) ||
+                f.Name.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase))];
         }
         catch (Exception ex) when (ex is DirectoryNotFoundException or IOException or UnauthorizedAccessException)
         {

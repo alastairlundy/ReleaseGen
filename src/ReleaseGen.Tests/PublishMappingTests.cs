@@ -3,7 +3,6 @@ namespace ReleaseGen.Tests;
 using CliInvoke.Core;
 using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenCli.Commands;
-using ReleaseGenLib.Models;
 
 /// <summary>
 /// The publish stage's invocation mapping: each declared package kind becomes a

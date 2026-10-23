@@ -24,9 +24,35 @@ using ReleaseGenLib.Models;
 /// target, the kind, and the exit code.
 /// </para>
 /// </summary>
-public sealed class PackageKindRunner(IProcessInvoker processInvoker)
+public sealed class PackageKindRunner
 {
-    private readonly IProcessInvoker _processInvoker = processInvoker;
+    private readonly IProcessInvoker _processInvoker;
+
+    /// <summary>
+    /// Runs one artefact kind's pack invocation for the package stage: a single
+    /// <c>dotnet pack -c Release -o &lt;output&gt;</c> per declared kind. Only declared kinds are
+    /// produced and nothing is inferred from the project file: <c>lib-package</c> and
+    /// <c>tool-package</c> are the same pack shape landing in different output partitions
+    /// (<c>release/packages/lib|tool/&lt;project-name&gt;</c> under the invocation directory,
+    /// local-only - nothing here uploads; the only network destination in v1 is the publish
+    /// stage's NuGet source). Whether a pack yields a dotnet tool is the project's own
+    /// <c>PackAsTool</c> configuration, not something this stage reads. Any other kind is
+    /// rejected with an error naming it; the stage command never dispatches the build stage's
+    /// <c>executables</c> kind here.
+    ///
+    /// <para>
+    /// Pack output reaches the caller only through the line sinks - this type never writes to
+    /// the console - and no pack line is filtered, mirroring the build stage's pass-through.
+    /// CliInvoke 3.1.0 exposes no line-level process events, so each pack's captured
+    /// output is replayed to the sinks as soon as that pack completes rather than interleaved
+    /// live; a nonzero exit fails fast with a <see cref="PackageStageException"/> naming the
+    /// target, the kind, and the exit code.
+    /// </para>
+    /// </summary>
+    public PackageKindRunner(IProcessInvoker processInvoker)
+    {
+        _processInvoker = processInvoker;
+    }
 
     /// <summary>
     /// Runs <c>dotnet pack -c Release -o &lt;output&gt;</c> once for the given project and kind.
@@ -89,7 +115,7 @@ public sealed class PackageKindRunner(IProcessInvoker processInvoker)
         BufferedProcessResult result = await _processInvoker.ExecuteBufferedAsync(
             configuration,
             ProcessExitConfiguration.Default,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(true);
 
         if (result.WasTruncated)
         {
@@ -133,9 +159,3 @@ public sealed class PackageKindRunner(IProcessInvoker processInvoker)
         }
     }
 }
-
-/// <summary>
-/// Thrown when a pack invocation exits nonzero; the message names the target, the kind, and
-/// the exit code, and the package stage command renders it as a one-line error.
-/// </summary>
-public sealed class PackageStageException(string message) : Exception(message);

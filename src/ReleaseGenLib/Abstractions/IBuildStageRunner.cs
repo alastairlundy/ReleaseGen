@@ -1,3 +1,5 @@
+using ReleaseGenLib.Exceptions;
+
 namespace ReleaseGenLib.Abstractions;
 
 /// <summary>

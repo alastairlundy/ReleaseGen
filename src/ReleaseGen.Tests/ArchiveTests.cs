@@ -1,8 +1,9 @@
+using ReleaseGenLib.Exceptions;
+
 namespace ReleaseGen.Tests;
 
 using System.Formats.Tar;
 using System.IO.Compression;
-using CliInvoke.Core;
 using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenCli.Commands;
 using ReleaseGenLib;
@@ -22,11 +23,11 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out string[] expectedEntries);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip);
+        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsTrue();
 
-        using ZipArchive zip = ZipFile.OpenRead(archive.FullName);
+        await using ZipArchive zip = await ZipFile.OpenReadAsync(archive.FullName);
         string[] entries = [.. zip.Entries.Select(static entry => entry.FullName)];
 
         await Assert.That(entries).IsEquivalentTo(expectedEntries);
@@ -39,17 +40,17 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out string[] expectedEntries);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.tar.gz"));
 
-        BuildArchiver.CreateArchive(source, archive, ArchiveFormats.TarGz);
+        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.TarGz, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsTrue();
 
-        using FileStream stream = File.OpenRead(archive.FullName);
-        using GZipStream gzip = new(stream, CompressionMode.Decompress);
-        using TarReader reader = new(gzip);
+        await using FileStream stream = File.OpenRead(archive.FullName);
+        await using GZipStream gzip = new(stream, CompressionMode.Decompress);
+        await using TarReader reader = new(gzip);
 
         List<string> entries = [];
 
-        while (reader.GetNextEntry() is TarEntry entry)
+        while (await reader.GetNextEntryAsync() is { } entry)
         {
             entries.Add(entry.Name);
         }
@@ -64,7 +65,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out _);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        BuildArchiver.CreateArchive(source, archive, ArchiveFormats.None);
+        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.None, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsFalse();
     }
@@ -77,7 +78,7 @@ public class ArchiveTests
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.rar"));
 
         ManifestException exception = Capture.Exception<ManifestException>(
-            () => BuildArchiver.CreateArchive(source, archive, "rar"));
+            () => _ = BuildArchiver.CreateArchive(source, archive, "rar", CancellationToken.None));
 
         await Assert.That(exception.Message).Contains("Unknown archive format 'rar'");
         await Assert.That(exception.Message).Contains("zip, tar.gz, none");
@@ -91,7 +92,7 @@ public class ArchiveTests
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
         BuildStageException exception = Capture.Exception<BuildStageException>(
-            () => BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip));
+            () => _ = BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip, CancellationToken.None));
 
         await Assert.That(exception.Message).Contains("does not exist");
         await Assert.That(exception.Message).Contains(archive.FullName);
@@ -104,7 +105,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out _);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip);
+        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         // A previous run's stale archive must not survive into this run's output.
         foreach (string file in Directory.GetFiles(source.FullName, "*", SearchOption.AllDirectories))
@@ -113,13 +114,13 @@ public class ArchiveTests
         }
 
         Directory.Delete(Path.Combine(source.FullName, "runtimes"), recursive: true);
-        File.WriteAllText(Path.Combine(source.FullName, "replacement.txt"), "new content");
-        BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip);
+        await File.WriteAllTextAsync(Path.Combine(source.FullName, "replacement.txt"), "new content");
+        await BuildArchiver.CreateArchive(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
-        using ZipArchive zip = ZipFile.OpenRead(archive.FullName);
+        await using ZipArchive zip = await ZipFile.OpenReadAsync(archive.FullName);
         string[] entries = [.. zip.Entries.Select(static entry => entry.FullName)];
 
-        await Assert.That(entries).IsEquivalentTo(new[] { "replacement.txt" });
+        await Assert.That(entries).IsEquivalentTo(["replacement.txt"]);
     }
 
     [Test]
@@ -133,9 +134,9 @@ public class ArchiveTests
         // Archiving is opt-out, not opt-in - the zip default is implicit.
         await Assert.That(File.Exists(archivePath)).IsTrue();
 
-        using ZipArchive zip = ZipFile.OpenRead(archivePath);
+        await using ZipArchive zip = await ZipFile.OpenReadAsync(archivePath);
         await Assert.That(zip.Entries.Select(static entry => entry.FullName))
-            .IsEquivalentTo(new[] { "publish-output.txt" });
+            .IsEquivalentTo(["publish-output.txt"]);
     }
 
     [Test]
@@ -160,7 +161,7 @@ public class ArchiveTests
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
+            await using ServiceProvider services = ReleaseGenServices.Create(invoker);
 
             int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
 
@@ -186,7 +187,7 @@ public class ArchiveTests
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
+            await using ServiceProvider services = ReleaseGenServices.Create(invoker);
 
             int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
 
@@ -220,21 +221,25 @@ public class ArchiveTests
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
+            await using ServiceProvider services = ReleaseGenServices.Create(invoker);
 
             int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
 
             await Assert.That(exitCode).IsEqualTo(0);
 
-            string[] archives = Directory.GetFiles(Path.Combine(workspace.Root, "release"), "*.zip")
-                .Concat(Directory.GetFiles(Path.Combine(workspace.Root, "release"), "*.tar.gz"))
-                .ToArray();
+            string[] archives =
+            [
+                .. Directory.GetFiles(Path.Combine(workspace.Root, "release"), "*.zip"),
+                .. Directory.GetFiles(Path.Combine(workspace.Root, "release"), "*.tar.gz")
+            ];
 
             await Assert.That(archives.Length).IsEqualTo(1);
             archivePath = archives[0];
         });
 
-        return archivePath!;
+        await Assert.That(archivePath).IsNotNull();
+        
+        return archivePath;
     }
 
     private static DirectoryInfo SourceFolderWithContent(TestWorkspace workspace, out string[] expectedEntries)

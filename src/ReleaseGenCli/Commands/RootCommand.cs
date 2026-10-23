@@ -2,7 +2,7 @@
 
 using System.CommandLine;
 using System.CommandLine.Help;
-using ReleaseGenLib.Abstractions;
+
 /// <summary>
 /// Composes the ReleaseGen root command: a help-dispensing root with one command per
 /// stage plus the chained run, wired by hand against the DI container.

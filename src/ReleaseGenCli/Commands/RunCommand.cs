@@ -103,7 +103,7 @@ public sealed class RunCommand : Command
                     }
 
                     int exitCode = await InvokeStageAsync(
-                        services, stage.Name, stage.Arguments, quiet, cancellationToken);
+                        services, stage.Name, stage.Arguments, quiet, cancellationToken).ConfigureAwait(true);
 
                     if (exitCode != 0)
                     {
@@ -188,7 +188,7 @@ public sealed class RunCommand : Command
 
         ParseResult result = temporaryRoot.Parse(argv);
 
-        return await result.InvokeAsync(cancellationToken: cancellationToken);
+        return await result.InvokeAsync(cancellationToken: cancellationToken).ConfigureAwait(true);
     }
 
     /// <summary>

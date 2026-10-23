@@ -51,7 +51,7 @@ public sealed class TestCommand : Command
                     processInvoker,
                     manifest.Test.Projects,
                     manifestFile.Directory!.FullName,
-                    cancellationToken);
+                    cancellationToken).ConfigureAwait(true);
 
                 if (exitCode != 0)
                 {
@@ -95,7 +95,7 @@ public sealed class TestCommand : Command
         {
             // Cwd fallback: the section names no projects, so run from the current directory.
             return await RunDotnetTestAsync(
-                processInvoker, ["test"], Environment.CurrentDirectory, project: null, cancellationToken);
+                processInvoker, ["test"], Environment.CurrentDirectory, project: null, cancellationToken).ConfigureAwait(true);
         }
 
         foreach (string project in projects)
@@ -103,7 +103,7 @@ public sealed class TestCommand : Command
             FileInfo projectFile = ManifestLoader.ResolveProjectFile(project, manifestDirectory);
 
             int exitCode = await RunDotnetTestAsync(
-                processInvoker, ["test", projectFile.FullName], manifestDirectory, project, cancellationToken);
+                processInvoker, ["test", projectFile.FullName], manifestDirectory, project, cancellationToken).ConfigureAwait(true);
 
             if (exitCode != 0)
             {
@@ -146,7 +146,7 @@ public sealed class TestCommand : Command
         BufferedProcessResult result = await processInvoker.ExecuteBufferedAsync(
             configuration,
             ProcessExitConfiguration.Default,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(true);
 
         if (result.WasTruncated)
         {

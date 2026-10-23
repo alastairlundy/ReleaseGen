@@ -2,8 +2,6 @@
 using CliInvoke.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenCli.Commands;
-using ReleaseGenLib;
-using ReleaseGenLib.Abstractions;
 
 ServiceCollection services = new();
 
@@ -19,7 +17,7 @@ RootCommand rootCommand = RootCommandComposer.Compose(provider);
 
 try
 {
-    return await rootCommand.Parse(args).InvokeAsync();
+    return await rootCommand.Parse(args).InvokeAsync().ConfigureAwait(true);
 }
 catch (Exception ex)
 {

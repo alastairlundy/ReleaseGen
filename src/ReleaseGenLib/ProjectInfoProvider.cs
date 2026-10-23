@@ -9,7 +9,6 @@ public class ProjectInfoProvider : IProjectInfoProvider
 {
     public ProjectInfoProvider()
     {
-
     }
 
     private static bool _sdkResolverRegistered;
@@ -63,7 +62,7 @@ public class ProjectInfoProvider : IProjectInfoProvider
     /// <returns>The evaluation result.</returns>
     private static T RunWithScopedMsBuildEnvironment<T>(Func<T> evaluation)
     {
-        Dictionary<string, string?> savedVariables = new(MsBuildEnvironmentVariables.Length);
+        Dictionary<string, string?> savedVariables = new(MsBuildEnvironmentVariables.Length, StringComparer.Ordinal);
 
         foreach (string variable in MsBuildEnvironmentVariables)
         {
@@ -105,16 +104,17 @@ public class ProjectInfoProvider : IProjectInfoProvider
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static ProjectInfo DetectProjectInfoCore(FileInfo projectFile)
     {
-        if (!projectFile.Name.EndsWith(".csproj") && !projectFile.Name.EndsWith(".vbproj") &&
-            !projectFile.Name.EndsWith(".fsproj"))
+        if (!projectFile.Name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) && !projectFile.Name.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase) &&
+            !projectFile.Name.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase))
         {
             throw new ArgumentException(
-                $"Project file must be a .NET project file with a file extension of .csproj, .fsproj, or .vbproj . Found {Path.GetExtension(projectFile.Name)}");
+                $"Project file must be a .NET project file with a file extension of .csproj, .fsproj, or .vbproj . Found {Path.GetExtension(projectFile.Name)}",
+                nameof(projectFile));
         }
 
-        Project project = Project.FromFile(projectFile.FullName, new ProjectOptions()
+        Project project = Project.FromFile(projectFile.FullName, new ProjectOptions
         {
-            Interactive = false
+            Interactive = false,
         });
 
         try

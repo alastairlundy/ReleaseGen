@@ -55,7 +55,7 @@ public sealed class PackageCommand : Command
                 foreach (ManifestTarget target in manifest.Targets)
                 {
                     FileInfo projectFile = ManifestLoader.ResolveProjectFile(
-                        target.Project, manifestFile.Directory!.FullName);
+                        target.Project, manifestFile.Directory?.FullName);
 
                     foreach (string kind in target.Kinds)
                     {
@@ -74,7 +74,7 @@ public sealed class PackageCommand : Command
                             outputRoot,
                             static line => CliOutput.Note(line),
                             static line => CliOutput.Warning(line),
-                            cancellationToken);
+                            cancellationToken).ConfigureAwait(true);
 
                         producedCount++;
 

@@ -101,7 +101,7 @@ internal sealed class TestWorkspace : IDisposable
         }
     }
 
-    /// <inheritdoc cref="InDirectoryAsync{T}(string,{Func{Task{T}}})" />
+    /// <inheritdoc cref="InDirectoryAsync{T}" />
     public static Task InDirectoryAsync(string directory, Func<Task> action) =>
         InDirectoryAsync(directory, async () =>
         {

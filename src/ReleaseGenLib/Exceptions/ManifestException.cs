@@ -1,4 +1,4 @@
-namespace ReleaseGenLib;
+namespace ReleaseGenLib.Exceptions;
 
 /// <summary>
 /// Thrown when a manifest fails parsing or validation. Messages name the failing field, target,
