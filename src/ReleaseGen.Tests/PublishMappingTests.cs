@@ -1,3 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
+using ReleaseGenLib.Abstractions;
+
 namespace ReleaseGen.Tests;
 
 using CliInvoke.Core;
@@ -10,8 +13,27 @@ using ReleaseGenCli.Commands;
 /// integration leg lives in <see cref="PublishIntegrationTests"/>.
 /// </summary>
 [ReleaseGenDi]
-public class PublishMappingTests(IServiceProvider services, RecordingProcessInvoker invoker)
+public class PublishMappingTests
 {
+    private readonly RecordingProcessInvoker _invoker;
+    
+    private readonly IManifestLoader _manifestLoader;
+    private readonly IBuildStageRunner _buildStageRunner;
+
+    /// <summary>
+    /// The publish stage's invocation mapping: each declared package kind becomes a
+    /// <c>dotnet nuget push</c> for every staged package, in manifest target order, to the resolved
+    /// source with the API key from the CLI option or the environment channel. The real-invoker
+    /// integration leg lives in <see cref="PublishIntegrationTests"/>.
+    /// </summary>
+    public PublishMappingTests(ServiceProvider services, RecordingProcessInvoker invoker)
+    {
+        _invoker = invoker;
+        
+        _manifestLoader = services.GetRequiredService<IManifestLoader>();
+        _buildStageRunner = services.GetRequiredService<IBuildStageRunner>();
+    }
+
     [Test]
     public async Task No_listed_sources_resolve_to_the_nuget_org_default()
     {
@@ -51,14 +73,14 @@ public class PublishMappingTests(IServiceProvider services, RecordingProcessInvo
             StageContext.Reset();
 
             int exitCode = await CliHarness.InvokeAsync(
-                new PublishCommand(services), "publish", "--api-key", "local-key");
+                new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
 
             await Assert.That(exitCode).IsEqualTo(0);
-            await Assert.That(invoker.Invocations.Count).IsEqualTo(2);
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(2);
 
-            await Assert.That(Arguments(invoker.Invocations[0])).IsEqualTo(
+            await Assert.That(Arguments(_invoker.Invocations[0])).IsEqualTo(
                 $"nuget push {alphaPackage} --source {JsonPath(source)} --api-key local-key");
-            await Assert.That(Arguments(invoker.Invocations[1])).IsEqualTo(
+            await Assert.That(Arguments(_invoker.Invocations[1])).IsEqualTo(
                 $"nuget push {betaPackage} --source {JsonPath(source)} --api-key local-key");
         });
     }
@@ -82,13 +104,13 @@ public class PublishMappingTests(IServiceProvider services, RecordingProcessInvo
             StageContext.Reset();
 
             int exitCode = await CliHarness.InvokeAsync(
-                new PublishCommand(services), "publish", "--api-key", "local-key");
+                new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
 
             await Assert.That(exitCode).IsEqualTo(0);
 
             // Release binaries are the build stage's product, not a NuGet package.
-            await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
-            await Assert.That(Arguments(invoker.Invocations[0])).Contains(package);
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
+            await Assert.That(Arguments(_invoker.Invocations[0])).Contains(package);
         });
     }
 
@@ -106,14 +128,14 @@ public class PublishMappingTests(IServiceProvider services, RecordingProcessInvo
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
                 int exitCode = await CliHarness.InvokeAsync(
-                    new PublishCommand(services), "publish", "--api-key", "local-key");
+                    new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
 
                 await Assert.That(exitCode).IsEqualTo(1);
             });
 
             // The full push list is collected before the first push: no partial upload.
             await Assert.That(console).Contains("no package output");
-            await Assert.That(invoker.Invocations.Count).IsEqualTo(0);
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
         });
     }
 
@@ -133,11 +155,11 @@ public class PublishMappingTests(IServiceProvider services, RecordingProcessInvo
 
             try
             {
-                int exitCode = await CliHarness.InvokeAsync(new PublishCommand(services), "publish");
+                int exitCode = await CliHarness.InvokeAsync(new PublishCommand(_manifestLoader, _invoker), "publish");
 
                 await Assert.That(exitCode).IsEqualTo(0);
-                await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
-                await Assert.That(Arguments(invoker.Invocations[0]))
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
+                await Assert.That(Arguments(_invoker.Invocations[0]))
                     .Contains("--api-key environment-key");
             }
             finally
@@ -165,7 +187,7 @@ public class PublishMappingTests(IServiceProvider services, RecordingProcessInvo
             {
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
-                    int exitCode = await CliHarness.InvokeAsync(new PublishCommand(services), "publish");
+                    int exitCode = await CliHarness.InvokeAsync(new PublishCommand(_manifestLoader, _invoker), "publish");
 
                     await Assert.That(exitCode).IsEqualTo(1);
                 });
@@ -173,7 +195,7 @@ public class PublishMappingTests(IServiceProvider services, RecordingProcessInvo
                 // The key travels only through the CLI option or the environment.
                 await Assert.That(console).Contains("no API key");
                 await Assert.That(console).Contains("NUGET_API_KEY");
-                await Assert.That(invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
             }
             finally
             {

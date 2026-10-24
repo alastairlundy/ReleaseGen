@@ -1,14 +1,11 @@
 ﻿namespace ReleaseGenCli.Commands;
 
 using System.CommandLine;
-using CliInvoke.Core;
-using Microsoft.Extensions.DependencyInjection;
-using ReleaseGenLib;
 using ReleaseGenLib.Models;
 
 /// <summary>
 /// The package stage: runs <c>dotnet pack -c Release -o &lt;output&gt;</c> once per declared
-/// package kind per target, producing exactly the artifact kinds each manifest target declares
+/// package kind per target, producing exactly the artefact kinds each manifest target declares
 /// and nothing more. No inference from project file type: a <c>tool-package</c> is
 /// produced by declaring the kind, not by inspecting the csproj, and every declared kind of
 /// every target gets its own invocation even when several targets name the same project.
@@ -16,15 +13,15 @@ using ReleaseGenLib.Models;
 /// nothing is uploaded here.
 /// </summary>
 /// <remarks>
-/// The <c>executables</c> kind is a valid declaration whose release artifacts are the build
+/// The <c>executables</c> kind is a valid declaration whose release artefacts are the build
 /// stage's product; this stage skips it rather than failing. Pack output is routed
 /// through the conventions layer: stdout lines become stage notes and stderr lines
 /// become warnings so they stay visible under <c>--quiet</c>.
 /// </remarks>
 public sealed class PackageCommand : Command
 {
-    public PackageCommand(IServiceProvider services) : base("package",
-        "Packages each target's declared artifact kinds.")
+    public PackageCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("package",
+        "Packages each target's declared artefact kinds.")
     {
         SetAction(async (parseResult, cancellationToken) =>
         {
@@ -35,9 +32,16 @@ public sealed class PackageCommand : Command
             // kind, failed pack - is caught here and rendered as the one-line error.
             try
             {
-                ManifestLoader manifestLoader = services.GetRequiredService<ManifestLoader>();
                 FileInfo manifestFile = manifestLoader.FindManifestFile(new DirectoryInfo(Environment.CurrentDirectory));
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
+
+                if (manifestFile.Directory is null || !Directory.Exists(manifestFile.Directory.FullName))
+                {
+                    CliOutput.Error("package: Could not find the manifest file.");
+                    return 1;
+                }
+
+                string directoryPath = manifestFile.Directory.FullName;
 
                 if (manifest.Targets.Count == 0)
                 {
@@ -46,55 +50,27 @@ public sealed class PackageCommand : Command
                     return 1;
                 }
 
+                
                 DirectoryInfo outputRoot = new(Path.Combine(Environment.CurrentDirectory, "release", "packages"));
-                PackageKindRunner kindRunner = new(services.GetRequiredService<IProcessInvoker>());
+                PackageKindRunner packageCommandRunner = new(processInvoker);
 
                 int producedCount = 0;
                 List<string> producedKinds = [];
 
                 foreach (ManifestTarget target in manifest.Targets)
                 {
-                    FileInfo projectFile = ManifestLoader.ResolveProjectFile(
-                        target.Project, manifestFile.Directory?.FullName);
+                    FileInfo projectFile = manifestLoader.ResolveProjectFile(
+                        target.Project, directoryPath);
 
-                    foreach (string kind in target.Kinds)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        // The executables kind is the build stage's product, not a package
-                        // stage output: skip it here, never fail on it.
-                        if (string.Equals(kind, ArtifactKinds.Executables, StringComparison.Ordinal))
-                        {
-                            continue;
-                        }
-
-                        await kindRunner.RunAsync(
-                            projectFile,
-                            kind,
-                            outputRoot,
-                            static line => CliOutput.Note(line),
-                            static line => CliOutput.Warning(line),
-                            cancellationToken).ConfigureAwait(true);
-
-                        producedCount++;
-
-                        if (!producedKinds.Contains(kind))
-                        {
-                            producedKinds.Add(kind);
-                        }
-                    }
+                    producedCount +=  await CreatePackage(target, packageCommandRunner, projectFile,
+                            outputRoot, producedKinds, cancellationToken)
+                        .ConfigureAwait(true);
                 }
 
-                if (producedCount == 0)
-                {
-                    CliOutput.Note(
-                        $"package: no package kinds declared across {manifest.Targets.Count} target(s); nothing to package.");
-                }
-                else
-                {
-                    CliOutput.Note(
-                        $"package: produced {producedCount} release artifact(s) of kind(s) {string.Join(", ", producedKinds)} across {manifest.Targets.Count} target(s) under '{outputRoot.FullName}'.");
-                }
+                CliOutput.Note(
+                    producedCount == 0
+                        ? $"package: no package kinds declared across {manifest.Targets.Count} target(s); nothing to package."
+                        : $"package: produced {producedCount} release artifact(s) of kind(s) {string.Join(", ", producedKinds)} across {manifest.Targets.Count} target(s) under '{outputRoot.FullName}'.");
 
                 return 0;
             }
@@ -104,5 +80,38 @@ public sealed class PackageCommand : Command
                 return 1;
             }
         });
+    }
+
+    private static async Task<int> CreatePackage(ManifestTarget target, PackageKindRunner packageCommandRunner, FileInfo projectFile,
+        DirectoryInfo outputRoot, List<string> producedKinds, CancellationToken cancellationToken)
+    {
+        int producedCount = 0;
+        
+        foreach (string targetKind in target.Kinds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // The executables kind is the build stage's product, not a package
+            // stage output: skip it here, never fail on it.
+            if (string.Equals(targetKind, ArtifactKinds.Executables, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            await packageCommandRunner.RunAsync(
+                projectFile, targetKind, outputRoot,
+                static line => CliOutput.Note(line),
+                static line => CliOutput.Warning(line),
+                cancellationToken).ConfigureAwait(true);
+
+            producedCount++;
+
+            if (!producedKinds.Contains(targetKind, StringComparer.OrdinalIgnoreCase))
+            {
+                producedKinds.Add(targetKind);
+            }
+        }
+
+        return producedCount;
     }
 }

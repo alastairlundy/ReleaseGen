@@ -1,9 +1,6 @@
 namespace ReleaseGenCli.Commands;
 
 using System.CommandLine;
-using CliInvoke.Core;
-using Microsoft.Extensions.DependencyInjection;
-using ReleaseGenLib;
 using ReleaseGenLib.Models;
 
 /// <summary>
@@ -29,15 +26,20 @@ using ReleaseGenLib.Models;
 /// </remarks>
 public sealed class PublishCommand : Command
 {
+    private readonly IManifestLoader _manifestLoader;
+    private readonly IProcessInvoker _processInvoker;
+
     /// <summary>
     /// The environment-variable channel for the API key, consulted when the
     /// <c>--api-key</c> option carries no value.
     /// </summary>
     private const string ApiKeyEnvironmentVariable = "NUGET_API_KEY";
 
-    public PublishCommand(IServiceProvider services) : base("publish",
+    public PublishCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("publish",
         "Publishes each target's declared package kinds to the configured NuGet sources.")
     {
+        _manifestLoader = manifestLoader;
+        _processInvoker = processInvoker;
         Option<string?> apiKeyOption = new("--api-key")
         {
             Description =
@@ -56,7 +58,6 @@ public sealed class PublishCommand : Command
             // the one-line error.
             try
             {
-                ManifestLoader manifestLoader = services.GetRequiredService<ManifestLoader>();
                 FileInfo manifestFile = manifestLoader.FindManifestFile(new DirectoryInfo(Environment.CurrentDirectory));
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
 
@@ -75,7 +76,7 @@ public sealed class PublishCommand : Command
 
                 // The gate consult happens before the first push, so a blocked manifest
                 // stops with no network call.
-                TestGateResult gate = await ConsultGateAsync(services, manifest, CliOutput.Quiet, cancellationToken).ConfigureAwait(true);
+                TestGateResult gate = await ConsultGateAsync(manifest, CliOutput.Quiet, cancellationToken).ConfigureAwait(true);
 
                 switch (gate.Outcome)
                 {
@@ -106,7 +107,6 @@ public sealed class PublishCommand : Command
                     return 0;
                 }
 
-                IProcessInvoker processInvoker = services.GetRequiredService<IProcessInvoker>();
                 int pushedCount = 0;
                 List<string> pushedKinds = [];
 
@@ -161,17 +161,15 @@ public sealed class PublishCommand : Command
     /// <summary>
     /// Consults the test gate before the first push. An outcome recorded in this process
     /// - the chained run records the test stage's result through <see cref="StageContext"/>
-    /// - is consumed as-is. Otherwise an absent test section lands on the warning path,
+    /// - is consumed as-is. Otherwise, an absent test section lands on the warning path,
     /// and a declared section is consulted by running the test stage itself: the gate consumes
     /// that invocation's exit code, so a standalone publish cannot bypass it.
     /// </summary>
-    /// <param name="services">The DI container the stage commands resolve from.</param>
     /// <param name="manifest">The loaded manifest.</param>
     /// <param name="quiet">Whether stage notes are suppressed, forwarded to the test consult.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>The gate outcome.</returns>
-    private static async Task<TestGateResult> ConsultGateAsync(
-        IServiceProvider services,
+    private async Task<TestGateResult> ConsultGateAsync(
         Manifest manifest,
         bool quiet,
         CancellationToken cancellationToken)
@@ -191,7 +189,7 @@ public sealed class PublishCommand : Command
         // section must exit 0 before the first push.
         CliOutput.Note("publish: consulting the test gate; running the test stage.");
 
-        int exitCode = await InvokeTestStageAsync(services, quiet, cancellationToken).ConfigureAwait(true);
+        int exitCode = await InvokeTestStageAsync(quiet, cancellationToken).ConfigureAwait(true);
         TestGateResult gate = TestGateResult.FromStage(exitCode, hasTestSection: true);
 
         StageContext.TestGate = gate;
@@ -207,14 +205,13 @@ public sealed class PublishCommand : Command
     /// <param name="quiet">Whether <c>--quiet</c> was set on this invocation; forwarded so the consult stays as quiet.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>The test stage's exit code.</returns>
-    private static async Task<int> InvokeTestStageAsync(
-        IServiceProvider services,
+    private async Task<int> InvokeTestStageAsync(
         bool quiet,
         CancellationToken cancellationToken)
     {
         RootCommand temporaryRoot = new("ReleaseGen stage invocation root.")
         {
-            new TestCommand(services),
+            new TestCommand(_manifestLoader, _processInvoker),
             CliOptions.Quiet,
         };
 
@@ -240,14 +237,14 @@ public sealed class PublishCommand : Command
     /// <param name="manifestDirectory">The manifest's directory, for resolving relative project paths.</param>
     /// <returns>The packages to push, in manifest target and declared-kind order.</returns>
     /// <exception cref="PublishStageException">A declared package kind has no package output to push.</exception>
-    private static List<PushEntry> CollectPushEntries(Manifest manifest, string manifestDirectory)
+    private List<PushEntry> CollectPushEntries(Manifest manifest, string manifestDirectory)
     {
         DirectoryInfo packagesRoot = new(Path.Combine(Environment.CurrentDirectory, "release", "packages"));
         List<PushEntry> entries = [];
 
         foreach (ManifestTarget target in manifest.Targets)
         {
-            FileInfo projectFile = ManifestLoader.ResolveProjectFile(target.Project, manifestDirectory);
+            FileInfo projectFile = _manifestLoader.ResolveProjectFile(target.Project, manifestDirectory);
             string projectName = Path.GetFileNameWithoutExtension(projectFile.Name);
 
             foreach (string kind in target.Kinds)

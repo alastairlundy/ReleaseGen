@@ -1,3 +1,7 @@
+using CliInvoke.Core;
+using Microsoft.Extensions.DependencyInjection;
+using ReleaseGenLib.Abstractions;
+
 namespace ReleaseGen.Tests;
 
 using ReleaseGenCli.Commands;
@@ -9,8 +13,23 @@ using ReleaseGenCli.Commands;
 /// recording suites is that no invoker is faked.
 /// </summary>
 [ReleaseGenRealInvokerDi]
-public class PublishIntegrationTests(IServiceProvider services)
+public class PublishIntegrationTests
 {
+    private readonly IManifestLoader _manifestLoader;
+    private readonly IProcessInvoker _processInvoker;
+    
+    /// <summary>
+    /// The publish stage's real-invoker integration leg: a real <c>dotnet nuget push</c> lands a
+    /// package in a local folder source instead of nuget.org. Composed from the production
+    /// container via <see cref="ReleaseGenRealInvokerDiAttribute"/> - the only difference from the
+    /// recording suites is that no invoker is faked.
+    /// </summary>
+    public PublishIntegrationTests(ServiceProvider services)
+    {
+        _manifestLoader = services.GetRequiredService<IManifestLoader>();
+        _processInvoker = services.GetRequiredService<IProcessInvoker>();
+    }
+
     [Test]
     public async Task Integration_a_real_push_lands_a_package_in_a_local_source()
     {
@@ -29,7 +48,7 @@ public class PublishIntegrationTests(IServiceProvider services)
             // The real invoker runs dotnet nuget push against the local folder source - never
             // nuget.org.
             int exitCode = await CliHarness.InvokeAsync(
-                new PublishCommand(services), "publish", "--api-key", "local-key");
+                new PublishCommand(_manifestLoader, _processInvoker), "publish", "--api-key", "local-key");
 
             await Assert.That(exitCode).IsEqualTo(0);
             await Assert.That(File.Exists(

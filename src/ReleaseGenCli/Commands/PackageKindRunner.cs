@@ -1,6 +1,5 @@
 namespace ReleaseGenCli.Commands;
 
-using CliInvoke.Core;
 using ReleaseGenLib.Models;
 
 /// <summary>

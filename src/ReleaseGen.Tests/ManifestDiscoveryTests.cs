@@ -12,8 +12,20 @@ using ReleaseGenLib.Models;
 /// error that names every searched directory. The manifest file name is <c>releasegen.json</c>.
 /// </summary>
 [ReleaseGenDi]
-public class ManifestDiscoveryTests(IManifestLoader loader)
+public class ManifestDiscoveryTests
 {
+    private readonly IManifestLoader _loader;
+
+    /// <summary>
+    /// The manifest location contract: walk-up discovery from a subdirectory like
+    /// <c>global.json</c> lookup, the explicit-path override that wins when given, and the not-found
+    /// error that names every searched directory. The manifest file name is <c>releasegen.json</c>.
+    /// </summary>
+    public ManifestDiscoveryTests(IManifestLoader loader)
+    {
+        _loader = loader;
+    }
+
     [Test]
     public async Task Walk_up_discovery_returns_the_first_manifest_on_the_way_up()
     {
@@ -24,7 +36,7 @@ public class ManifestDiscoveryTests(IManifestLoader loader)
             ManifestWithPreset(BuildPreset.ReadyToRun));
         workspace.WriteManifest(ManifestWithPreset(BuildPreset.FrameworkDependent));
 
-        FileInfo found = loader.FindManifestFile(new DirectoryInfo(nestedDirectory));
+        FileInfo found = _loader.FindManifestFile(new DirectoryInfo(nestedDirectory));
 
         // Discovery stops at the first manifest walking upward: the nearest one wins.
         await Assert.That(found.FullName).IsEqualTo(Path.GetFullPath(nestedManifest));
@@ -37,7 +49,7 @@ public class ManifestDiscoveryTests(IManifestLoader loader)
         string startDirectory = workspace.CreateDirectory("no", "manifest", "here");
 
         ManifestException exception = Capture.Exception<ManifestException>(
-            () => loader.FindManifestFile(new DirectoryInfo(startDirectory)));
+            () => _loader.FindManifestFile(new DirectoryInfo(startDirectory)));
 
         await Assert.That(exception.Message)
             .Contains($"No {ManifestLoader.ManifestFileName} found");
@@ -57,8 +69,8 @@ public class ManifestDiscoveryTests(IManifestLoader loader)
 
         await TestWorkspace.InDirectoryAsync(subdirectory, async () =>
         {
-            Manifest fromExplicitPath = loader.Load(new FileInfo(explicitManifest));
-            Manifest fromDiscovery = loader.Load(null);
+            Manifest fromExplicitPath = _loader.Load(new FileInfo(explicitManifest));
+            Manifest fromDiscovery = _loader.Load(null);
 
             await Assert.That(fromExplicitPath.Build.Preset)
                 .IsEqualTo(BuildPreset.FrameworkDependent);
@@ -73,7 +85,7 @@ public class ManifestDiscoveryTests(IManifestLoader loader)
         string missing = Path.Combine(workspace.Root, "absent", ManifestLoader.ManifestFileName);
 
         ManifestException exception = Capture.Exception<ManifestException>(
-            () => loader.LoadFromFile(new FileInfo(missing)));
+            () => _loader.LoadFromFile(new FileInfo(missing)));
 
         await Assert.That(exception.Message).Contains("Manifest file not found");
         await Assert.That(exception.Message).Contains(missing);

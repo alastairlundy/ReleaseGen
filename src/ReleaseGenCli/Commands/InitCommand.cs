@@ -12,7 +12,7 @@ using System.CommandLine;
 /// </summary>
 public sealed class InitCommand : Command
 {
-    public InitCommand(IServiceProvider services) : base("init", "Writes a minimal valid releasegen.json manifest.")
+    public InitCommand() : base("init", "Writes a minimal valid releasegen.json manifest.")
     {
         Option<string?> presetOption = new("--preset")
         {

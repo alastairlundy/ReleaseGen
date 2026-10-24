@@ -1,8 +1,6 @@
 namespace ReleaseGenCli.Commands;
 
 using System.CommandLine;
-using Microsoft.Extensions.DependencyInjection;
-using ReleaseGenLib;
 using ReleaseGenLib.Models;
 
 /// <summary>
@@ -25,9 +23,16 @@ using ReleaseGenLib.Models;
 /// </remarks>
 public sealed class RunCommand : Command
 {
-    public RunCommand(IServiceProvider services) : base("run",
+    private readonly IManifestLoader _manifestLoader;
+    private readonly IProcessInvoker _processInvoker;
+    private readonly IBuildStageRunner _buildStageRunner;
+
+    public RunCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker, IBuildStageRunner buildStageRunner) : base("run",
         "Runs the manifest's stages in manifest order (chained run).")
     {
+        _manifestLoader = manifestLoader;
+        _processInvoker = processInvoker;
+        _buildStageRunner = buildStageRunner;
         Option<string?> presetOption = new("--preset")
         {
             Description = "Override the manifest's build.preset for this invocation only. Does not write the manifest.",
@@ -54,7 +59,6 @@ public sealed class RunCommand : Command
                     return 1;
                 }
 
-                ManifestLoader manifestLoader = services.GetRequiredService<ManifestLoader>();
                 FileInfo manifestFile = manifestLoader.FindManifestFile(new DirectoryInfo(Environment.CurrentDirectory));
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
 
@@ -103,7 +107,7 @@ public sealed class RunCommand : Command
                     }
 
                     int exitCode = await InvokeStageAsync(
-                        services, stage.Name, stage.Arguments, quiet, cancellationToken).ConfigureAwait(true);
+                        stage.Name, stage.Arguments, quiet, cancellationToken).ConfigureAwait(true);
 
                     if (exitCode != 0)
                     {
@@ -158,8 +162,7 @@ public sealed class RunCommand : Command
     /// <param name="quiet">Whether the chain runs under <c>--quiet</c>; forwarded to the stage.</param>
     /// <param name="cancellationToken">The chain's cancellation token.</param>
     /// <returns>The stage command's exit code.</returns>
-    private static async Task<int> InvokeStageAsync(
-        IServiceProvider services,
+    private async Task<int> InvokeStageAsync(
         string stageName,
         IReadOnlyList<string> extraArguments,
         bool quiet,
@@ -167,10 +170,10 @@ public sealed class RunCommand : Command
     {
         Command stageCommand = stageName switch
         {
-            "build" => new BuildCommand(services),
-            "test" => new TestCommand(services),
-            "package" => new PackageCommand(services),
-            "publish" => new PublishCommand(services),
+            "build" => new BuildCommand(_manifestLoader, _buildStageRunner),
+            "test" => new TestCommand(_manifestLoader, _processInvoker),
+            "package" => new PackageCommand(_manifestLoader, _processInvoker),
+            "publish" => new PublishCommand(_manifestLoader, _processInvoker),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(stageName), stageName, "run: unknown stage name."),
         };

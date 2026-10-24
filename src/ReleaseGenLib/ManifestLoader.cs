@@ -223,7 +223,7 @@ public sealed class ManifestLoader : IManifestLoader
     /// <param name="baseDirectory">The manifest's directory.</param>
     /// <returns>The resolved project file.</returns>
     /// <exception cref="ManifestException">The path names no project file or is ambiguous.</exception>
-    public static FileInfo ResolveProjectFile(string projectPath, string baseDirectory)
+    public FileInfo ResolveProjectFile(string projectPath, string baseDirectory)
     {
         string fullPath = Path.IsPathRooted(projectPath)
             ? projectPath

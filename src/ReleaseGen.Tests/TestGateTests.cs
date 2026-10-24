@@ -1,3 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
+using ReleaseGenLib.Abstractions;
+
 namespace ReleaseGen.Tests;
 
 using ReleaseGenCli.Commands;
@@ -12,8 +15,29 @@ using ReleaseGenLib.Models;
 /// to its test.
 /// </summary>
 [ReleaseGenDi]
-public class TestGateTests(IServiceProvider services, RecordingProcessInvoker invoker)
+public class TestGateTests
 {
+    private readonly RecordingProcessInvoker _invoker;
+    
+    private readonly IManifestLoader _manifestLoader;
+    private readonly IBuildStageRunner _buildStageRunner;
+
+    /// <summary>
+    /// The test gate and the chained run's fail-fast ordering: a declared test
+    /// section with a nonzero exit blocks publish before any network call, an absent section warns
+    /// and proceeds, a standalone publish consults the gate by running the test stage itself, and a
+    /// failed test stage aborts the chain before publish. The recording invoker and the scope's
+    /// command provider come from the test's own DI scope, so every recorded invocation is private
+    /// to its test.
+    /// </summary>
+    public TestGateTests(ServiceProvider services, RecordingProcessInvoker invoker)
+    {
+        _invoker = invoker;
+        _manifestLoader = services.GetRequiredService<IManifestLoader>();
+        _buildStageRunner = services.GetRequiredService<IBuildStageRunner>();
+    }
+
+
     [Test]
     public async Task A_declared_section_with_exit_zero_passes_the_gate()
     {
@@ -59,13 +83,13 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
                     int exitCode = await CliHarness.InvokeAsync(
-                        new PublishCommand(services), "publish", "--api-key", "local-key");
+                        new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
 
                     await Assert.That(exitCode).IsEqualTo(1);
                 });
 
                 await Assert.That(console).Contains("blocked by the test gate");
-                await Assert.That(invoker.Invocations.Count).IsEqualTo(0); // No push, no network.
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0); // No push, no network.
             }
             finally
             {
@@ -91,7 +115,7 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
                     int exitCode = await CliHarness.InvokeAsync(
-                        new PublishCommand(services), "publish", "--api-key", "local-key");
+                        new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
 
                     await Assert.That(exitCode).IsEqualTo(0);
                 });
@@ -99,7 +123,7 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
                 // An absent section is the opt-in default - a warning, never a failure.
                 await Assert.That(console).Contains("warning:");
                 await Assert.That(console).Contains("no test section in the manifest");
-                await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
             }
             finally
             {
@@ -115,7 +139,7 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(PackageManifest(source, declareTestSection: true));
         StagePackage(workspace);
-        invoker.ExitCodeFactory = configuration =>
+        _invoker.ExitCodeFactory = configuration =>
             string.Equals(configuration.ArgumentList[0], "test", StringComparison.Ordinal) ? 1 : 0;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
@@ -127,7 +151,7 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
                     int exitCode = await CliHarness.InvokeAsync(
-                        new PublishCommand(services), "publish", "--api-key", "local-key");
+                        new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
 
                     await Assert.That(exitCode).IsEqualTo(1);
                 });
@@ -135,8 +159,8 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
                 // The gate consumes the test stage's own exit code, so a standalone
                 // publish cannot bypass a declared test section.
                 await Assert.That(console).Contains("running the test stage");
-                await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
-                await Assert.That(invoker.Invocations[0].ArgumentList[0]).IsEqualTo("test");
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
+                await Assert.That(_invoker.Invocations[0].ArgumentList[0]).IsEqualTo("test");
             }
             finally
             {
@@ -160,12 +184,12 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
             try
             {
                 int exitCode = await CliHarness.InvokeAsync(
-                    new PublishCommand(services), "publish", "--api-key", "local-key");
+                    new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
 
                 await Assert.That(exitCode).IsEqualTo(0);
-                await Assert.That(invoker.Invocations.Count).IsEqualTo(2);
-                await Assert.That(invoker.Invocations[0].ArgumentList[0]).IsEqualTo("test");
-                await Assert.That(invoker.Invocations[1].ArgumentList[0]).IsEqualTo("nuget");
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(2);
+                await Assert.That(_invoker.Invocations[0].ArgumentList[0]).IsEqualTo("test");
+                await Assert.That(_invoker.Invocations[1].ArgumentList[0]).IsEqualTo("nuget");
             }
             finally
             {
@@ -181,7 +205,7 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(ChainManifest(source));
         StagePackage(workspace);
-        invoker.ExitCodeFactory = configuration =>
+        _invoker.ExitCodeFactory = configuration =>
             string.Equals(configuration.ArgumentList[0], "test", StringComparison.Ordinal) ? 1 : 0;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
@@ -192,7 +216,7 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
             {
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
-                    int exitCode = await CliHarness.InvokeAsync(new RunCommand(services), "run");
+                    int exitCode = await CliHarness.InvokeAsync(new RunCommand(_manifestLoader, _invoker, _buildStageRunner), "run");
 
                     await Assert.That(exitCode).IsEqualTo(1);
                 });
@@ -202,8 +226,8 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
 
                 // Fail-fast: package and publish never ran, so the staged package was
                 // never pushed and the publish stage never consulted the gate.
-                await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
-                await Assert.That(invoker.Invocations[0].ArgumentList[0]).IsEqualTo("test");
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
+                await Assert.That(_invoker.Invocations[0].ArgumentList[0]).IsEqualTo("test");
                 await Assert.That(StageContext.TestGate).IsNull();
             }
             finally
@@ -234,7 +258,7 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
             {
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
-                    int exitCode = await CliHarness.InvokeAsync(new RunCommand(services), "run");
+                    int exitCode = await CliHarness.InvokeAsync(new RunCommand(_manifestLoader, _invoker, _buildStageRunner), "run");
 
                     await Assert.That(exitCode).IsEqualTo(0);
                 });
@@ -244,7 +268,7 @@ public class TestGateTests(IServiceProvider services, RecordingProcessInvoker in
                 await Assert.That(console).Contains("the manifest declares no test section");
                 await Assert.That(console).Contains("skipping the package stage");
                 await Assert.That(console).Contains("skipping the publish stage");
-                await Assert.That(invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
             }
             finally
             {

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenLib.Exceptions;
 
 namespace ReleaseGen.Tests;
@@ -5,7 +6,6 @@ namespace ReleaseGen.Tests;
 using System.Formats.Tar;
 using System.IO.Compression;
 using ReleaseGenCli.Commands;
-using ReleaseGenLib;
 using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Models;
 
@@ -17,8 +17,29 @@ using ReleaseGenLib.Models;
 /// neither injected service.
 /// </summary>
 [ReleaseGenDi]
-public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, RecordingProcessInvoker invoker)
+public class ArchiveTests
 {
+    private readonly IBuildArchiver _archiver;
+    private readonly RecordingProcessInvoker _invoker;
+    
+    private readonly IManifestLoader _manifestLoader;
+    private readonly IBuildStageRunner _buildStageRunner;
+
+    /// <summary>
+    /// Archive creation: zip is the executable-kind default, tar.gz and none are the declared
+    /// opt-outs, package kinds never archive, archives replace any stale file, and an unknown format
+    /// fails naming the known set. Output stays local under <c>release/</c>. The command-level
+    /// tests drive the build stage through the test's own DI scope; the pure archive tests need
+    /// neither injected service.
+    /// </summary>
+    public ArchiveTests(ServiceProvider services, IBuildArchiver archiver, RecordingProcessInvoker invoker)
+    {
+        _manifestLoader = services.GetRequiredService<IManifestLoader>();
+        _buildStageRunner = services.GetRequiredService<IBuildStageRunner>();
+        _archiver = archiver;
+        _invoker = invoker;
+    }
+
     [Test]
     public async Task A_zip_archive_carries_the_folders_contents_with_relative_names()
     {
@@ -26,7 +47,7 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
         DirectoryInfo source = SourceFolderWithContent(workspace, out string[] expectedEntries);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
+        await _archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsTrue();
 
@@ -43,7 +64,7 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
         DirectoryInfo source = SourceFolderWithContent(workspace, out string[] expectedEntries);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.tar.gz"));
 
-        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.TarGz, CancellationToken.None);
+        await _archiver.CreateArchiveAsync(source, archive, ArchiveFormats.TarGz, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsTrue();
 
@@ -68,7 +89,7 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
         DirectoryInfo source = SourceFolderWithContent(workspace, out _);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.None, CancellationToken.None);
+        await _archiver.CreateArchiveAsync(source, archive, ArchiveFormats.None, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsFalse();
     }
@@ -81,7 +102,7 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.rar"));
 
         ManifestException exception = await Capture.ExceptionAsync<ManifestException>(
-            () => archiver.CreateArchiveAsync(source, archive, "rar", CancellationToken.None));
+            () => _archiver.CreateArchiveAsync(source, archive, "rar", CancellationToken.None));
 
         await Assert.That(exception.Message).Contains("Unknown archive format 'rar'");
         await Assert.That(exception.Message).Contains("zip, tar.gz, none");
@@ -95,7 +116,7 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
         BuildStageException exception = await Capture.ExceptionAsync<BuildStageException>(
-            () => archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None));
+            () => _archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None));
 
         await Assert.That(exception.Message).Contains("does not exist");
         await Assert.That(exception.Message).Contains(archive.FullName);
@@ -108,7 +129,7 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
         DirectoryInfo source = SourceFolderWithContent(workspace, out _);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
+        await _archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         // A previous run's stale archive must not survive into this run's output.
         foreach (string file in Directory.GetFiles(source.FullName, "*", SearchOption.AllDirectories))
@@ -118,7 +139,7 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
 
         Directory.Delete(Path.Combine(source.FullName, "runtimes"), recursive: true);
         await File.WriteAllTextAsync(Path.Combine(source.FullName, "replacement.txt"), "new content");
-        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
+        await _archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         await using ZipArchive zip = await ZipFile.OpenReadAsync(archive.FullName);
         string[] entries = [.. zip.Entries.Select(static entry => entry.FullName)];
@@ -160,11 +181,11 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
         using TestWorkspace workspace = TestWorkspace.Create();
         workspace.WriteManifest(
             """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"], "archive": "none" } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
-        invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
+        _invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
+            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(_manifestLoader, _buildStageRunner), "build");
 
             await Assert.That(exitCode).IsEqualTo(0);
 
@@ -184,11 +205,11 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
         using TestWorkspace workspace = TestWorkspace.Create();
         workspace.WriteManifest(
             """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["lib-package"] } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
-        invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
+        _invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
+            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(_manifestLoader, _buildStageRunner), "build");
 
             await Assert.That(exitCode).IsEqualTo(0);
 
@@ -211,13 +232,13 @@ public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, Re
     private async Task<string> RunBuildAsync(TestWorkspace workspace, string manifestJson)
     {
         workspace.WriteManifest(manifestJson);
-        invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
+        _invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
 
         string? archivePath = null;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
+            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(_manifestLoader, _buildStageRunner), "build");
 
             await Assert.That(exitCode).IsEqualTo(0);
 

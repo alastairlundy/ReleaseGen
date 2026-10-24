@@ -1,9 +1,6 @@
 namespace ReleaseGenCli.Commands;
 
 using System.CommandLine;
-using CliInvoke.Core;
-using Microsoft.Extensions.DependencyInjection;
-using ReleaseGenLib;
 using ReleaseGenLib.Models;
 
 /// <summary>
@@ -23,8 +20,11 @@ using ReleaseGenLib.Models;
 /// </remarks>
 public sealed class TestCommand : Command
 {
-    public TestCommand(IServiceProvider services) : base("test", "Runs dotnet test on the manifest's test projects.")
+    private readonly IManifestLoader _manifestLoader;
+
+    public TestCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("test", "Runs dotnet test on the manifest's test projects.")
     {
+        _manifestLoader = manifestLoader;
         SetAction(async (parseResult, cancellationToken) =>
         {
             CliOutput.ApplyQuiet(parseResult);
@@ -34,7 +34,6 @@ public sealed class TestCommand : Command
             // project, failed test run - is caught here and rendered as the one-line error.
             try
             {
-                ManifestLoader manifestLoader = services.GetRequiredService<ManifestLoader>();
                 FileInfo manifestFile = manifestLoader.FindManifestFile(new DirectoryInfo(Environment.CurrentDirectory));
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
 
@@ -44,9 +43,7 @@ public sealed class TestCommand : Command
                     CliOutput.Warning("test: no test section in the manifest; the test gate passes by default.");
                     return 0;
                 }
-
-                IProcessInvoker processInvoker = services.GetRequiredService<IProcessInvoker>();
-
+                
                 int exitCode = await RunTestsAsync(
                     processInvoker,
                     manifest.Test.Projects,
@@ -61,7 +58,7 @@ public sealed class TestCommand : Command
                 }
 
                 // Gate input for the publish stage: a declared section that exited 0
-                // records Passed. The publish stage consumes this in a later ticket; for now
+                // records Passed. The publishing stage consumes this in a later ticket; for now
                 // the local is the whole hand-off surface.
                 TestGateResult gateResult = TestGateResult.FromStage(exitCode, hasTestSection: true);
 
@@ -85,7 +82,7 @@ public sealed class TestCommand : Command
     /// <param name="manifestDirectory">The manifest's directory, the working directory for named-project runs.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>The first nonzero exit code, or 0 when every invocation passed.</returns>
-    private static async Task<int> RunTestsAsync(
+    private async Task<int> RunTestsAsync(
         IProcessInvoker processInvoker,
         string[] projects,
         string manifestDirectory,
@@ -100,10 +97,11 @@ public sealed class TestCommand : Command
 
         foreach (string project in projects)
         {
-            FileInfo projectFile = ManifestLoader.ResolveProjectFile(project, manifestDirectory);
+            FileInfo projectFile = _manifestLoader.ResolveProjectFile(project, manifestDirectory);
 
             int exitCode = await RunDotnetTestAsync(
-                processInvoker, ["test", projectFile.FullName], manifestDirectory, project, cancellationToken).ConfigureAwait(true);
+                    processInvoker, ["test", projectFile.FullName], manifestDirectory, project, cancellationToken)
+                .ConfigureAwait(true);
 
             if (exitCode != 0)
             {

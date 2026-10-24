@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Exceptions;
 
 namespace ReleaseGen.Tests;
@@ -15,8 +17,27 @@ using ReleaseGenLib.Models;
 /// own DI scope; the switch-mapping tests are pure and need neither.
 /// </summary>
 [ReleaseGenDi]
-public class BuildPresetMappingTests(IServiceProvider services, RecordingProcessInvoker invoker)
+public class BuildPresetMappingTests
 {
+    private readonly RecordingProcessInvoker _invoker;
+    private readonly IManifestLoader _manifestLoader;
+    private readonly IBuildStageRunner _buildStageRunner;
+
+    /// <summary>
+    /// The build preset and flag mapping: each of the four shipped presets plus
+    /// none resolves to its documented dotnet publish switch set, manifest keys override the preset
+    /// defaults tri-state, <c>--preset</c> beats the manifest key for one invocation without ever
+    /// writing the file, and an unknown preset is refused naming the known set. The four
+    /// command-level tests resolve the stage services and the recording invoker from the test's
+    /// own DI scope; the switch-mapping tests are pure and need neither.
+    /// </summary>
+    public BuildPresetMappingTests(ServiceProvider services, RecordingProcessInvoker invoker)
+    {
+        _invoker = invoker;
+        _manifestLoader = services.GetRequiredService<IManifestLoader>();
+        _buildStageRunner = services.GetRequiredService<IBuildStageRunner>();
+    }
+
     [Test]
     public async Task Aot_preset_maps_to_publish_aot_and_self_contained()
     {
@@ -164,12 +185,12 @@ public class BuildPresetMappingTests(IServiceProvider services, RecordingProcess
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
             int exitCode = await CliHarness.InvokeAsync(
-                new BuildCommand(services), "build", "--preset", BuildPreset.AotPlusTrimming);
+                new BuildCommand(_manifestLoader, _buildStageRunner), "build", "--preset", BuildPreset.AotPlusTrimming);
 
             await Assert.That(exitCode).IsEqualTo(0);
-            await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
 
-            string published = RecordingProcessInvoker.Render(invoker.Invocations[0]);
+            string published = RecordingProcessInvoker.Render(_invoker.Invocations[0]);
             await Assert.That(published).Contains("-p:PublishAot=true");
             await Assert.That(published.Contains("RollForward", StringComparison.Ordinal)).IsFalse();
 
@@ -185,11 +206,11 @@ public class BuildPresetMappingTests(IServiceProvider services, RecordingProcess
         workspace.WriteManifest(BuildManifest(BuildPreset.FrameworkDependent));
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
+            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(_manifestLoader, _buildStageRunner), "build");
 
             await Assert.That(exitCode).IsEqualTo(0);
-            await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
-            await Assert.That(RecordingProcessInvoker.Render(invoker.Invocations[0]))
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
+            await Assert.That(RecordingProcessInvoker.Render(_invoker.Invocations[0]))
                 .Contains("-p:RollForward=Minor");
         });
     }
@@ -204,13 +225,13 @@ public class BuildPresetMappingTests(IServiceProvider services, RecordingProcess
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
                 int exitCode = await CliHarness.InvokeAsync(
-                    new BuildCommand(services), "build", "--preset", "bogus");
+                    new BuildCommand(_manifestLoader, _buildStageRunner), "build", "--preset", "bogus");
 
                 await Assert.That(exitCode).IsEqualTo(1);
             });
 
             await Assert.That(console).Contains("Unknown preset 'bogus'");
-            await Assert.That(invoker.Invocations.Count).IsEqualTo(0);
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
         });
     }
 
@@ -223,13 +244,13 @@ public class BuildPresetMappingTests(IServiceProvider services, RecordingProcess
         {
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
-                int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
+                int exitCode = await CliHarness.InvokeAsync(new BuildCommand(_manifestLoader, _buildStageRunner), "build");
 
                 await Assert.That(exitCode).IsEqualTo(1);
             });
 
             await Assert.That(console).Contains("Unknown preset 'turbo'");
-            await Assert.That(invoker.Invocations.Count).IsEqualTo(0);
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
         });
     }
 

@@ -58,4 +58,15 @@ public interface IManifestLoader
     /// <param name="manifestFile">The manifest file, for resolving the targets' relative project paths.</param>
     /// <exception cref="ManifestException">A target entry or kind declaration is invalid, or the OutputType cross-check fails.</exception>
     void Validate(Manifest manifest, FileInfo manifestFile);
+
+    /// <summary>
+    /// Resolves a target's project value to a project file. Relative paths resolve from the
+    /// manifest's directory. Shared by manifest validation and the build stage so both
+    /// stages follow one resolution rule.
+    /// </summary>
+    /// <param name="projectPath">The target's 'project' value.</param>
+    /// <param name="baseDirectory">The manifest's directory.</param>
+    /// <returns>The resolved project file.</returns>
+    /// <exception cref="ManifestException">The path names no project file or is ambiguous.</exception>
+    FileInfo ResolveProjectFile(string projectPath, string baseDirectory);
 }

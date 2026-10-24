@@ -1,7 +1,6 @@
 ﻿namespace ReleaseGenCli.Commands;
 
 using System.CommandLine;
-using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Models;
 
@@ -22,7 +21,7 @@ using ReleaseGenLib.Models;
 /// </remarks>
 public sealed class BuildCommand : Command
 {
-    public BuildCommand(IServiceProvider services) : base("build", "Builds release binaries for the manifest's targets.")
+    public BuildCommand(IManifestLoader manifestLoader, IBuildStageRunner buildStageRunner) : base("build", "Builds release binaries for the manifest's targets.")
     {
         Option<string?> presetOption = new("--preset")
         {
@@ -52,7 +51,6 @@ public sealed class BuildCommand : Command
                     return 1;
                 }
 
-                ManifestLoader manifestLoader = services.GetRequiredService<ManifestLoader>();
                 FileInfo manifestFile = manifestLoader.FindManifestFile(new DirectoryInfo(Environment.CurrentDirectory));
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
 
@@ -83,8 +81,7 @@ public sealed class BuildCommand : Command
                     WriteErrorLine = static line => CliOutput.Warning(line),
                 };
 
-                IBuildStageRunner runner = services.GetRequiredService<IBuildStageRunner>();
-                await runner.RunAsync(request, cancellationToken).ConfigureAwait(true);
+                await buildStageRunner.RunAsync(request, cancellationToken).ConfigureAwait(true);
                 return 0;
             }
             catch (Exception ex)

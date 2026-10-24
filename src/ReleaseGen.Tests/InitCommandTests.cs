@@ -13,8 +13,22 @@ using ReleaseGenLib.Models;
 /// same injected scope, so the skeleton is checked against the very loader the stages use.
 /// </summary>
 [ReleaseGenDi]
-public class InitCommandTests(IServiceProvider services, IManifestLoader loader)
+public class InitCommandTests
 {
+    private readonly IManifestLoader _loader;
+
+    /// <summary>
+    /// The init stage: the skeleton it writes is minimal, valid, and parses under the
+    /// same strict contract every other stage reads; an existing manifest is refused unless
+    /// <c>--overwrite</c> is passed; <c>--preset</c> seeds the build section's preset key and only a
+    /// known preset may reach the file. Both the command and the verification parse come from the
+    /// same injected scope, so the skeleton is checked against the very loader the stages use.
+    /// </summary>
+    public InitCommandTests(IServiceProvider services, IManifestLoader loader)
+    {
+        _loader = loader;
+    }
+
     [Test]
     public async Task Init_writes_a_minimal_skeleton_that_parses_strictly()
     {
@@ -22,7 +36,7 @@ public class InitCommandTests(IServiceProvider services, IManifestLoader loader)
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            int exitCode = await CliHarness.InvokeAsync(new InitCommand(services), "init");
+            int exitCode = await CliHarness.InvokeAsync(new InitCommand(), "init");
 
             await Assert.That(exitCode).IsEqualTo(0);
 
@@ -30,7 +44,7 @@ public class InitCommandTests(IServiceProvider services, IManifestLoader loader)
             await Assert.That(File.Exists(manifestPath)).IsTrue();
 
             // The skeleton must load through the same strict parser every stage uses.
-            Manifest manifest = loader.Parse(await File.ReadAllTextAsync(manifestPath));
+            Manifest manifest = _loader.Parse(await File.ReadAllTextAsync(manifestPath));
 
             await Assert.That(manifest.Targets).Count().IsEqualTo(0);
             await Assert.That(manifest.Build.Preset).IsNull();
@@ -50,7 +64,7 @@ public class InitCommandTests(IServiceProvider services, IManifestLoader loader)
         {
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
-                int exitCode = await CliHarness.InvokeAsync(new InitCommand(services), "init");
+                int exitCode = await CliHarness.InvokeAsync(new InitCommand(), "init");
                 await Assert.That(exitCode).IsEqualTo(1);
             });
 
@@ -69,11 +83,11 @@ public class InitCommandTests(IServiceProvider services, IManifestLoader loader)
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
             int exitCode = await CliHarness.InvokeAsync(
-                new InitCommand(services), "init", "--overwrite");
+                new InitCommand(), "init", "--overwrite");
 
             await Assert.That(exitCode).IsEqualTo(0);
 
-            Manifest manifest = loader.Parse(await File.ReadAllTextAsync(manifestPath));
+            Manifest manifest = _loader.Parse(await File.ReadAllTextAsync(manifestPath));
             await Assert.That(manifest.Targets).Count().IsEqualTo(0);
         });
     }
@@ -86,11 +100,11 @@ public class InitCommandTests(IServiceProvider services, IManifestLoader loader)
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
             int exitCode = await CliHarness.InvokeAsync(
-                new InitCommand(services), "init", "--preset", BuildPreset.TrimmingOnly);
+                new InitCommand(), "init", "--preset", BuildPreset.TrimmingOnly);
 
             await Assert.That(exitCode).IsEqualTo(0);
 
-            Manifest manifest = loader.Parse(
+            Manifest manifest = _loader.Parse(
                 await File.ReadAllTextAsync(Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)));
 
             await Assert.That(manifest.Build.Preset).IsEqualTo(BuildPreset.TrimmingOnly);
@@ -105,11 +119,11 @@ public class InitCommandTests(IServiceProvider services, IManifestLoader loader)
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
             int exitCode = await CliHarness.InvokeAsync(
-                new InitCommand(services), "init", "--preset", BuildPreset.None);
+                new InitCommand(), "init", "--preset", BuildPreset.None);
 
             await Assert.That(exitCode).IsEqualTo(0);
 
-            Manifest manifest = loader.Parse(
+            Manifest manifest = _loader.Parse(
                 await File.ReadAllTextAsync(Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)));
 
             // Absence means preset none; 'none' written as a key would be redundant.
@@ -127,7 +141,7 @@ public class InitCommandTests(IServiceProvider services, IManifestLoader loader)
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
                 int exitCode = await CliHarness.InvokeAsync(
-                    new InitCommand(services), "init", "--preset", "turbo");
+                    new InitCommand(), "init", "--preset", "turbo");
 
                 await Assert.That(exitCode).IsEqualTo(1);
             });
