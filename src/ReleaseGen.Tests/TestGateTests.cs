@@ -1,6 +1,5 @@
 namespace ReleaseGen.Tests;
 
-using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenCli.Commands;
 using ReleaseGenLib.Models;
 
@@ -8,9 +7,12 @@ using ReleaseGenLib.Models;
 /// The test gate and the chained run's fail-fast ordering: a declared test
 /// section with a nonzero exit blocks publish before any network call, an absent section warns
 /// and proceeds, a standalone publish consults the gate by running the test stage itself, and a
-/// failed test stage aborts the chain before publish.
+/// failed test stage aborts the chain before publish. The recording invoker and the scope's
+/// command provider come from the test's own DI scope, so every recorded invocation is private
+/// to its test.
 /// </summary>
-public class TestGateTests
+[ReleaseGenDi]
+public class TestGateTests(IServiceProvider services, RecordingProcessInvoker invoker)
 {
     [Test]
     public async Task A_declared_section_with_exit_zero_passes_the_gate()
@@ -46,7 +48,6 @@ public class TestGateTests
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(PackageManifest(source, declareTestSection: true));
         StagePackage(workspace);
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
@@ -55,8 +56,6 @@ public class TestGateTests
 
             try
             {
-                using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
                     int exitCode = await CliHarness.InvokeAsync(
@@ -82,7 +81,6 @@ public class TestGateTests
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(PackageManifest(source, declareTestSection: false));
         StagePackage(workspace);
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
@@ -90,8 +88,6 @@ public class TestGateTests
 
             try
             {
-                using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
                     int exitCode = await CliHarness.InvokeAsync(
@@ -119,11 +115,8 @@ public class TestGateTests
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(PackageManifest(source, declareTestSection: true));
         StagePackage(workspace);
-        RecordingProcessInvoker invoker = new()
-        {
-            ExitCodeFactory = configuration =>
-                string.Equals(configuration.ArgumentList[0], "test", StringComparison.Ordinal) ? 1 : 0,
-        };
+        invoker.ExitCodeFactory = configuration =>
+            string.Equals(configuration.ArgumentList[0], "test", StringComparison.Ordinal) ? 1 : 0;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
@@ -131,8 +124,6 @@ public class TestGateTests
 
             try
             {
-                using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
                     int exitCode = await CliHarness.InvokeAsync(
@@ -161,7 +152,6 @@ public class TestGateTests
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(PackageManifest(source, declareTestSection: true));
         StagePackage(workspace);
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
@@ -169,8 +159,6 @@ public class TestGateTests
 
             try
             {
-                using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
                 int exitCode = await CliHarness.InvokeAsync(
                     new PublishCommand(services), "publish", "--api-key", "local-key");
 
@@ -193,11 +181,8 @@ public class TestGateTests
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(ChainManifest(source));
         StagePackage(workspace);
-        RecordingProcessInvoker invoker = new()
-        {
-            ExitCodeFactory = configuration =>
-                string.Equals(configuration.ArgumentList[0], "test", StringComparison.Ordinal) ? 1 : 0,
-        };
+        invoker.ExitCodeFactory = configuration =>
+            string.Equals(configuration.ArgumentList[0], "test", StringComparison.Ordinal) ? 1 : 0;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
@@ -205,8 +190,6 @@ public class TestGateTests
 
             try
             {
-                using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
                     int exitCode = await CliHarness.InvokeAsync(new RunCommand(services), "run");
@@ -242,7 +225,6 @@ public class TestGateTests
               "publish": { "sources": [] }
             }
             """);
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
@@ -250,8 +232,6 @@ public class TestGateTests
 
             try
             {
-                using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
                     int exitCode = await CliHarness.InvokeAsync(new RunCommand(services), "run");

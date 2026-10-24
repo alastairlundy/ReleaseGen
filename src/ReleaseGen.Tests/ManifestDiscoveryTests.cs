@@ -3,6 +3,7 @@ using ReleaseGenLib.Exceptions;
 namespace ReleaseGen.Tests;
 
 using ReleaseGenLib;
+using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Models;
 
 /// <summary>
@@ -10,7 +11,8 @@ using ReleaseGenLib.Models;
 /// <c>global.json</c> lookup, the explicit-path override that wins when given, and the not-found
 /// error that names every searched directory. The manifest file name is <c>releasegen.json</c>.
 /// </summary>
-public class ManifestDiscoveryTests
+[ReleaseGenDi]
+public class ManifestDiscoveryTests(IManifestLoader loader)
 {
     [Test]
     public async Task Walk_up_discovery_returns_the_first_manifest_on_the_way_up()
@@ -22,7 +24,6 @@ public class ManifestDiscoveryTests
             ManifestWithPreset(BuildPreset.ReadyToRun));
         workspace.WriteManifest(ManifestWithPreset(BuildPreset.FrameworkDependent));
 
-        ManifestLoader loader = new();
         FileInfo found = loader.FindManifestFile(new DirectoryInfo(nestedDirectory));
 
         // Discovery stops at the first manifest walking upward: the nearest one wins.
@@ -34,8 +35,6 @@ public class ManifestDiscoveryTests
     {
         using TestWorkspace workspace = TestWorkspace.Create();
         string startDirectory = workspace.CreateDirectory("no", "manifest", "here");
-
-        ManifestLoader loader = new();
 
         ManifestException exception = Capture.Exception<ManifestException>(
             () => loader.FindManifestFile(new DirectoryInfo(startDirectory)));
@@ -56,8 +55,6 @@ public class ManifestDiscoveryTests
             Path.Combine("sub", ManifestLoader.ManifestFileName),
             ManifestWithPreset(BuildPreset.ReadyToRun));
 
-        ManifestLoader loader = new();
-
         await TestWorkspace.InDirectoryAsync(subdirectory, async () =>
         {
             Manifest fromExplicitPath = loader.Load(new FileInfo(explicitManifest));
@@ -74,8 +71,6 @@ public class ManifestDiscoveryTests
     {
         using TestWorkspace workspace = TestWorkspace.Create();
         string missing = Path.Combine(workspace.Root, "absent", ManifestLoader.ManifestFileName);
-
-        ManifestLoader loader = new();
 
         ManifestException exception = Capture.Exception<ManifestException>(
             () => loader.LoadFromFile(new FileInfo(missing)));

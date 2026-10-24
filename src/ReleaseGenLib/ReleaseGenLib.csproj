@@ -33,6 +33,7 @@
       <!-- Compile-time only; Microsoft.Build.Locator supplies the runtime assemblies from the installed SDK. -->
       <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" PrivateAssets="all" />
       <PackageReference Include="Microsoft.Build.Locator" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
       <PackageReference Include="MinVer" PrivateAssets="All" />
     </ItemGroup>
 

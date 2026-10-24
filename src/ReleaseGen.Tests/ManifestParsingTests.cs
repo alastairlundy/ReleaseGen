@@ -10,15 +10,17 @@ using ReleaseGenLib.Models;
 /// The manifest contract: strict System.Text.Json parsing where an unknown field,
 /// an inline comment, or a trailing comma fails with an error naming the offender, plus the
 /// validation rules that keep targets, artifact kinds, archives, and the executables-kind
-/// cross-check honest. The stages' behavior claims rest on this contract.
+/// cross-check honest. The stages' behavior claims rest on this contract. Parsing and the
+/// provider-independent validation rules run through the shared DI-resolved loader; the three
+/// OutputType cross-check tests below construct their own loader over a counting stub because
+/// the stub's configured OutputType and read count are the subject under test.
 /// </summary>
-public class ManifestParsingTests
+[ReleaseGenDi]
+public class ManifestParsingTests(IManifestLoader loader)
 {
     [Test]
     public async Task Unknown_root_field_fails_parse_naming_the_field()
     {
-        ManifestLoader loader = new()
-
         ManifestException exception = Capture.Exception<ManifestException>(
             () => loader.Parse("""{ "targets": [], "apiKey": "secret-value" }"""));
 
@@ -29,8 +31,6 @@ public class ManifestParsingTests
     [Test]
     public async Task Unknown_nested_field_fails_parse_naming_the_field()
     {
-        ManifestLoader loader = new();
-
         ManifestException exception = Capture.Exception<ManifestException>(
             () => loader.Parse(
                 """{ "targets": [], "publish": { "sources": [], "apiKey": "secret-value" } }"""));
@@ -42,8 +42,6 @@ public class ManifestParsingTests
     [Test]
     public async Task Inline_comment_is_rejected()
     {
-        ManifestLoader loader = new();
-
         ManifestException exception = Capture.Exception<ManifestException>(
             () => loader.Parse(
                 """
@@ -59,8 +57,6 @@ public class ManifestParsingTests
     [Test]
     public async Task Trailing_comma_is_rejected()
     {
-        ManifestLoader loader = new();
-
         ManifestException exception = Capture.Exception<ManifestException>(
             () => loader.Parse("""{ "targets": [], }"""));
 
@@ -70,8 +66,6 @@ public class ManifestParsingTests
     [Test]
     public async Task Valid_manifest_maps_every_stage_section()
     {
-        ManifestLoader loader = new();
-
         Manifest manifest = loader.Parse(
             """
             {
@@ -107,8 +101,6 @@ public class ManifestParsingTests
     [Test]
     public async Task Minimal_manifest_parses_with_documented_defaults()
     {
-        ManifestLoader loader = new();
-
         Manifest manifest = loader.Parse("""{ "targets": [] }""");
 
         await Assert.That(manifest.Build.Preset).IsNull();
@@ -120,7 +112,6 @@ public class ManifestParsingTests
     [Test]
     public async Task Target_with_an_unknown_artifact_kind_fails_validation_naming_it()
     {
-        ManifestLoader loader = new();
         Manifest manifest = loader.Parse(
             """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["deb"] } ] }""");
 
@@ -134,7 +125,6 @@ public class ManifestParsingTests
     [Test]
     public async Task Target_with_no_artifact_kinds_fails_validation()
     {
-        ManifestLoader loader = new();
         Manifest manifest = loader.Parse(
             """{ "targets": [ { "project": "src/App/App.csproj", "kinds": [] } ] }""");
 
@@ -148,7 +138,6 @@ public class ManifestParsingTests
     [Test]
     public async Task Target_with_an_empty_project_path_fails_validation()
     {
-        ManifestLoader loader = new();
         Manifest manifest = loader.Parse(
             """{ "targets": [ { "project": "", "kinds": ["executables"] } ] }""");
 
@@ -161,7 +150,6 @@ public class ManifestParsingTests
     [Test]
     public async Task Unknown_archive_format_fails_validation_naming_the_known_set()
     {
-        ManifestLoader loader = new();
         Manifest manifest = loader.Parse(
             """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archive": "rar" } ] }""");
 
@@ -176,12 +164,12 @@ public class ManifestParsingTests
     public async Task Executable_kind_disagreeing_with_the_evaluated_output_type_fails_validation()
     {
         StubProjectInfoProvider provider = new("Library");
-        ManifestLoader loader = new(provider);
-        Manifest manifest = loader.Parse(
+        ManifestLoader providerLoader = new(provider);
+        Manifest manifest = providerLoader.Parse(
             """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"] } ] }""");
 
         ManifestException exception = Capture.Exception<ManifestException>(
-            () => loader.Validate(manifest, ManifestFileAtTemp()));
+            () => providerLoader.Validate(manifest, ManifestFileAtTemp()));
 
         await Assert.That(exception.Message).Contains("src/App/App.csproj");
         await Assert.That(exception.Message).Contains("OutputType 'Library'");
@@ -192,11 +180,11 @@ public class ManifestParsingTests
     public async Task Executable_kind_agreeing_with_the_evaluated_output_type_validates()
     {
         StubProjectInfoProvider provider = new("Exe");
-        ManifestLoader loader = new(provider);
-        Manifest manifest = loader.Parse(
+        ManifestLoader providerLoader = new(provider);
+        Manifest manifest = providerLoader.Parse(
             """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"] } ] }""");
 
-        loader.Validate(manifest, ManifestFileAtTemp());
+        providerLoader.Validate(manifest, ManifestFileAtTemp());
 
         await Assert.That(provider.OutputTypeReads).IsEqualTo(1);
     }
@@ -205,11 +193,11 @@ public class ManifestParsingTests
     public async Task Package_kind_target_never_consults_the_project_evaluation()
     {
         StubProjectInfoProvider provider = new("Library");
-        ManifestLoader loader = new(provider);
-        Manifest manifest = loader.Parse(
+        ManifestLoader providerLoader = new(provider);
+        Manifest manifest = providerLoader.Parse(
             """{ "targets": [ { "project": "src/Lib/Lib.csproj", "kinds": ["lib-package"] } ] }""");
 
-        loader.Validate(manifest, ManifestFileAtTemp());
+        providerLoader.Validate(manifest, ManifestFileAtTemp());
 
         // The cross-check keys on the declared executables kind only.
         await Assert.That(provider.OutputTypeReads).IsEqualTo(0);
@@ -217,29 +205,4 @@ public class ManifestParsingTests
 
     private static FileInfo ManifestFileAtTemp() =>
         new(Path.Combine(Path.GetTempPath(), "releasegen.json"));
-
-    /// <summary>
-    /// A fixed OutputType source standing in for the Microsoft.Build evaluation path, counting
-    /// how often the OutputType cross-check reads it.
-    /// </summary>
-    /// <param name="outputType">The OutputType the stub reports.</param>
-    private sealed class StubProjectInfoProvider(string outputType) : IProjectInfoProvider
-    {
-        public int OutputTypeReads { get; private set; }
-
-        public string GetOutputType(FileInfo projectFile)
-        {
-            OutputTypeReads++;
-            return outputType;
-        }
-
-        public ProjectInfo DetectProjectInfo(FileInfo projectFile) =>
-            throw new NotSupportedException("The manifest contract tests only read OutputType.");
-
-        public bool TryDetectProjectInfo(FileInfo projectFile, out ProjectInfo? projectInfo)
-        {
-            projectInfo = null;
-            return false;
-        }
-    }
 }

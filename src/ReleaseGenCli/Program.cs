@@ -1,15 +1,12 @@
 ﻿using System.CommandLine;
-using CliInvoke.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenCli.Commands;
+using ReleaseGenLib;
 
+// One composition root for the CLI and the test suite: ReleaseGen's stage services plus the
+// CliInvoke pipeline, all registered TryAdd-style so hosts may override any piece.
 ServiceCollection services = new();
-
-// Manual DI hookup: CliInvoke v3 services plus the project provider and build runner.
-services.AddCliInvoke(ServiceLifetime.Singleton);
-services.AddSingleton<IProjectInfoProvider, ProjectInfoProvider>();
-services.AddSingleton<IBuildStageRunner, BuildStageRunner>();
-services.AddSingleton<ManifestLoader>(sp => new ManifestLoader(sp.GetRequiredService<IProjectInfoProvider>()));
+services.AddReleaseGen();
 
 using ServiceProvider provider = services.BuildServiceProvider();
 

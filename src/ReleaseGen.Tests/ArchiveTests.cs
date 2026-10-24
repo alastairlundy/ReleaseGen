@@ -4,17 +4,20 @@ namespace ReleaseGen.Tests;
 
 using System.Formats.Tar;
 using System.IO.Compression;
-using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenCli.Commands;
 using ReleaseGenLib;
+using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Models;
 
 /// <summary>
 /// Archive creation: zip is the executable-kind default, tar.gz and none are the declared
 /// opt-outs, package kinds never archive, archives replace any stale file, and an unknown format
-/// fails naming the known set. Output stays local under <c>release/</c>.
+/// fails naming the known set. Output stays local under <c>release/</c>. The command-level
+/// tests drive the build stage through the test's own DI scope; the pure archive tests need
+/// neither injected service.
 /// </summary>
-public class ArchiveTests
+[ReleaseGenDi]
+public class ArchiveTests(IServiceProvider services, IBuildArchiver archiver, RecordingProcessInvoker invoker)
 {
     [Test]
     public async Task A_zip_archive_carries_the_folders_contents_with_relative_names()
@@ -23,7 +26,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out string[] expectedEntries);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
+        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsTrue();
 
@@ -40,7 +43,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out string[] expectedEntries);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.tar.gz"));
 
-        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.TarGz, CancellationToken.None);
+        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.TarGz, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsTrue();
 
@@ -65,7 +68,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out _);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.None, CancellationToken.None);
+        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.None, CancellationToken.None);
 
         await Assert.That(File.Exists(archive.FullName)).IsFalse();
     }
@@ -77,8 +80,8 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out _);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.rar"));
 
-        ManifestException exception = Capture.Exception<ManifestException>(
-            () => _ = BuildArchiver.CreateArchiveAsync(source, archive, "rar", CancellationToken.None));
+        ManifestException exception = await Capture.ExceptionAsync<ManifestException>(
+            () => archiver.CreateArchiveAsync(source, archive, "rar", CancellationToken.None));
 
         await Assert.That(exception.Message).Contains("Unknown archive format 'rar'");
         await Assert.That(exception.Message).Contains("zip, tar.gz, none");
@@ -91,8 +94,8 @@ public class ArchiveTests
         DirectoryInfo source = new(Path.Combine(workspace.Root, "does-not-exist"));
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        BuildStageException exception = Capture.Exception<BuildStageException>(
-            () => _ = BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None));
+        BuildStageException exception = await Capture.ExceptionAsync<BuildStageException>(
+            () => archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None));
 
         await Assert.That(exception.Message).Contains("does not exist");
         await Assert.That(exception.Message).Contains(archive.FullName);
@@ -105,7 +108,7 @@ public class ArchiveTests
         DirectoryInfo source = SourceFolderWithContent(workspace, out _);
         FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-win-x64.zip"));
 
-        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
+        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         // A previous run's stale archive must not survive into this run's output.
         foreach (string file in Directory.GetFiles(source.FullName, "*", SearchOption.AllDirectories))
@@ -115,7 +118,7 @@ public class ArchiveTests
 
         Directory.Delete(Path.Combine(source.FullName, "runtimes"), recursive: true);
         await File.WriteAllTextAsync(Path.Combine(source.FullName, "replacement.txt"), "new content");
-        await BuildArchiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
+        await archiver.CreateArchiveAsync(source, archive, ArchiveFormats.Zip, CancellationToken.None);
 
         await using ZipArchive zip = await ZipFile.OpenReadAsync(archive.FullName);
         string[] entries = [.. zip.Entries.Select(static entry => entry.FullName)];
@@ -157,12 +160,10 @@ public class ArchiveTests
         using TestWorkspace workspace = TestWorkspace.Create();
         workspace.WriteManifest(
             """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"], "archive": "none" } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
-        RecordingProcessInvoker invoker = new() { OnInvocation = RecordingProcessInvoker.MaterializePublishOutput };
+        invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            await using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
             int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
 
             await Assert.That(exitCode).IsEqualTo(0);
@@ -183,12 +184,10 @@ public class ArchiveTests
         using TestWorkspace workspace = TestWorkspace.Create();
         workspace.WriteManifest(
             """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["lib-package"] } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
-        RecordingProcessInvoker invoker = new() { OnInvocation = RecordingProcessInvoker.MaterializePublishOutput };
+        invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            await using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
             int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
 
             await Assert.That(exitCode).IsEqualTo(0);
@@ -209,20 +208,15 @@ public class ArchiveTests
     /// <param name="workspace">The workspace carrying the manifest.</param>
     /// <param name="manifestJson">The manifest driving the build.</param>
     /// <returns>The full path of the created archive.</returns>
-    private static async Task<string> RunBuildAsync(TestWorkspace workspace, string manifestJson)
+    private async Task<string> RunBuildAsync(TestWorkspace workspace, string manifestJson)
     {
         workspace.WriteManifest(manifestJson);
-        RecordingProcessInvoker invoker = new()
-        {
-            OnInvocation = RecordingProcessInvoker.MaterializePublishOutput,
-        };
+        invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
 
         string? archivePath = null;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            await using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
             int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
 
             await Assert.That(exitCode).IsEqualTo(0);
@@ -238,8 +232,8 @@ public class ArchiveTests
         });
 
         await Assert.That(archivePath).IsNotNull();
-        
-        return archivePath;
+
+        return archivePath!;
     }
 
     private static DirectoryInfo SourceFolderWithContent(TestWorkspace workspace, out string[] expectedEntries)

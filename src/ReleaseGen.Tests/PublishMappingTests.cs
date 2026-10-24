@@ -1,16 +1,16 @@
 namespace ReleaseGen.Tests;
 
 using CliInvoke.Core;
-using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenCli.Commands;
 
 /// <summary>
 /// The publish stage's invocation mapping: each declared package kind becomes a
 /// <c>dotnet nuget push</c> for every staged package, in manifest target order, to the resolved
-/// source with the API key from the CLI option or the environment channel - and the integration
-/// leg pushes a real package to a local folder source instead of nuget.org.
+/// source with the API key from the CLI option or the environment channel. The real-invoker
+/// integration leg lives in <see cref="PublishIntegrationTests"/>.
 /// </summary>
-public class PublishMappingTests
+[ReleaseGenDi]
+public class PublishMappingTests(IServiceProvider services, RecordingProcessInvoker invoker)
 {
     [Test]
     public async Task No_listed_sources_resolve_to_the_nuget_org_default()
@@ -45,12 +45,10 @@ public class PublishMappingTests
         workspace.WriteManifest(MultiTargetManifest(source));
         string alphaPackage = StagePackage(workspace, "lib", "Alpha", "Alpha.1.0.0.nupkg");
         string betaPackage = StagePackage(workspace, "tool", "Beta", "Beta.1.0.0.nupkg");
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
             StageContext.Reset();
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
 
             int exitCode = await CliHarness.InvokeAsync(
                 new PublishCommand(services), "publish", "--api-key", "local-key");
@@ -78,12 +76,10 @@ public class PublishMappingTests
             }
             """);
         string package = StagePackage(workspace, "lib", "App", "App.1.0.0.nupkg");
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
             StageContext.Reset();
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
 
             int exitCode = await CliHarness.InvokeAsync(
                 new PublishCommand(services), "publish", "--api-key", "local-key");
@@ -102,12 +98,10 @@ public class PublishMappingTests
         using TestWorkspace workspace = TestWorkspace.Create();
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(PackageManifest(source));
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
             StageContext.Reset();
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
 
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
@@ -130,7 +124,6 @@ public class PublishMappingTests
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(PackageManifest(source));
         StagePackage(workspace, "lib", "Lib", "Lib.1.0.0.nupkg");
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
@@ -140,8 +133,6 @@ public class PublishMappingTests
 
             try
             {
-                using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
                 int exitCode = await CliHarness.InvokeAsync(new PublishCommand(services), "publish");
 
                 await Assert.That(exitCode).IsEqualTo(0);
@@ -163,7 +154,6 @@ public class PublishMappingTests
         string source = workspace.CreateDirectory("local-source");
         workspace.WriteManifest(PackageManifest(source));
         StagePackage(workspace, "lib", "Lib", "Lib.1.0.0.nupkg");
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
@@ -173,8 +163,6 @@ public class PublishMappingTests
 
             try
             {
-                using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
                 string console = await ConsoleCapture.CaptureAsync(async () =>
                 {
                     int exitCode = await CliHarness.InvokeAsync(new PublishCommand(services), "publish");
@@ -191,33 +179,6 @@ public class PublishMappingTests
             {
                 Environment.SetEnvironmentVariable("NUGET_API_KEY", previous);
             }
-        });
-    }
-
-    [Test]
-    public async Task Integration_a_real_push_lands_a_package_in_a_local_source()
-    {
-        using TestWorkspace workspace = TestWorkspace.Create();
-        string source = workspace.CreateDirectory("local-source");
-        workspace.WriteManifest(PackageManifest(source, project: "Local"));
-        TestPackage.WriteNupkg(
-            Path.Combine(workspace.Root, "release", "packages", "lib", "Local", "ReleaseGen.LocalPush.1.0.0.nupkg"),
-            "ReleaseGen.LocalPush",
-            "1.0.0");
-
-        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
-        {
-            StageContext.Reset();
-            using ServiceProvider services = ReleaseGenServices.CreateWithRealInvoker();
-
-            // The real invoker runs dotnet nuget push against the local folder source - never
-            // nuget.org.
-            int exitCode = await CliHarness.InvokeAsync(
-                new PublishCommand(services), "publish", "--api-key", "local-key");
-
-            await Assert.That(exitCode).IsEqualTo(0);
-            await Assert.That(File.Exists(
-                Path.Combine(source, "ReleaseGen.LocalPush.1.0.0.nupkg"))).IsTrue();
         });
     }
 

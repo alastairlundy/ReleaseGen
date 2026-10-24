@@ -6,9 +6,10 @@ using CliInvoke.Core;
 /// A fake <see cref="IProcessInvoker"/> that records every invocation instead of starting a
 /// process, so tests can assert on the exact command lines the stages build
 /// without network access or a real toolchain run. Publish integration tests, which push to a
-/// local source, use the real invoker instead.
+/// local source, use the real invoker instead. Tests receive one per test through their DI
+/// scope, so recorded invocations never leak across tests.
 /// </summary>
-internal sealed class RecordingProcessInvoker : IProcessInvoker
+public sealed class RecordingProcessInvoker : IProcessInvoker
 {
     private readonly List<ProcessConfiguration> _invocations = [];
 

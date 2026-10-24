@@ -2,7 +2,6 @@ using ReleaseGenLib.Exceptions;
 
 namespace ReleaseGen.Tests;
 
-using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenCli.Commands;
 using ReleaseGenLib;
 using ReleaseGenLib.Models;
@@ -11,9 +10,12 @@ using ReleaseGenLib.Models;
 /// The build preset and flag mapping: each of the four shipped presets plus
 /// none resolves to its documented dotnet publish switch set, manifest keys override the preset
 /// defaults tri-state, <c>--preset</c> beats the manifest key for one invocation without ever
-/// writing the file, and an unknown preset is refused naming the known set.
+/// writing the file, and an unknown preset is refused naming the known set. The four
+/// command-level tests resolve the stage services and the recording invoker from the test's
+/// own DI scope; the switch-mapping tests are pure and need neither.
 /// </summary>
-public class BuildPresetMappingTests
+[ReleaseGenDi]
+public class BuildPresetMappingTests(IServiceProvider services, RecordingProcessInvoker invoker)
 {
     [Test]
     public async Task Aot_preset_maps_to_publish_aot_and_self_contained()
@@ -158,12 +160,9 @@ public class BuildPresetMappingTests
         using TestWorkspace workspace = TestWorkspace.Create();
         string manifestPath = workspace.WriteManifest(BuildManifest(BuildPreset.FrameworkDependent));
         string before = await File.ReadAllTextAsync(manifestPath);
-        RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
             int exitCode = await CliHarness.InvokeAsync(
                 new BuildCommand(services), "build", "--preset", BuildPreset.AotPlusTrimming);
 
@@ -184,12 +183,8 @@ public class BuildPresetMappingTests
     {
         using TestWorkspace workspace = TestWorkspace.Create();
         workspace.WriteManifest(BuildManifest(BuildPreset.FrameworkDependent));
-        RecordingProcessInvoker invoker = new();
-
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
             int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
 
             await Assert.That(exitCode).IsEqualTo(0);
@@ -204,12 +199,8 @@ public class BuildPresetMappingTests
     {
         using TestWorkspace workspace = TestWorkspace.Create();
         workspace.WriteManifest(BuildManifest(BuildPreset.FrameworkDependent));
-        RecordingProcessInvoker invoker = new();
-
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
                 int exitCode = await CliHarness.InvokeAsync(
@@ -228,12 +219,8 @@ public class BuildPresetMappingTests
     {
         using TestWorkspace workspace = TestWorkspace.Create();
         workspace.WriteManifest(BuildManifest("turbo"));
-        RecordingProcessInvoker invoker = new();
-
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
-            using ServiceProvider services = ReleaseGenServices.Create(invoker);
-
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
                 int exitCode = await CliHarness.InvokeAsync(new BuildCommand(services), "build");
