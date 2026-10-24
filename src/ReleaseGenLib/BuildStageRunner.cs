@@ -226,7 +226,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
 
         using StringReader reader = new(text);
 
-        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(true) is { } line)
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
         {
             if (line.Length > 0)
             {
