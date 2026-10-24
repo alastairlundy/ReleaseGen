@@ -157,7 +157,7 @@ public class BuildPresetMappingTests
     {
         using TestWorkspace workspace = TestWorkspace.Create();
         string manifestPath = workspace.WriteManifest(BuildManifest(BuildPreset.FrameworkDependent));
-        string before = File.ReadAllText(manifestPath);
+        string before = await File.ReadAllTextAsync(manifestPath);
         RecordingProcessInvoker invoker = new();
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
@@ -175,7 +175,7 @@ public class BuildPresetMappingTests
             await Assert.That(published.Contains("RollForward", StringComparison.Ordinal)).IsFalse();
 
             // The flag never writes to the file, so the no-per-key-override rule stands.
-            await Assert.That(File.ReadAllText(manifestPath)).IsEqualTo(before);
+            await Assert.That(await File.ReadAllTextAsync(manifestPath)).IsEqualTo(before);
         });
     }
 

@@ -30,7 +30,7 @@ public class InitCommandTests
             await Assert.That(File.Exists(manifestPath)).IsTrue();
 
             // The skeleton must load through the same strict parser every stage uses.
-            Manifest manifest = new ManifestLoader().Parse(File.ReadAllText(manifestPath));
+            Manifest manifest = new ManifestLoader().Parse(await File.ReadAllTextAsync(manifestPath));
 
             await Assert.That(manifest.Targets).Count().IsEqualTo(0);
             await Assert.That(manifest.Build.Preset).IsNull();
@@ -56,7 +56,7 @@ public class InitCommandTests
                 await Assert.That(exitCode).IsEqualTo(1);
             });
 
-            await Assert.That(File.ReadAllText(manifestPath)).IsEqualTo("sentinel: existing manifest\n");
+            await Assert.That(await File.ReadAllTextAsync(manifestPath)).IsEqualTo("sentinel: existing manifest\n");
             await Assert.That(console).Contains("already exists");
             await Assert.That(console).Contains("--overwrite");
         });
@@ -77,7 +77,7 @@ public class InitCommandTests
 
             await Assert.That(exitCode).IsEqualTo(0);
 
-            Manifest manifest = new ManifestLoader().Parse(File.ReadAllText(manifestPath));
+            Manifest manifest = new ManifestLoader().Parse(await File.ReadAllTextAsync(manifestPath));
             await Assert.That(manifest.Targets).Count().IsEqualTo(0);
         });
     }
@@ -118,7 +118,7 @@ public class InitCommandTests
             await Assert.That(exitCode).IsEqualTo(0);
 
             Manifest manifest = new ManifestLoader().Parse(
-                File.ReadAllText(Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)));
+                await File.ReadAllTextAsync(Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)));
 
             // Absence means preset none; 'none' written as a key would be redundant.
             await Assert.That(manifest.Build.Preset).IsNull();
