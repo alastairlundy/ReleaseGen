@@ -156,7 +156,6 @@ public sealed class RunCommand : Command
     /// manifest itself; <c>--quiet</c> (and, for build, <c>--preset</c>) forward so the stage
     /// sees the chain's invocation flags.
     /// </summary>
-    /// <param name="services">The DI container the stage commands resolve from.</param>
     /// <param name="stageName">The stage command to invoke: build, test, package, or publish.</param>
     /// <param name="extraArguments">Extra stage flags for this invocation, such as the preset override.</param>
     /// <param name="quiet">Whether the chain runs under <c>--quiet</c>; forwarded to the stage.</param>
@@ -175,12 +174,14 @@ public sealed class RunCommand : Command
             "package" => new PackageCommand(_manifestLoader, _processInvoker),
             "publish" => new PublishCommand(_manifestLoader, _processInvoker),
             _ => throw new ArgumentOutOfRangeException(
-                nameof(stageName), stageName, "run: unknown stage name."),
+                nameof(stageName), stageName, Resources.Exceptions_Stages_UnknownStageName),
         };
 
-        RootCommand temporaryRoot = new("ReleaseGen stage invocation root.");
-        temporaryRoot.Add(stageCommand);
-        temporaryRoot.Add(CliOptions.Quiet);
+        RootCommand temporaryRoot = new("ReleaseGen stage invocation root.")
+        {
+            stageCommand,
+            CliOptions.Quiet,
+        };
 
         List<string> argv = [stageName, .. extraArguments];
 

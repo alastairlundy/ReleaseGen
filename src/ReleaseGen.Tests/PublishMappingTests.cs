@@ -18,10 +18,9 @@ public class PublishMappingTests
     private readonly RecordingProcessInvoker _invoker;
     
     private readonly IManifestLoader _manifestLoader;
-    private readonly IBuildStageRunner _buildStageRunner;
 
     /// <summary>
-    /// The publish stage's invocation mapping: each declared package kind becomes a
+    /// The publish command's stage invocation mapping: each declared package kind becomes a
     /// <c>dotnet nuget push</c> for every staged package, in manifest target order, to the resolved
     /// source with the API key from the CLI option or the environment channel. The real-invoker
     /// integration leg lives in <see cref="PublishIntegrationTests"/>.
@@ -31,7 +30,6 @@ public class PublishMappingTests
         _invoker = invoker;
         
         _manifestLoader = services.GetRequiredService<IManifestLoader>();
-        _buildStageRunner = services.GetRequiredService<IBuildStageRunner>();
     }
 
     [Test]

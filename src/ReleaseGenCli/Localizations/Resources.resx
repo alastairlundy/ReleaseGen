@@ -27,4 +27,10 @@
     <data name="Prompts_Selection_StorageDrive" xml:space="preserve">
         <value>Select a storage drive</value>
     </data>
+    <data name="Exceptions.Publishing.ManifestPublishSource.IsEmpty" xml:space="preserve">
+        <value>publish: the manifest's publish.sources entry at position {0} is empty.</value>
+    </data>
+    <data name="Exceptions.Stages.UnknownStageName" xml:space="preserve">
+        <value>run: unknown stage name.</value>
+    </data>
 </root>

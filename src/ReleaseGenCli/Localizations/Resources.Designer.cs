@@ -60,6 +60,24 @@ namespace ReleaseGenCli.Localizations {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to publish: the manifest&apos;s publish.sources entry at position {0} is empty..
+        /// </summary>
+        internal static string Exceptions_Publishing_ManifestPublishSource_IsEmpty {
+            get {
+                return ResourceManager.GetString("Exceptions.Publishing.ManifestPublishSource.IsEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to run: unknown stage name..
+        /// </summary>
+        internal static string Exceptions_Stages_UnknownStageName {
+            get {
+                return ResourceManager.GetString("Exceptions.Stages.UnknownStageName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to storage drive.
         /// </summary>
         internal static string Prompts_Highlights_StorageDrive {

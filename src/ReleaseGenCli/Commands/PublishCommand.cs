@@ -201,7 +201,6 @@ public sealed class PublishCommand : Command
     /// Runs the test stage command in-process so the gate consult consumes exactly the stage's
     /// exit code, replaying its console output through the conventions layer.
     /// </summary>
-    /// <param name="services">The DI container the test command resolves from.</param>
     /// <param name="quiet">Whether <c>--quiet</c> was set on this invocation; forwarded so the consult stays as quiet.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>The test stage's exit code.</returns>
@@ -350,8 +349,8 @@ public sealed class PublishCommand : Command
                 $"publish: push output for package '{push.PackageFile.Name}' to source '{source}' was truncated; some lines did not reach the console.");
         }
 
-        ReplayLines(result.StandardOutput, static line => CliOutput.Note(line));
-        ReplayLines(result.StandardError, static line => CliOutput.Warning(line));
+        await ReplayLines(result.StandardOutput, static line => CliOutput.Note(line), cancellationToken).ConfigureAwait(true);
+        await ReplayLines(result.StandardError, static line => CliOutput.Warning(line), cancellationToken).ConfigureAwait(true);
 
         if (result.ExitCode != 0)
         {
@@ -368,7 +367,8 @@ public sealed class PublishCommand : Command
     /// </summary>
     /// <param name="text">The captured stdout or stderr text.</param>
     /// <param name="sink">The line sink; null swallows the lines.</param>
-    private static void ReplayLines(string? text, Action<string>? sink)
+    /// <param name="cancellationToken"></param>
+    private static async Task ReplayLines(string? text, Action<string>? sink, CancellationToken cancellationToken)
     {
         if (sink is null || string.IsNullOrEmpty(text))
         {
@@ -376,9 +376,9 @@ public sealed class PublishCommand : Command
         }
 
         using StringReader reader = new(text);
-        string? line;
 
-        while ((line = reader.ReadLine()) is not null)
+        while (await reader.ReadLineAsync(cancellationToken)
+                   .ConfigureAwait(true) is { } line)
         {
             if (line.Length > 0)
             {

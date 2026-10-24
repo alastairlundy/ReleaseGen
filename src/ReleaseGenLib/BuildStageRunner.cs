@@ -28,7 +28,7 @@ using Models;
 /// Publish output reaches the caller only through the request's line sinks - this type never
 /// writes to the console - and no publish line is filtered or suppressed, so the SDK's
 /// IL3000-family analyzer warnings pass through intact. CliInvoke 3.1.0 exposes no
-/// line-level process events, so each publish's captured output is replayed to the sinks as
+/// line-level process events, so each publish command's captured output is replayed to the sinks as
 /// soon as that publish completes rather than interleaved live; fail-fast still stops the
 /// stage at the first failing rid.
 /// </para>
@@ -176,7 +176,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
                         ProcessExitConfiguration.Default, MaxBufferedOutputBytes),
                     cancellationToken).ConfigureAwait(false);
 
-                await ReplayLines(result.StandardOutput, request.WriteLine, cancellationToken).ConfigureAwait(true);
+                await ReplayLines(result.StandardOutput, request.WriteLine, cancellationToken).ConfigureAwait(false);
 
                 if (result.WasTruncated)
                 {
@@ -184,7 +184,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
                         $"build: publish output for target '{target.Project}' with runtime identifier '{rid}' was truncated; some lines did not reach the console.");
                 }
 
-                await ReplayLines(result.StandardError, request.WriteErrorLine, cancellationToken).ConfigureAwait(true);
+                await ReplayLines(result.StandardError, request.WriteErrorLine, cancellationToken).ConfigureAwait(false);
 
                 if (result.ExitCode != 0)
                 {
@@ -225,9 +225,8 @@ public sealed class BuildStageRunner : IBuildStageRunner
         }
 
         using StringReader reader = new(text);
-        string? line;
 
-        while ((line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(true)) is not null)
+        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(true) is { } line)
         {
             if (line.Length > 0)
             {

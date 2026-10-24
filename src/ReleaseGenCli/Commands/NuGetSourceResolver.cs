@@ -38,7 +38,7 @@ public static class NuGetSourceResolver
             {
                 // The error style: names the offending entry by its position.
                 throw new ArgumentException(
-                    $"publish: the manifest's publish.sources entry at position {i} is empty.",
+                    string.Format(Resources.Exceptions_Publishing_ManifestPublishSource_IsEmpty, i),
                     nameof(manifestSources));
             }
         }

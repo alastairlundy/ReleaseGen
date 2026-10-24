@@ -24,7 +24,7 @@ public class InitCommandTests
     /// known preset may reach the file. Both the command and the verification parse come from the
     /// same injected scope, so the skeleton is checked against the very loader the stages use.
     /// </summary>
-    public InitCommandTests(IServiceProvider services, IManifestLoader loader)
+    public InitCommandTests(IManifestLoader loader)
     {
         _loader = loader;
     }
