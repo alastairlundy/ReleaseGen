@@ -42,6 +42,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
     /// </summary>
     private const long MaxBufferedOutputBytes = 64 * 1024 * 1024;
 
+    private readonly IManifestLoader _manifestLoader;
     private readonly IProcessInvoker _processInvoker;
     private readonly IBuildArchiver _buildArchiver;
 
@@ -71,8 +72,9 @@ public sealed class BuildStageRunner : IBuildStageRunner
     /// stage at the first failing rid.
     /// </para>
     /// </summary>
-    public BuildStageRunner(IProcessInvoker processInvoker, IBuildArchiver buildArchiver)
+    public BuildStageRunner(IManifestLoader manifestLoader, IProcessInvoker processInvoker, IBuildArchiver buildArchiver)
     {
+        _manifestLoader = manifestLoader;
         _processInvoker = processInvoker;
         _buildArchiver = buildArchiver;
     }
@@ -103,7 +105,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
 
         foreach (ManifestTarget target in manifest.Targets)
         {
-            FileInfo projectFile = ManifestLoader.ResolveProjectFile(target.Project, request.ManifestDirectory.FullName);
+            FileInfo projectFile = _manifestLoader.ResolveProjectFile(target.Project, request.ManifestDirectory.FullName);
             string projectName = Path.GetFileNameWithoutExtension(projectFile.Name);
             string archiveFormat = target.Archive ?? ArchiveFormats.Zip;
 
@@ -174,7 +176,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
                         ProcessExitConfiguration.Default, MaxBufferedOutputBytes),
                     cancellationToken).ConfigureAwait(false);
 
-                ReplayLines(result.StandardOutput, request.WriteLine);
+                await ReplayLines(result.StandardOutput, request.WriteLine, cancellationToken).ConfigureAwait(true);
 
                 if (result.WasTruncated)
                 {
@@ -182,7 +184,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
                         $"build: publish output for target '{target.Project}' with runtime identifier '{rid}' was truncated; some lines did not reach the console.");
                 }
 
-                ReplayLines(result.StandardError, request.WriteErrorLine);
+                await ReplayLines(result.StandardError, request.WriteErrorLine, cancellationToken).ConfigureAwait(true);
 
                 if (result.ExitCode != 0)
                 {
@@ -214,7 +216,8 @@ public sealed class BuildStageRunner : IBuildStageRunner
     /// </summary>
     /// <param name="text">The captured stdout or stderr text.</param>
     /// <param name="sink">The line sink; null swallows the lines.</param>
-    private static void ReplayLines(string? text, Action<string>? sink)
+    /// <param name="cancellationToken"></param>
+    private static async Task ReplayLines(string? text, Action<string>? sink, CancellationToken cancellationToken)
     {
         if (sink is null || string.IsNullOrEmpty(text))
         {
@@ -224,7 +227,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
         using StringReader reader = new(text);
         string? line;
 
-        while ((line = reader.ReadLine()) is not null)
+        while ((line = await reader.ReadLineAsync(cancellationToken).ConfigureAwait(true)) is not null)
         {
             if (line.Length > 0)
             {
