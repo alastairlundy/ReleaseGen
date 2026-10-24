@@ -10,8 +10,8 @@ using ReleaseGenLib.Models;
 /// The test gate and the chained run's fail-fast ordering: a declared test
 /// section with a nonzero exit blocks publish before any network call, an absent section warns
 /// and proceeds, a standalone publish consults the gate by running the test stage itself, and a
-/// failed test stage aborts the chain before publish. The recording invoker and the scope's
-/// command provider come from the test's own DI scope, so every recorded invocation is private
+/// failed test stage aborts the chain before publish. The recording invoker and the test root's
+/// command provider come from the test's own DI container, so every recorded invocation is private
 /// to its test.
 /// </summary>
 [ReleaseGenDi]
@@ -26,8 +26,8 @@ public class TestGateTests
     /// The test gate and the chained run's fail-fast ordering: a declared test
     /// section with a nonzero exit blocks publish before any network call, an absent section warns
     /// and proceeds, a standalone publish consults the gate by running the test stage itself, and a
-    /// failed test stage aborts the chain before publish. The recording invoker and the scope's
-    /// command provider come from the test's own DI scope, so every recorded invocation is private
+    /// failed test stage aborts the chain before publish. The recording invoker and the test root's
+    /// command provider come from the test's own DI container, so every recorded invocation is private
     /// to its test.
     /// </summary>
     public TestGateTests(ServiceProvider services, RecordingProcessInvoker invoker)

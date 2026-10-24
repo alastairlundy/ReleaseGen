@@ -13,7 +13,7 @@ using ReleaseGenLib.Models;
 /// Archive creation: zip is the executable-kind default, tar.gz and none are the declared
 /// opt-outs, package kinds never archive, archives replace any stale file, and an unknown format
 /// fails naming the known set. Output stays local under <c>release/</c>. The command-level
-/// tests drive the build stage through the test's own DI scope; the pure archive tests need
+/// tests drive the build stage through the test's own DI container; the pure archive tests need
 /// neither injected service.
 /// </summary>
 [ReleaseGenDi]
@@ -29,7 +29,7 @@ public class ArchiveTests
     /// Archive creation: zip is the executable-kind default, tar.gz and none are the declared
     /// opt-outs, package kinds never archive, archives replace any stale file, and an unknown format
     /// fails naming the known set. Output stays local under <c>release/</c>. The command-level
-    /// tests drive the build stage through the test's own DI scope; the pure archive tests need
+    /// tests drive the build stage through the test's own DI container; the pure archive tests need
     /// neither injected service.
     /// </summary>
     public ArchiveTests(ServiceProvider services, IBuildArchiver archiver, RecordingProcessInvoker invoker)

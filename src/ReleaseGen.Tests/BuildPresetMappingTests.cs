@@ -14,7 +14,7 @@ using ReleaseGenLib.Models;
 /// defaults tri-state, <c>--preset</c> beats the manifest key for one invocation without ever
 /// writing the file, and an unknown preset is refused naming the known set. The four
 /// command-level tests resolve the stage services and the recording invoker from the test's
-/// own DI scope; the switch-mapping tests are pure and need neither.
+/// own DI container; the switch-mapping tests are pure and need neither.
 /// </summary>
 [ReleaseGenDi]
 public class BuildPresetMappingTests
@@ -29,7 +29,7 @@ public class BuildPresetMappingTests
     /// defaults tri-state, <c>--preset</c> beats the manifest key for one invocation without ever
     /// writing the file, and an unknown preset is refused naming the known set. The four
     /// command-level tests resolve the stage services and the recording invoker from the test's
-    /// own DI scope; the switch-mapping tests are pure and need neither.
+    /// own DI container; the switch-mapping tests are pure and need neither.
     /// </summary>
     public BuildPresetMappingTests(ServiceProvider services, RecordingProcessInvoker invoker)
     {
