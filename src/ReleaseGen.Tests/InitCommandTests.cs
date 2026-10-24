@@ -97,7 +97,7 @@ public class InitCommandTests
             await Assert.That(exitCode).IsEqualTo(0);
 
             Manifest manifest = new ManifestLoader().Parse(
-                File.ReadAllText(Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)));
+                await File.ReadAllTextAsync(Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)));
 
             await Assert.That(manifest.Build.Preset).IsEqualTo(BuildPreset.TrimmingOnly);
         });
