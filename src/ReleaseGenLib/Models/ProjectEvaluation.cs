@@ -37,6 +37,15 @@ public sealed record ProjectEvaluation(string OutputType, string PackAsTool, str
         PackAsToolIsTrue || string.IsNullOrEmpty(IsPackable) || IsTrue(IsPackable);
 
     /// <summary>
+    /// Whether the project declares pack intent itself: <c>PackAsTool</c> true, or
+    /// <c>IsPackable</c> explicitly true. An unset <c>IsPackable</c> is the SDK's default
+    /// rather than a declaration, so it does not count as intent here.
+    /// </summary>
+    public bool DeclaresPackIntent =>
+        PackAsToolIsTrue ||
+        string.Equals(IsPackable, "true", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// The property as it should read in an error message: '<c>(unset)</c>' when the project
     /// expanded it to nothing, so a missing declaration is distinguishable from a false one.
     /// </summary>

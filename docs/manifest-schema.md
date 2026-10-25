@@ -70,6 +70,11 @@ Archiving stays opt-out, and `tar.xz` is never a default on any platform:
 An explicit `archiveFormats` key overrides this table for every rid of the target.
 Each resolved format produces one archive per (target, rid).
 
+`releasegen init` seeds the full default set explicitly for a target whose project is an
+executable - `"archiveFormats": ["zip", "tar.gz"]` - so the default is visible in the written
+file instead of hiding behind an absent key; trim the list to the rid class you actually
+declare. `tar.xz` is never seeded. See the [command reference](commands.md#init).
+
 ### `tar.xz` and Windows-class or portable rids
 
 `tar.xz` is opt-in only: neither Windows-class (`win-*`) nor portable (`any-*`) rids produce it.

@@ -27,7 +27,7 @@ public static class RootCommandComposer
         IManifestLoader manifestLoader = services.GetRequiredService<IManifestLoader>();
         IBuildStageRunner buildStageRunner = services.GetRequiredService<IBuildStageRunner>();
         
-        rootCommand.Add(new InitCommand());
+        rootCommand.Add(new InitCommand(services.GetRequiredService<IProjectInfoProvider>()));
         rootCommand.Add(new BuildCommand(manifestLoader, buildStageRunner));
         rootCommand.Add(new TestCommand(manifestLoader, processInvoker));
         rootCommand.Add(new PackageCommand(manifestLoader, processInvoker));

@@ -88,8 +88,11 @@ error: --quiet and --verbose conflict; pass only one of them. Run with --verbose
 
 ## `init`
 
-Writes a minimal valid `releasegen.json` Manifest to the current directory. Init is a
-one-shot command and takes no part in the chained run.
+Writes a valid `releasegen.json` Manifest to the current directory. Init is a one-shot
+command and takes no part in the chained run, and the default invocation stays
+non-interactive: it scans the current directory for .NET projects (skipping `bin`, `obj`, and
+dot-directories), seeds what it can classify with certainty, and warns once for every
+classification it cannot make.
 
 ```
 releasegen init [--preset <name>] [--overwrite]
@@ -99,6 +102,41 @@ releasegen init [--preset <name>] [--overwrite]
 |------|--------|
 | `--preset <name>` | Seeds the Manifest's `build.preset` key with a known preset name. `none`, or omitting the flag, seeds no key (absence means preset none). An unknown name fails with an error listing the known set. |
 | `--overwrite` | Replace `releasegen.json` when it already exists in the current directory. Without it, an existing file is refused with exit code 1. |
+
+**What gets seeded**
+
+| Detected | Seeded as |
+|----------|-----------|
+| Project whose evaluated `OutputType` is `Exe` or `WinExe` | a `targets` entry with the `executables` kind, plus `tool-package` when the expanded `PackAsTool` is `true`, and an explicit `archiveFormats` list of `zip` and `tar.gz` - the absent-key default set made visible in the file (`tar.xz` stays opt-in) |
+| Project name ending `.Tests` or `.Test` | a `test.projects` entry |
+| Library-shaped project with expanded `PackAsTool=true` | a `targets` entry with the `tool-package` kind |
+| Packable library (the SDK's default `IsPackable`) | a `targets` entry with the `lib-package` kind |
+
+Package-kind-only targets are seeded without an `archiveFormats` key: the package stage's
+product is never archived. Every seeded project path is relative to the Manifest's directory
+and uses forward slashes, so the file reads the same on any machine.
+
+**Warnings and fallback**
+
+Each uncertain classification emits exactly one warning and seeds nothing for it:
+
+- a project that cannot be evaluated (`warning: init: could not evaluate '<path>' …`);
+- a project that is not an executable, not packable, and not a test project;
+- a `.Tests`/`.Test` project that also declares package metadata, which is ambiguous
+  between a test project and a package.
+
+When detection fails outright (or finds no projects at all), init writes today's minimal
+skeleton: an empty `targets` array, an empty rid list, and an empty publish source list. The
+`test` section is omitted unless test projects were detected - an absent section keeps the
+[test gate](manifest-schema.md#test-section) warn-and-pass, while an empty one would run
+`dotnet test` from the current directory.
+
+**Aftercare**
+
+A successful write ends with a note naming where the seeded content lives (the `targets`
+array and the `test.projects` key), the next step (`releasegen run`, with `--dry-run` as the
+side-effect-free rehearsal), and the two notes that prevent first-run surprises: the
+[single-file rules](single-file-rules.md) and the per-rid `archiveFormats` defaults.
 
 ## `build`
 
