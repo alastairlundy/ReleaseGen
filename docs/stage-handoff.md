@@ -27,6 +27,30 @@ directory or move the `release/` tree intact between them, preserving the layout
 | `package` | Each target's declared package kinds. | `release/packages/lib/<project-name>/*.nupkg` for `lib-package`, `release/packages/tool/<project-name>/*.nupkg` for `tool-package`, plus any `.snupkg` pack emits beside them. The `executables` kind is the build stage's product and produces no package. |
 | `publish` | The `.nupkg` files under `release/packages/…` (the package stage's output), the manifest's `publish.sources` or the nuget.org default, and the API key from `--api-key` or the `NUGET_API_KEY` environment variable. | None on disk. Push results are textual. The push list is collected from the artifact tree before the first push, so `publish` needs the tree present, not the stages re-run. |
 
+## One archive per declared format, per (target, rid)
+
+A (target, rid) pair hands off a **set** of archives, not a single file: each resolved format
+writes its own file beside the per-rid folders, so a consumer of the tree reads them all.
+
+| Format | Written by | Reachable for |
+|--------|-----------|---------------|
+| `zip` | `System.IO.Compression.ZipFile` (in-box) | every rid class; the default for Windows-class and portable `any-*` rids |
+| `tar.gz` | `System.Formats.Tar` + `GZipStream` (in-box) | every rid class; part of the Unix-based rid default |
+| `tar.xz` | `System.Formats.Tar` staged through the system `xz` binary | Unix-based rids only, opt-in |
+
+`tar.xz` is the one format that adds an environment dependency to the build stage: the machine
+running it needs `xz` on PATH, because the compression is that binary's rather than a managed
+stream. When `xz` is missing, the stage fails before producing anything and names the tool:
+
+```
+error: build: cannot create archive '<release>/<project-name>-<rid>.tar.xz': the 'xz' binary was not found on PATH. Install xz (for example 'apt-get install xz-utils', 'brew install xz', or 'pacman -S xz') to produce 'tar.xz' archives, or declare 'zip' or 'tar.gz' instead.
+```
+
+An `xz` run that exits nonzero fails in the same shape, naming the tool and its exit code, and
+neither failure leaves a staging file or a partial archive in the tree. A pipeline that moves
+the `release/` tree between jobs (below) therefore needs `xz` on whichever job declares
+`tar.xz`; jobs that never declare it are unaffected.
+
 ## Stage order and the test gate
 
 The stages form one pipeline in manifest order: `build` → `test` → `package` → `publish`.

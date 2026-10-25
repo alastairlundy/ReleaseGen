@@ -334,6 +334,59 @@ public class ArchiveTests
         });
     }
 
+    [Test]
+    public async Task A_tar_xz_archive_is_built_by_the_system_xz_binary()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        DirectoryInfo source = SourceFolderWithContent(workspace, out _);
+        FileInfo archive = new(Path.Combine(workspace.Root, "Alpha-linux-x64.tar.xz"));
+
+        // The recording invoker accepts the spawn and writes no product, so the archiver
+        // reports xz's absent output - which is exactly the behaviour under test here: one
+        // system-xz invocation over a staged tar, never a managed compression stream, with the
+        // staging cleaned up even on the failure path. The real-xz leg lives in
+        // TarXzArchiverTests.
+        BuildStageException exception = await Capture.ExceptionAsync<BuildStageException>(
+            () => _archiver.CreateArchiveAsync(source, archive, ArchiveFormats.TarXz, CancellationToken.None));
+
+        await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
+        await Assert.That(Path.GetFileName(_invoker.Invocations[0].TargetFilePath ?? string.Empty))
+            .IsEqualTo("xz");
+        await Assert.That(_invoker.Invocations[0].ArgumentList[0]).EndsWith(".tar");
+        await Assert.That(exception.Message).Contains("reported success but wrote no output");
+
+        // No archive and no staging leftovers survive the failed run.
+        await Assert.That(File.Exists(archive.FullName)).IsFalse();
+        await Assert.That(Directory.GetFiles(workspace.Root, "*.tar").Length).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task A_declared_tar_xz_target_plans_a_tar_xz_archive_for_a_unix_rid()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"], "archiveFormats": ["zip", "tar.xz"] } ], "build": { "runtimeIdentifiers": ["linux-x64"] }, "publish": { "sources": [] } }""");
+        _invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            string console = await ConsoleCapture.CaptureAsync(async () =>
+            {
+                int exitCode = await CliHarness.InvokeAsync(
+                    new BuildCommand(_manifestLoader, _buildStageRunner), "build", "--dry-run");
+
+                await Assert.That(exitCode).IsEqualTo(0);
+            });
+
+            // tar.xz is reachable for a Unix-based rid: both declared formats plan one archive
+            // per (target, rid), and the guarded archive step prints as conditional.
+            await Assert.That(console).Contains("(tar.xz)");
+            await Assert.That(console).Contains("conditional: output folder");
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+            await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
+        });
+    }
+
     /// <summary>
     /// Runs one fake-published build (a recording invoker that materializes each <c>-o</c>
     /// output folder) against the workspace's executables-kind manifest, and returns the single

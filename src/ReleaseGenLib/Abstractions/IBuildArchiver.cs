@@ -13,7 +13,7 @@ public interface IBuildArchiver
     /// <param name="archiveFile">The archive file to create beside the per-rid folder.</param>
     /// <param name="format">One of <see cref="ArchiveFormats.All"/>.</param>
     /// <param name="cancellationToken"></param>
-    /// <exception cref="BuildStageException">The directory to archive does not exist.</exception>
+    /// <exception cref="BuildStageException">The directory to archive does not exist, or the tar.xz step failed - most often the environment-not-tooled error naming a missing <c>xz</c> binary.</exception>
     /// <exception cref="ManifestException"><paramref name="format"/> is not a known archive format.</exception>
     Task CreateArchiveAsync(DirectoryInfo sourceDirectory, FileInfo archiveFile, string format, CancellationToken cancellationToken);
 }

@@ -89,6 +89,17 @@ A target whose only declared format is `tar.xz` fails manifest validation before
 runs when the Manifest declares those rids: the error names the target, the conflicting rids,
 and the fix - see the [manifest schema](manifest-schema.md).
 
+`tar.xz` is written by piping the tar stream through the system `xz` binary, so the machine
+running the stage must have `xz` on PATH. A machine without it fails the stage before any
+archive is produced, naming the missing tool:
+
+```
+error: build: cannot create archive '<release>/<project-name>-<rid>.tar.xz': the 'xz' binary was not found on PATH. Install xz (for example 'apt-get install xz-utils', 'brew install xz', or 'pacman -S xz') to produce 'tar.xz' archives, or declare 'zip' or 'tar.gz' instead.
+```
+
+An `xz` run that exits nonzero fails the stage in the same shape, naming the tool and its exit
+code; either way nothing half-written is left under `release/`.
+
 ## `test`
 
 Runs `dotnet test` on the projects the Manifest's test section names, or once from the current
