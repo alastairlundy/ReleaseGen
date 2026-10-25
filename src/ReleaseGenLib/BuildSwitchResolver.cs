@@ -44,7 +44,7 @@ public static class BuildSwitchResolver
 
         switch (preset)
         {
-            case BuildPreset.AotPlusTrimming:
+            case BuildPreset.Aot:
                 // Self-contained; trimming implied by AOT so no separate trimming switch.
                 publishAot = true;
                 publishTrimmed = true;

@@ -42,7 +42,7 @@ public class BuildPresetMappingTests
     public async Task Aot_preset_maps_to_publish_aot_and_self_contained()
     {
         PublishSwitchSet switches = BuildSwitchResolver.Resolve(
-            BuildPreset.AotPlusTrimming, new ManifestBuildSection(), ArchiveFormats.Zip, isWindows: true);
+            BuildPreset.Aot, new ManifestBuildSection(), ArchiveFormats.Zip, isWindows: true);
 
         // AOT implies trimming, so no separate trimming switch rides along.
         await Assert.That(Render(switches.ToArguments())).IsEqualTo(
@@ -136,7 +136,7 @@ public class BuildPresetMappingTests
         ManifestBuildSection section = new() { PublishAot = false };
 
         PublishSwitchSet switches = BuildSwitchResolver.Resolve(
-            BuildPreset.AotPlusTrimming, section, ArchiveFormats.Zip, isWindows: true);
+            BuildPreset.Aot, section, ArchiveFormats.Zip, isWindows: true);
 
         // AOT off re-exposes the preset's trimming default.
         await Assert.That(Render(switches.ToArguments())).IsEqualTo(
@@ -162,7 +162,7 @@ public class BuildPresetMappingTests
             () => BuildSwitchResolver.Resolve("bogus", new ManifestBuildSection(), ArchiveFormats.Zip));
 
         await Assert.That(exception.Message).Contains("Unknown build preset 'bogus'");
-        await Assert.That(exception.Message).Contains(BuildPreset.AotPlusTrimming);
+        await Assert.That(exception.Message).Contains(BuildPreset.Aot);
         await Assert.That(exception.Message).Contains(BuildPreset.None);
     }
 
@@ -170,9 +170,21 @@ public class BuildPresetMappingTests
     public async Task The_preset_name_set_is_the_shipped_five()
     {
         await Assert.That(string.Join(", ", BuildPreset.All)).IsEqualTo(
-            "aot-plus-trimming, ready-to-run, trimming-only, framework-dependent, none");
+            "aot, ready-to-run, trimming-only, framework-dependent, none");
         await Assert.That(BuildPreset.IsKnown(BuildPreset.TrimmingOnly)).IsTrue();
         await Assert.That(BuildPreset.IsKnown("Trimming-Only")).IsFalse(); // ordinal spelling only.
+    }
+
+    [Test]
+    public async Task The_retired_aot_plus_trimming_name_fails_naming_the_known_set()
+    {
+        // Hard rename, no alias: the old name is just another unknown preset now.
+        BuildStageException exception = Capture.Exception<BuildStageException>(
+            () => BuildSwitchResolver.Resolve("aot-plus-trimming", new ManifestBuildSection(), ArchiveFormats.Zip));
+
+        await Assert.That(exception.Message).Contains("Unknown build preset 'aot-plus-trimming'");
+        await Assert.That(exception.Message).Contains(BuildPreset.Aot);
+        await Assert.That(exception.Message).Contains(BuildPreset.None);
     }
 
     [Test]
@@ -185,7 +197,7 @@ public class BuildPresetMappingTests
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
         {
             int exitCode = await CliHarness.InvokeAsync(
-                new BuildCommand(_manifestLoader, _buildStageRunner), "build", "--preset", BuildPreset.AotPlusTrimming);
+                new BuildCommand(_manifestLoader, _buildStageRunner), "build", "--preset", BuildPreset.Aot);
 
             await Assert.That(exitCode).IsEqualTo(0);
             await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);

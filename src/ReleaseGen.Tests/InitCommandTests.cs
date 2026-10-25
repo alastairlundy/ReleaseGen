@@ -148,7 +148,7 @@ public class InitCommandTests
             });
 
             await Assert.That(console).Contains("Unknown preset 'turbo'");
-            await Assert.That(console).Contains(BuildPreset.AotPlusTrimming);
+            await Assert.That(console).Contains(BuildPreset.Aot);
             await Assert.That(File.Exists(Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)))
                 .IsFalse();
         });

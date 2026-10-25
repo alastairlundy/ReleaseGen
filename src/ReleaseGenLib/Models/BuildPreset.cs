@@ -14,9 +14,10 @@ public static class BuildPreset
     public const string None = "none";
 
     /// <summary>
-    /// Native AOT plus assembly trimming.
+    /// Native AOT plus assembly trimming, self-contained. Trimming is implied by AOT,
+    /// so no separate trimming switch is emitted.
     /// </summary>
-    public const string AotPlusTrimming = "aot-plus-trimming";
+    public const string Aot = "aot";
 
     /// <summary>
     /// Ready-to-run compilation.
@@ -36,7 +37,7 @@ public static class BuildPreset
     /// <summary>
     /// The full set of known preset names, in canonical spelling.
     /// </summary>
-    public static readonly string[] All = [AotPlusTrimming, ReadyToRun, TrimmingOnly, FrameworkDependent, None];
+    public static readonly string[] All = [Aot, ReadyToRun, TrimmingOnly, FrameworkDependent, None];
 
     /// <summary>
     /// Returns whether <paramref name="name"/> is a known preset name (canonical spelling, ordinal match).

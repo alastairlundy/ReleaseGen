@@ -12,7 +12,7 @@ is the shipped set.
 
 | Preset name | What it applies |
 |--------------|-----------------|
-| `aot-plus-trimming` | Native AOT plus assembly trimming, self-contained. Trimming is implied by AOT, so no separate trimming switch is emitted. |
+| `aot` | Native AOT plus assembly trimming, self-contained. Trimming is implied by AOT, so no separate trimming switch is emitted. |
 | `ready-to-run` | Ready-to-run compilation, self-contained, without trimming. |
 | `trimming-only` | Assembly trimming, self-contained, without ready-to-run. |
 | `framework-dependent` | Framework-dependent deployment with runtime roll-forward enabled for minor versions and patch versions (`RollForward=Minor`). |
@@ -27,7 +27,7 @@ identifier, and the selected preset resolves to publish switches per rid:
 
 | Preset | Emitted switches |
 |--------|------------------|
-| `aot-plus-trimming` | `PublishAot=true` (implies trimming), `--self-contained=true` |
+| `aot` | `PublishAot=true` (implies trimming), `--self-contained=true` |
 | `ready-to-run` | `PublishReadyToRun=true`, `--self-contained=true` |
 | `trimming-only` | `PublishTrimmed=true`, `--self-contained=true` |
 | `framework-dependent` | `--self-contained=false`, `RollForward=Minor` |
