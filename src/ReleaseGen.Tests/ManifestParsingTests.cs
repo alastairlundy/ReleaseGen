@@ -11,9 +11,9 @@ using ReleaseGenLib.Models;
 /// an inline comment, or a trailing comma fails with an error naming the offender, plus the
 /// validation rules that keep targets, artifact kinds, archives, and the executables-kind
 /// cross-check honest. The stages' behavior claims rest on this contract. Parsing and the
-/// provider-independent validation rules run through the shared DI-resolved loader; the three
-/// OutputType cross-check tests below construct their own loader over a counting stub because
-/// the stub's configured OutputType and read count are the subject under test.
+/// provider-independent validation rules run through the shared DI-resolved loader; the kind
+/// cross-check tests below construct their own loader over a counting stub because
+/// the stub's configured evaluation and read count are the subject under test.
 /// </summary>
 [ReleaseGenDi]
 public class ManifestParsingTests
@@ -25,9 +25,9 @@ public class ManifestParsingTests
     /// an inline comment, or a trailing comma fails with an error naming the offender, plus the
     /// validation rules that keep targets, artifact kinds, archives, and the executables-kind
     /// cross-check honest. The stages' behavior claims rest on this contract. Parsing and the
-    /// provider-independent validation rules run through the shared DI-resolved loader; the three
-    /// OutputType cross-check tests below construct their own loader over a counting stub because
-    /// the stub's configured OutputType and read count are the subject under test.
+    /// provider-independent validation rules run through the shared DI-resolved loader; the kind
+    /// cross-check tests below construct their own loader over a counting stub because
+    /// the stub's configured evaluation and read count are the subject under test.
     /// </summary>
     public ManifestParsingTests(IManifestLoader loader)
     {
@@ -310,7 +310,7 @@ public class ManifestParsingTests
 
         await Assert.That(exception.Message).Contains("src/App/App.csproj");
         await Assert.That(exception.Message).Contains("OutputType 'Library'");
-        await Assert.That(provider.OutputTypeReads).IsEqualTo(1);
+        await Assert.That(provider.EvaluationReads).IsEqualTo(1);
     }
 
     [Test]
@@ -323,7 +323,7 @@ public class ManifestParsingTests
 
         providerLoader.Validate(manifest, ManifestFileAtTemp());
 
-        await Assert.That(provider.OutputTypeReads).IsEqualTo(1);
+        await Assert.That(provider.EvaluationReads).IsEqualTo(1);
     }
 
     [Test]
@@ -336,8 +336,43 @@ public class ManifestParsingTests
 
         providerLoader.Validate(manifest, ManifestFileAtTemp());
 
-        // The cross-check keys on the declared executables kind only.
-        await Assert.That(provider.OutputTypeReads).IsEqualTo(0);
+        // The cross-check keys on the declared kinds: neither kind is declared, so the
+        // evaluation pass never runs.
+        await Assert.That(provider.EvaluationReads).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task A_target_declaring_both_kinds_is_answered_by_one_evaluation_pass()
+    {
+        StubProjectInfoProvider provider = new();
+        ManifestLoader providerLoader = new(provider);
+        Manifest manifest = providerLoader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables", "tool-package"] } ] }""");
+
+        providerLoader.Validate(manifest, ManifestFileAtTemp());
+
+        // The OutputType and PackAsTool cross-checks share one pass over the project file.
+        await Assert.That(provider.EvaluationReads).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Tool_package_kind_without_pack_as_tool_fails_validation_naming_the_fix()
+    {
+        StubProjectInfoProvider provider = new(packAsTool: false);
+        ManifestLoader providerLoader = new(provider);
+        Manifest manifest = providerLoader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["tool-package"] } ] }""");
+
+        ManifestException exception = Capture.Exception<ManifestException>(
+            () => providerLoader.Validate(manifest, ManifestFileAtTemp()));
+
+        // The error names the target, the property, and a declaration site that does not
+        // assume the project file: the property commonly lives in an imported props file.
+        await Assert.That(exception.Message).Contains("src/App/App.csproj");
+        await Assert.That(exception.Message).Contains(ArtifactKinds.ToolPackage);
+        await Assert.That(exception.Message).Contains("PackAsTool");
+        await Assert.That(exception.Message).Contains("Directory.Build.props");
+        await Assert.That(provider.EvaluationReads).IsEqualTo(1);
     }
 
     private static FileInfo ManifestFileAtTemp() =>

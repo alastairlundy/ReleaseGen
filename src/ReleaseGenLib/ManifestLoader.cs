@@ -9,8 +9,9 @@ using Models;
 
 /// <summary>
 /// Loads and validates <c>releasegen.json</c> manifests: strict System.Text.Json parsing,
-/// walk-up discovery with an explicit-path override, and the executable-kind cross-check
-/// against the evaluated OutputType.
+/// walk-up discovery with an explicit-path override, and the kind cross-checks against one
+/// expanded MSBuild evaluation (OutputType for <c>executables</c>, PackAsTool for
+/// <c>tool-package</c>).
 /// </summary>
 public sealed class ManifestLoader : IManifestLoader
 {
@@ -18,11 +19,12 @@ public sealed class ManifestLoader : IManifestLoader
 
     /// <summary>
     /// Loads and validates <c>releasegen.json</c> manifests: strict System.Text.Json parsing,
-    /// walk-up discovery with an explicit-path override, and the executable-kind cross-check
-    /// against the evaluated OutputType.
+    /// walk-up discovery with an explicit-path override, and the kind cross-checks against one
+    /// expanded MSBuild evaluation (OutputType for <c>executables</c>, PackAsTool for
+    /// <c>tool-package</c>).
     /// </summary>
     /// <param name="projectInfoProvider">
-    /// The Microsoft.Build evaluation path used for the OutputType cross-check. When null, only
+    /// The Microsoft.Build evaluation path behind the kind cross-checks. When null, only
     /// manifest-internal validation runs.
     /// </param>
     public ManifestLoader(IProjectInfoProvider projectInfoProvider)
@@ -135,11 +137,12 @@ public sealed class ManifestLoader : IManifestLoader
     /// <summary>
     /// Validates a parsed manifest: every target names a project and only known artifact kinds,
     /// a declared tar.xz format still leaves a usable format for every declared Windows-class or
-    /// portable rid, and a declared executables kind agrees with the evaluated OutputType.
+    /// portable rid, a declared executables kind agrees with the evaluated OutputType, and a
+    /// declared tool-package kind agrees with the expanded PackAsTool property.
     /// </summary>
     /// <param name="manifest">The parsed manifest.</param>
     /// <param name="manifestFile">The manifest file, for resolving the targets' relative project paths.</param>
-    /// <exception cref="ManifestException">A target entry or kind declaration is invalid, the tar.xz declaration conflicts with the declared rids, or the OutputType cross-check fails.</exception>
+    /// <exception cref="ManifestException">A target entry or kind declaration is invalid, the tar.xz declaration conflicts with the declared rids, or a kind cross-check fails.</exception>
     public void Validate(Manifest manifest, FileInfo manifestFile)
     {
         ArgumentNullException.ThrowIfNull(manifest);
@@ -180,9 +183,16 @@ public sealed class ManifestLoader : IManifestLoader
 
             ValidateTarXzAgainstWindowsRids(manifest, target);
 
-            if (_projectInfoProvider is not null && target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase))
+            bool declaresExecutables =
+                target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase);
+            bool declaresToolPackage =
+                target.Kinds.Contains(ArtifactKinds.ToolPackage, StringComparer.OrdinalIgnoreCase);
+
+            if (_projectInfoProvider is not null && (declaresExecutables || declaresToolPackage))
             {
-                ValidateExecutablesOutputType(target, baseDirectory);
+                // One evaluation pass answers both kind cross-checks, so a target declaring
+                // both kinds evaluates its project once.
+                ValidateProjectEvaluation(target, baseDirectory, declaresExecutables, declaresToolPackage);
             }
         }
     }
@@ -223,35 +233,49 @@ public sealed class ManifestLoader : IManifestLoader
     }
 
     /// <summary>
-    /// A declared executables kind that disagrees with the evaluated OutputType fails
-    /// manifest validation naming the target and the mismatch.
+    /// One MSBuild evaluation pass answers the declared kinds' project cross-checks: a
+    /// declared executables kind must agree with the evaluated OutputType, and a declared
+    /// tool-package kind must agree with the expanded PackAsTool property. Both read expanded
+    /// properties - a Directory.Build.props-driven setup stays honored - and neither emits a
+    /// build switch, so the project file stays authoritative.
     /// </summary>
-    /// <param name="target">The target declaring the executables kind.</param>
+    /// <param name="target">The target declaring the kinds.</param>
     /// <param name="baseDirectory">The manifest's directory, for resolving the project path.</param>
-    private void ValidateExecutablesOutputType(ManifestTarget target, string baseDirectory)
+    /// <param name="declaresExecutables">Whether the target declares the executables kind.</param>
+    /// <param name="declaresToolPackage">Whether the target declares the tool-package kind.</param>
+    /// <exception cref="ManifestException">The evaluation failed, or a declared kind disagrees with it.</exception>
+    private void ValidateProjectEvaluation(
+        ManifestTarget target,
+        string baseDirectory,
+        bool declaresExecutables,
+        bool declaresToolPackage)
     {
         FileInfo projectFile = ResolveProjectFile(target.Project, baseDirectory);
 
-        string outputType;
+        ProjectEvaluation evaluation;
 
         try
         {
-            outputType = _projectInfoProvider.GetOutputType(projectFile);
+            evaluation = _projectInfoProvider.EvaluateProject(projectFile);
         }
         catch (Exception ex)
         {
             throw new ManifestException(
-                $"Manifest validation failed: could not evaluate '{projectFile.FullName}' to read its OutputType for the target '{target.Project}'. {ex.Message}");
+                $"Manifest validation failed: could not evaluate '{projectFile.FullName}' to read its expanded properties for the target '{target.Project}'. {ex.Message}");
         }
 
-        bool outputTypeIsExecutable =
-            string.Equals(outputType, "Exe", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(outputType, "WinExe", StringComparison.OrdinalIgnoreCase);
-
-        if (!outputTypeIsExecutable)
+        if (declaresExecutables && !evaluation.IsExecutableOutput)
         {
             throw new ManifestException(
-                $"Manifest validation failed: the target '{target.Project}' declares the '{ArtifactKinds.Executables}' kind but MSBuild evaluation of '{projectFile.FullName}' reports OutputType '{outputType}' (expected 'Exe' or 'WinExe').");
+                $"Manifest validation failed: the target '{target.Project}' declares the '{ArtifactKinds.Executables}' kind but MSBuild evaluation of '{projectFile.FullName}' reports OutputType '{evaluation.OutputType}' (expected 'Exe' or 'WinExe').");
+        }
+
+        if (declaresToolPackage && !evaluation.PackAsToolIsTrue)
+        {
+            // The fix names the declaration site generically: PackAsTool most often lives in
+            // an imported props file rather than the project file the target names.
+            throw new ManifestException(
+                $"Manifest validation failed: the target '{target.Project}' declares the '{ArtifactKinds.ToolPackage}' kind but MSBuild evaluation of '{projectFile.FullName}' reports PackAsTool '{ProjectEvaluation.Display(evaluation.PackAsTool)}' (expected 'true'). Fix: set PackAsTool to true where the project's MSBuild properties are declared - the project file or an imported props file such as Directory.Build.props. ReleaseGen reads the expanded property and never passes the switch itself.");
         }
     }
 

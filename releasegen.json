@@ -1,7 +1,7 @@
 {
   "targets": [
    { 
-    "project":"/src/ReleaseGenCli/ReleaseGenCli.csproj",
+    "project": "src/ReleaseGenCli/ReleaseGenCli.csproj",
     "kinds":
       ["tool-package"]
     }
@@ -12,7 +12,7 @@
   },
   "test":{
     "projects":
-      ["/src/ReleaseGen.Tests/ReleaseGen.Tests.csproj"]
+      ["src/ReleaseGen.Tests/ReleaseGen.Tests.csproj"]
   },
   "publish": {
     "sources": []

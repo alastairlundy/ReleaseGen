@@ -11,7 +11,14 @@ public class ProjectInfoProvider : IProjectInfoProvider
     {
     }
 
-    private static bool _sdkResolverRegistered;
+    private static volatile bool _sdkResolverRegistered;
+
+    /// <summary>
+    /// Guards the one-time SDK resolver registration: concurrent evaluations (a chained run's
+    /// validation alongside init's detection, or parallel tests) must not both call into the
+    /// locator, which throws once Microsoft.Build has loaded.
+    /// </summary>
+    private static readonly Lock SdkResolverGate = new();
 
     /// <summary>
     /// The environment variables in-process MSBuild export into the host process when a toolset
@@ -47,8 +54,14 @@ public class ProjectInfoProvider : IProjectInfoProvider
             return;
         }
 
-        MSBuildLocator.RegisterDefaults();
-        _sdkResolverRegistered = true;
+        lock (SdkResolverGate)
+        {
+            if (!_sdkResolverRegistered)
+            {
+                MSBuildLocator.RegisterDefaults();
+                _sdkResolverRegistered = true;
+            }
+        }
     }
 
     /// <summary>
@@ -90,15 +103,19 @@ public class ProjectInfoProvider : IProjectInfoProvider
         });
 
     /// <summary>
-    /// Evaluates the project file with Microsoft.Build and returns its OutputType.
+    /// Evaluates the project file with Microsoft.Build in one pass and returns the expanded
+    /// properties ReleaseGen reads from it.
     /// </summary>
     /// <param name="projectFile">The project file to evaluate.</param>
-    /// <returns>The evaluated OutputType value, or 'Library' when the project does not set one.</returns>
-    public string GetOutputType(FileInfo projectFile) =>
+    /// <returns>
+    /// The expanded OutputType (or 'Library' when the project sets none), PackAsTool, and
+    /// IsPackable.
+    /// </returns>
+    public ProjectEvaluation EvaluateProject(FileInfo projectFile) =>
         RunWithScopedMsBuildEnvironment(() =>
         {
             EnsureSdkResolverRegistered();
-            return GetOutputTypeCore(projectFile);
+            return EvaluateProjectCore(projectFile);
         });
 
     [MethodImpl(MethodImplOptions.NoInlining)]
@@ -175,7 +192,7 @@ public class ProjectInfoProvider : IProjectInfoProvider
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static string GetOutputTypeCore(FileInfo projectFile)
+    private static ProjectEvaluation EvaluateProjectCore(FileInfo projectFile)
     {
         Project project = Project.FromFile(projectFile.FullName, new ProjectOptions()
         {
@@ -186,8 +203,13 @@ public class ProjectInfoProvider : IProjectInfoProvider
         {
             string outputType = project.GetPropertyValue("OutputType");
 
-            // MSBuild defaults an unset OutputType to Library.
-            return outputType == string.Empty ? "Library" : outputType;
+            // MSBuild defaults an unset OutputType to Library; PackAsTool and IsPackable stay
+            // as expanded (empty when unset) so callers can tell a missing declaration from a
+            // false one. Every value is expanded, so a Directory.Build.props flows through.
+            return new ProjectEvaluation(
+                outputType == string.Empty ? "Library" : outputType,
+                project.GetPropertyValue("PackAsTool"),
+                project.GetPropertyValue("IsPackable"));
         }
         finally
         {

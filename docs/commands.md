@@ -168,6 +168,13 @@ looks like one. Output lands under `release/packages/lib/<project-name>/` for `l
 `release/packages/tool/<project-name>/` for `tool-package`. The `executables` kind is the build
 stage's product and is skipped here, never failed on.
 
+Validation before any stage runs converts the broken-tool-package outcome into a named fix: a
+target declaring `tool-package` whose project does not evaluate to `PackAsTool=true` fails
+Manifest validation with an error naming the target, the project, and the property to set in
+the project's MSBuild properties (the `.csproj` or an imported props file such as
+`Directory.Build.props`). The property is read expanded, and ReleaseGen never passes the
+switch itself - see the [manifest schema](manifest-schema.md).
+
 ```
 releasegen package [--dry-run] [--verbose]
 ```

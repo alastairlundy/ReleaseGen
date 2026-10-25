@@ -27,7 +27,7 @@ internal static class ReleaseGenTestServices
 
         // Registered after AddReleaseGen so these win the last-registration-wins resolution
         // the stage commands and runners observe:
-        // - the OutputType stub keeps the executables cross-check off the real toolchain;
+        // - the evaluation stub keeps the kind cross-checks off the real toolchain;
         // - the recording invoker backs both IProcessInvoker and the assertions' own
         //   RecordingProcessInvoker; the per-test root keeps that instance private to the test;
         // - the stub stays a stateless singleton so the singleton ManifestLoader has no

@@ -91,9 +91,23 @@ The artifact kind vocabulary is exactly:
 | `lib-package` | The package stage: a library NuGet package. |
 | `tool-package` | The package stage: a dotnet tool NuGet package. |
 
-ReleaseGen evaluates each target's project file with MSBuild to read its `OutputType` and
-cross-checks it against the declared kinds: a target declaring `executables` whose project
-evaluates to a library output fails Manifest validation, naming the target and the mismatch.
+ReleaseGen evaluates each target's project file with MSBuild to read its **expanded**
+properties - never raw project text - and cross-checks them against the declared kinds:
+
+- A target declaring `executables` whose project evaluates to a library output fails Manifest
+  validation, naming the target and the mismatch.
+- A target declaring `tool-package` whose project does not evaluate to `PackAsTool=true` fails
+  Manifest validation naming the fix. The property is read expanded, so a declaration in a
+  `Directory.Build.props` or any other imported props file counts exactly like one in the
+  project file, and the message names the declaration site generically rather than assuming
+  the project file:
+
+```
+error: Manifest validation failed: the target 'src/MyCli/MyCli.csproj' declares the 'tool-package' kind but MSBuild evaluation of '...MyCli.csproj' reports PackAsTool '(unset)' (expected 'true'). Fix: set PackAsTool to true where the project's MSBuild properties are declared - the project file or an imported props file such as Directory.Build.props. ReleaseGen reads the expanded property and never passes the switch itself.
+```
+
+ReleaseGen never passes `PackAsTool` as a build switch: the project file stays authoritative,
+and a project not configured as a dotnet tool can only be fixed there.
 
 ### `build` section
 
