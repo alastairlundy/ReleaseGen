@@ -22,7 +22,9 @@ namespace ReleaseGen.Cli.Commands;
 /// one-shot command and takes no part in the chain. The <c>--preset</c> flag overrides
 /// the manifest's <c>build.preset</c> for this invocation only and never writes the file;
 /// <c>--dry-run</c> forwards to every stage, so the chain prints each stage's plan stage by
-/// stage and writes nothing anywhere; retry logic stays out of v1.
+/// stage and writes nothing anywhere; <c>--verbose</c> forwards for the same reason, so each
+/// named stage prints its command lines, raw output, and cause lines, and passing it together
+/// with <c>--quiet</c> fails the chain before the first stage starts. Retry logic stays out of v1.
 /// </summary>
 /// <remarks>
 /// Stage selection follows the manifest: build always runs; test is named by a declared test
@@ -48,13 +50,18 @@ public sealed class RunCommand : Command
         };
 
         Option<bool> dryRunOption = CliOptions.CreateDryRun();
+        Option<bool> verboseOption = CliOptions.CreateVerbose();
 
         Add(presetOption);
         Add(dryRunOption);
+        Add(verboseOption);
 
         SetAction(async (parseResult, cancellationToken) =>
         {
-            CliOutput.ApplyQuiet(parseResult);
+            if (!CliOutput.ApplyOutputModes(parseResult, verboseOption))
+            {
+                return 1;
+            }
 
             // System.CommandLine swallows exceptions thrown by async action handlers and prints
             // them with a raw stack trace, so every failure surface - manifest error, refused
@@ -64,6 +71,7 @@ public sealed class RunCommand : Command
                 // Preset precedence: --preset beats the manifest key for this invocation only.
                 string? flagPreset = parseResult.GetValue(presetOption);
                 bool dryRun = parseResult.GetValue(dryRunOption);
+                bool verbose = parseResult.GetValue(verboseOption);
 
                 if (!string.IsNullOrWhiteSpace(flagPreset) && !BuildPreset.TryParse(flagPreset, out _))
                 {
@@ -122,7 +130,7 @@ public sealed class RunCommand : Command
                     }
 
                     int exitCode = await InvokeStageAsync(
-                        stage.Name, stage.Arguments, quiet, dryRun, cancellationToken).ConfigureAwait(true);
+                        stage.Name, stage.Arguments, quiet, dryRun, verbose, cancellationToken).ConfigureAwait(true);
 
                     if (exitCode != 0)
                     {
@@ -173,13 +181,14 @@ public sealed class RunCommand : Command
     /// <summary>
     /// Runs one stage in-process through its stage command, so the chain and a separate
     /// invocation of the same stage share one behavior surface. The stage re-resolves the
-    /// manifest itself; <c>--quiet</c>, <c>--dry-run</c> (and, for build, <c>--preset</c>)
-    /// forward so the stage sees the chain's invocation flags.
+    /// manifest itself; <c>--quiet</c>, <c>--dry-run</c>, <c>--verbose</c> (and, for build,
+    /// <c>--preset</c>) forward so the stage sees the chain's invocation flags.
     /// </summary>
     /// <param name="stageName">The stage command to invoke: build, test, package, or publish.</param>
     /// <param name="extraArguments">Extra stage flags for this invocation, such as the preset override.</param>
     /// <param name="quiet">Whether the chain runs under <c>--quiet</c>; forwarded to the stage.</param>
     /// <param name="dryRun">Whether the chain runs under <c>--dry-run</c>; forwarded to the stage.</param>
+    /// <param name="verbose">Whether the chain runs under <c>--verbose</c>; forwarded to the stage.</param>
     /// <param name="cancellationToken">The chain's cancellation token.</param>
     /// <returns>The stage command's exit code.</returns>
     private async Task<int> InvokeStageAsync(
@@ -187,6 +196,7 @@ public sealed class RunCommand : Command
         IReadOnlyList<string> extraArguments,
         bool quiet,
         bool dryRun,
+        bool verbose,
         CancellationToken cancellationToken)
     {
         Command stageCommand = stageName switch
@@ -217,6 +227,11 @@ public sealed class RunCommand : Command
         if (dryRun)
         {
             argv.Add("--dry-run");
+        }
+
+        if (verbose)
+        {
+            argv.Add("--verbose");
         }
 
         ParseResult result = temporaryRoot.Parse(argv);

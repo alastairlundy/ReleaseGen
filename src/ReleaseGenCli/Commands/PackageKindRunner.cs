@@ -72,6 +72,10 @@ public sealed class PackageKindRunner
     /// <param name="outputRoot">The package stage's output root (release/packages); the kind and project name partition it.</param>
     /// <param name="writeLine">Optional stdout line sink; the command routes these to stage notes.</param>
     /// <param name="writeErrorLine">Optional stderr line sink; the command routes these to warnings.</param>
+    /// <param name="writeDiagnosisLine">
+    /// Optional diagnosis sink the runner surfaces after a verified execution; the command
+    /// routes it to the cause line, which prints under <c>--verbose</c> only.
+    /// </param>
     /// <param name="runMode">The runner's decision for this invocation: execute the pack, or print the plan.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="kind"/> is not a package-stage kind; the message names it.</exception>
@@ -82,6 +86,7 @@ public sealed class PackageKindRunner
         DirectoryInfo outputRoot,
         Action<string>? writeLine,
         Action<string>? writeErrorLine,
+        Action<string>? writeDiagnosisLine,
         StageRunMode runMode,
         CancellationToken cancellationToken)
     {
@@ -124,10 +129,12 @@ public sealed class PackageKindRunner
             ArgumentList = argumentList,
             WorkingDirectory = projectFile.Directory?.FullName ?? Environment.CurrentDirectory,
             ArtifactPaths = [outputDirectory.FullName],
+            Diagnosis = () =>
+                $"package: this pack produces the '{kind}' artifact for '{projectName}'; a nonzero exit fails the stage naming the target, kind, and exit code.",
         };
 
         BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
-            command, runMode, writeLine, cancellationToken).ConfigureAwait(true);
+            command, runMode, writeLine, cancellationToken, writeDiagnosisLine).ConfigureAwait(true);
 
         if (result is null)
         {

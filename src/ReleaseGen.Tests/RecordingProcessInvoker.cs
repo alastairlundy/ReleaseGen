@@ -31,6 +31,13 @@ public sealed class RecordingProcessInvoker : IProcessInvoker
     /// </summary>
     public Action<ProcessConfiguration>? OnInvocation { get; set; }
 
+    /// <summary>
+    /// Gets or sets the raw stdout and stderr each recorded invocation returns; null returns
+    /// empty streams, and the fixtures use it to replay a tool's real failure lines - the
+    /// shape <c>--verbose</c> must surface.
+    /// </summary>
+    public Func<ProcessConfiguration, (string StandardOutput, string StandardError)>? OutputFactory { get; set; }
+
     /// <inheritdoc />
     public Task<ProcessResult> ExecuteAsync(
         ProcessConfiguration configuration,
@@ -48,14 +55,16 @@ public sealed class RecordingProcessInvoker : IProcessInvoker
         OnInvocation?.Invoke(configuration);
 
         int exitCode = ExitCodeFactory?.Invoke(configuration) ?? 0;
+        (string standardOutput, string standardError) =
+            OutputFactory?.Invoke(configuration) ?? (string.Empty, string.Empty);
         DateTime now = DateTime.UtcNow;
 
         BufferedProcessResult result = new(
             configuration.TargetFilePath,
             exitCode,
             Environment.ProcessId,
-            string.Empty,
-            string.Empty,
+            standardOutput,
+            standardError,
             now,
             now,
             canceled: false,

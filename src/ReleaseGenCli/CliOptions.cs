@@ -36,4 +36,20 @@ public static class CliOptions
             Description =
                 "Print the stage's would-be actions (spawned command lines and artifact paths) and write nothing anywhere, including release/ and TestResults/. The exit code reflects manifest validation errors only; a zero-exit dry run is a plan, not a certification.",
         };
+
+    /// <summary>
+    /// The verbose switch every stage command and the chained run registers, for the same
+    /// reason as <see cref="CreateDryRun"/>: the symbol belongs to the command that adds it,
+    /// so each command asks for its own instance while the spelling and description stay
+    /// shared here. Under it a real run shows each spawned command line, its raw output, and a
+    /// ReleaseGen cause line; combining it with <c>--quiet</c> is an error rather than a
+    /// silently chosen output mode.
+    /// </summary>
+    /// <returns>A fresh <c>--verbose</c> option for one stage command.</returns>
+    public static Option<bool> CreateVerbose() =>
+        new("--verbose")
+        {
+            Description =
+                "Show each spawned command line, its raw output, and a ReleaseGen cause line during a real run. Errors print without the hint line. Cannot be combined with --quiet.",
+        };
 }

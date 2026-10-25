@@ -18,7 +18,10 @@ namespace ReleaseGen.Cli.Commands;
 /// the run mode decides at the runner boundary whether the stage executes it or prints it
 /// without writing anything, and <c>--dry-run</c> is that decision's flag - it prints the plan,
 /// writes nothing anywhere (including the <c>release/</c> tree), and exits on manifest
-/// validation alone. Output stays local under
+/// validation alone. <c>--verbose</c> is the other half of the record's audience: a real run
+/// under it shows each spawned command line, its raw output, and the record's cause line, and
+/// combining it with <c>--quiet</c> fails with the conflict error before the stage starts.
+/// Output stays local under
 /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> with per-target archives beside the rid
 /// folders - nothing is uploaded.
 /// </summary>
@@ -39,13 +42,18 @@ public sealed class BuildCommand : Command
         };
 
         Option<bool> dryRunOption = CliOptions.CreateDryRun();
+        Option<bool> verboseOption = CliOptions.CreateVerbose();
 
         Add(presetOption);
         Add(dryRunOption);
+        Add(verboseOption);
 
         SetAction(async (parseResult, cancellationToken) =>
         {
-            CliOutput.ApplyQuiet(parseResult);
+            if (!CliOutput.ApplyOutputModes(parseResult, verboseOption))
+            {
+                return 1;
+            }
 
             // System.CommandLine swallows exceptions thrown by async action handlers and prints
             // them with a raw stack trace, so every failure surface - refused preset, manifest
@@ -99,6 +107,7 @@ public sealed class BuildCommand : Command
                     OutputRoot = new DirectoryInfo(Path.Combine(Environment.CurrentDirectory, "release")),
                     WriteLine = RouteStdoutLine,
                     WriteErrorLine = static line => CliOutput.Warning(line),
+                    WriteDiagnosisLine = CliOutput.Cause,
                     RunMode = runMode,
                 };
 

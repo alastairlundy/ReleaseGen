@@ -46,7 +46,9 @@ public sealed class InitCommand : Command
             {
                 if (!BuildPreset.TryParse(preset, out string canonicalPreset))
                 {
-                    CliOutput.Error(
+                    // Init registers no --verbose, so its errors carry their own next step
+                    // instead of the stage commands' verbose hint.
+                    CliOutput.ErrorWithoutHint(
                         $"Unknown preset '{preset}'. Known presets: {string.Join(", ", BuildPreset.All)}.");
                     return 1;
                 }
@@ -62,7 +64,7 @@ public sealed class InitCommand : Command
             // Refusing an expected condition is control flow, not an exception.
             if (manifestFile.Exists && !parseResult.GetValue(overwriteOption))
             {
-                CliOutput.Error(
+                CliOutput.ErrorWithoutHint(
                     $"{ManifestLoader.ManifestFileName} already exists at '{manifestFile.FullName}'. " +
                     "Re-run init with --overwrite to replace it.");
                 return 1;

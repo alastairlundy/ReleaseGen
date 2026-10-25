@@ -1,8 +1,9 @@
 # Command reference
 
 ReleaseGen ships six commands: five stage commands plus the chained run. The tool
-command name is `releasegen`. Every command shares the global `--quiet` option, and bare
-`releasegen` prints command help - no stage executes without an explicit verb.
+command name is `releasegen`. Every command shares the global `--quiet` option, every
+stage command and the chained run also accept `--verbose`, and bare `releasegen` prints
+command help - no stage executes without an explicit verb.
 
 ## Global behavior
 
@@ -10,7 +11,17 @@ command name is `releasegen`. Every command shares the global `--quiet` option, 
   walking up from the current directory to the repository root, stopping at the first manifest
   found. When none is found, the error names every searched directory.
 - **`--quiet`** - suppresses stage notes and progress while warnings and errors stay visible.
-  It is the only verbosity switch in v1; there is no `--verbose`.
+  It composes with every flag except `--verbose`, which contradicts it (see below).
+- **`--verbose`** - accepted by every stage command and the chained run (not by `init`). A
+  real run shows each spawned command line, its raw output, and a ReleaseGen cause line; see
+  [Verbose](#verbose).
+- **`--quiet` with `--verbose`** - an error, not an ambiguity: the command fails with one
+  line naming the conflict plus the diagnostics tip and exits 1 before any stage work starts,
+  rather than silently choosing an output mode.
+- **The hint line** - every failure outside `--verbose` gains one `hint:` line, "run with
+  --verbose for full detail", naming the escape hatch at the point of failure. Under
+  `--verbose` the hint is dropped - the run is already in full detail. `init` registers no
+  `--verbose`, so its errors carry their own next step instead.
 - **`--dry-run`** - accepted by every stage command and the chained run (not by `init`). The
   stage prints its would-be actions and writes nothing anywhere; see [Dry run](#dry-run).
 - **Exit codes** - `0` on success, `1` on any failure. Errors are one-line messages naming the
@@ -45,6 +56,36 @@ releasegen build --dry-run
 releasegen run --dry-run
 ```
 
+## Verbose
+
+`--verbose` is the escape hatch the default errors point at: it turns a real run's terse
+report into the full detail behind each spawned command. It reads the same planned record the
+dry-run report prints, so neither flag can show a stale picture of what ReleaseGen runs. It
+composes with `--dry-run` (nothing runs either way) but never with `--quiet`.
+
+- **Command line** - every spawned command prints its full command line before it runs - the
+  exact line a dry run would print, read from the one shared record.
+- **Raw output** - the spawned command's captured stdout and stderr replay line by line as
+  the tool emitted them, with no content filtering: MSBuild diagnostic lines and stderr keep
+  their warning styling so nothing is dropped.
+- **Cause line** - a `cause:` line adds ReleaseGen's diagnosis of what the command means, for
+  example why a `dotnet test` run produced "Specify a project or solution file". A cause line
+  only ever follows an executed command; the dry-run report never prints one, because nothing
+  has been verified.
+- **No hint** - errors under `--verbose` print without the `hint:` line naming the flag: the
+  run is already in full detail.
+
+```
+releasegen test --verbose
+releasegen run --verbose
+```
+
+Passing `--quiet` and `--verbose` together fails before any stage work starts:
+
+```
+error: --quiet and --verbose conflict; pass only one of them - run with --verbose for full detail.
+```
+
 ## `init`
 
 Writes a minimal valid `releasegen.json` Manifest to the current directory. Init is a
@@ -69,13 +110,14 @@ zip for Windows-class and portable `any-*` rids, zip plus tar.gz for Unix-based 
 `tar.xz` is opt-in and never a default. Output stays local - nothing is uploaded.
 
 ```
-releasegen build [--preset <name>] [--dry-run]
+releasegen build [--preset <name>] [--dry-run] [--verbose]
 ```
 
 | Flag | Effect |
 |------|--------|
 | `--preset <name>` | Overrides the Manifest's `build.preset` for this invocation only. Never writes the Manifest. |
 | `--dry-run` | Prints each publish and archive the stage would run, writes nothing under `release/`, and exits on Manifest validation alone. See [Dry run](#dry-run). |
+| `--verbose` | Shows each publish's command line, its raw output, and its cause line during a real run. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
 A `tar.xz` entry never produces an archive for a Windows-class (`win-*`) or portable (`any-*`) rid.
 When `tar.xz` is declared alongside another format, the stage skips it for each such rid and
@@ -109,12 +151,13 @@ A Manifest with no test section warns and exits 0 - the test gate passes by defa
 projects run fail-fast: the first nonzero exit stops the stage.
 
 ```
-releasegen test [--dry-run]
+releasegen test [--dry-run] [--verbose]
 ```
 
 | Flag | Effect |
 |------|--------|
 | `--dry-run` | Prints the `dotnet test` invocation(s) a real run would start, runs no tests, writes no `TestResults/`, and exits on Manifest validation alone. See [Dry run](#dry-run). |
+| `--verbose` | Shows each `dotnet test` command line, its raw output, and its cause line during a real run. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
 ## `package`
 
@@ -126,12 +169,13 @@ looks like one. Output lands under `release/packages/lib/<project-name>/` for `l
 stage's product and is skipped here, never failed on.
 
 ```
-releasegen package [--dry-run]
+releasegen package [--dry-run] [--verbose]
 ```
 
 | Flag | Effect |
 |------|--------|
 | `--dry-run` | Prints the `dotnet pack` invocation(s) a real run would start, writes nothing under `release/packages/`, and exits on Manifest validation alone. See [Dry run](#dry-run). |
+| `--verbose` | Shows each `dotnet pack` command line, its raw output, and its cause line during a real run. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
 ## `publish`
 
@@ -143,13 +187,14 @@ gate cannot be bypassed by separate invocations. The full push list is collected
 first push, so a missing package fails the stage with no partial upload.
 
 ```
-releasegen publish [--api-key <key>] [--dry-run]
+releasegen publish [--api-key <key>] [--dry-run] [--verbose]
 ```
 
 | Flag | Effect |
 |------|--------|
 | `--api-key <key>` | The NuGet API key. Falls back to the `NUGET_API_KEY` environment variable. The Manifest is never consulted for keys - no key ever lives on disk. |
 | `--dry-run` | Prints the would-be gate consult (the test projects the gate would run) and the would-be pushes, runs no tests, writes no `TestResults/`, pushes nothing, and needs no API key. See [Dry run](#dry-run). |
+| `--verbose` | Shows each `dotnet nuget push` command line (key redacted), its raw output, and its cause line during a real run, and forwards to the test gate consult. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
 The key is redacted from console output. In CI, prefer trusted publishing; see
 [trusted publishing](trusted-publishing.md).
@@ -162,16 +207,18 @@ skipped unnamed stage with a console note. Stage selection follows the Manifest:
 runs; test is named by a declared test section; package and publish are named by targets
 declaring package kinds. The test stage's gate outcome is carried to publish within the chain,
 so tests never run twice. Under `--dry-run` the chain forwards the flag to every named stage,
-so the report walks the whole pipeline stage by stage and writes nothing.
+so the report walks the whole pipeline stage by stage and writes nothing. Under `--verbose`
+the chain forwards that flag the same way, so every named stage runs in full detail.
 
 ```
-releasegen run [--preset <name>] [--dry-run]
+releasegen run [--preset <name>] [--dry-run] [--verbose]
 ```
 
 | Flag | Effect |
 |------|--------|
 | `--preset <name>` | Overrides the Manifest's `build.preset` for this invocation only, forwarded to the build stage. Never writes the Manifest. |
 | `--dry-run` | Forwards to every named stage: the chain prints each stage's would-be actions and writes nothing anywhere, exiting on Manifest validation alone. See [Dry run](#dry-run). |
+| `--verbose` | Forwards to every named stage: each stage prints its command lines, raw output, and cause lines as it runs. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
 ## See also
 

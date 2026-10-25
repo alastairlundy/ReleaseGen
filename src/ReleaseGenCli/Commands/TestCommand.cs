@@ -18,7 +18,10 @@ namespace ReleaseGen.Cli.Commands;
 /// default. Each test invocation is a shared planned record: the run mode decides at the
 /// runner boundary whether the stage executes it or prints it without running anything, and
 /// <c>--dry-run</c> is that flag - it prints the invocation plan, runs no tests, writes no
-/// <c>TestResults/</c>, and exits on manifest validation alone.
+/// <c>TestResults/</c>, and exits on manifest validation alone. A real run under
+/// <c>--verbose</c> shows the invocation's command line, its raw output, and the record's
+/// cause line; <c>--quiet</c> together with <c>--verbose</c> fails with the conflict error
+/// before the stage starts.
 /// The stage records its gate outcome for the publish stage to consume;
 /// there is no runner-override key or gate-forcing flag in v1.
 /// </summary>
@@ -39,11 +42,16 @@ public sealed class TestCommand : Command
         _plannedCommandRunner = new PlannedCommandRunner(processInvoker);
 
         Option<bool> dryRunOption = CliOptions.CreateDryRun();
+        Option<bool> verboseOption = CliOptions.CreateVerbose();
         Add(dryRunOption);
+        Add(verboseOption);
 
         SetAction(async (parseResult, cancellationToken) =>
         {
-            CliOutput.ApplyQuiet(parseResult);
+            if (!CliOutput.ApplyOutputModes(parseResult, verboseOption))
+            {
+                return 1;
+            }
 
             // System.CommandLine swallows exceptions thrown by async action handlers and prints
             // them with a raw stack trace, so every failure surface - manifest error, unresolved
@@ -166,10 +174,15 @@ public sealed class TestCommand : Command
             TargetFilePath = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet",
             ArgumentList = argumentList,
             WorkingDirectory = workingDirectory,
+            Diagnosis = () => project is null
+                ? $"test: the test section names no project, so dotnet test ran from '{workingDirectory}'; a 'Specify a project or solution file' message means that directory holds no project or solution."
+                : $"test: the test section names '{project}', so dotnet test ran against it from '{workingDirectory}'; a nonzero exit blocks publish through the test gate.",
         };
 
+        // The runner surfaces the record's cause line only after a real run has verified
+        // something; CliOutput.Cause prints it under --verbose and drops it otherwise.
         BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
-            command, runMode, CliOutput.Note, cancellationToken).ConfigureAwait(true);
+            command, runMode, CliOutput.Note, cancellationToken, CliOutput.Cause).ConfigureAwait(true);
 
         if (result is null)
         {

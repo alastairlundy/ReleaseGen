@@ -45,6 +45,13 @@ public sealed class BuildStageRequest
     public Action<string>? WriteErrorLine { get; init; }
 
     /// <summary>
+    /// Sink for a planned record's diagnosis line, surfaced by the runner only after a real
+    /// run has executed the record; the CLI routes it to the cause line, which prints under
+    /// <c>--verbose</c> only. Null keeps diagnoses suppressed even when a record carries one.
+    /// </summary>
+    public Action<string>? WriteDiagnosisLine { get; init; }
+
+    /// <summary>
     /// The runner's decision for this invocation: execute the stage's planned commands, or
     /// print them (the dry-run report) without running them, their guards, or the stale-output
     /// cleanup. Defaults to a real run; the dry-run flag wires it.

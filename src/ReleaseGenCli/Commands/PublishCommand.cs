@@ -25,7 +25,9 @@ namespace ReleaseGen.Cli.Commands;
 /// one-line error naming the package, the source, and the exit code. Under <c>--dry-run</c> the
 /// stage plans instead: it prints the would-be gate consult (the test projects the gate would
 /// run) and the would-be pushes, runs no tests, writes no <c>TestResults/</c>, and exits on
-/// manifest validation alone.
+/// manifest validation alone. A real run under <c>--verbose</c> shows each push's command line
+/// (key redacted), its raw output, and its cause line, while <c>--quiet</c> together with
+/// <c>--verbose</c> fails with the conflict error before the stage starts.
 /// </summary>
 /// <remarks>
 /// Packages are the package stage's local product: each declared package kind maps to
@@ -64,13 +66,18 @@ public sealed class PublishCommand : Command
         };
 
         Option<bool> dryRunOption = CliOptions.CreateDryRun();
+        Option<bool> verboseOption = CliOptions.CreateVerbose();
 
         Add(apiKeyOption);
         Add(dryRunOption);
+        Add(verboseOption);
 
         SetAction(async (parseResult, cancellationToken) =>
         {
-            CliOutput.ApplyQuiet(parseResult);
+            if (!CliOutput.ApplyOutputModes(parseResult, verboseOption))
+            {
+                return 1;
+            }
 
             // System.CommandLine swallows exceptions thrown by async action handlers and prints
             // them with a raw stack trace, so every failure surface - manifest error, missing
@@ -121,7 +128,8 @@ public sealed class PublishCommand : Command
 
                 // The gate consult happens before the first push, so a blocked manifest
                 // stops with no network call.
-                TestGateResult gate = await ConsultGateAsync(manifest, CliOutput.Quiet, cancellationToken).ConfigureAwait(true);
+                TestGateResult gate = await ConsultGateAsync(
+                    manifest, CliOutput.Quiet, CliOutput.Verbose, cancellationToken).ConfigureAwait(true);
 
                 switch (gate.Outcome)
                 {
@@ -335,11 +343,13 @@ public sealed class PublishCommand : Command
     /// </summary>
     /// <param name="manifest">The loaded manifest.</param>
     /// <param name="quiet">Whether stage notes are suppressed, forwarded to the test consult.</param>
+    /// <param name="verbose">Whether the stage runs under <c>--verbose</c>, forwarded to the test consult.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>The gate outcome.</returns>
     private async Task<TestGateResult> ConsultGateAsync(
         Manifest manifest,
         bool quiet,
+        bool verbose,
         CancellationToken cancellationToken)
     {
         if (StageContext.TestGate is { } recorded)
@@ -357,7 +367,7 @@ public sealed class PublishCommand : Command
         // section must exit 0 before the first push.
         CliOutput.Note("publish: consulting the test gate; running the test stage.");
 
-        int exitCode = await InvokeTestStageAsync(quiet, cancellationToken).ConfigureAwait(true);
+        int exitCode = await InvokeTestStageAsync(quiet, verbose, cancellationToken).ConfigureAwait(true);
         TestGateResult gate = TestGateResult.FromStage(exitCode, hasTestSection: true);
 
         StageContext.TestGate = gate;
@@ -367,13 +377,17 @@ public sealed class PublishCommand : Command
 
     /// <summary>
     /// Runs the test stage command in-process so the gate consult consumes exactly the stage's
-    /// exit code, replaying its console output through the conventions layer.
+    /// exit code, replaying its console output through the conventions layer. The stage sees the
+    /// same output-mode flags a user would pass it, so the consult stays as quiet or as
+    /// verbose as the publish invocation it serves.
     /// </summary>
     /// <param name="quiet">Whether <c>--quiet</c> was set on this invocation; forwarded so the consult stays as quiet.</param>
+    /// <param name="verbose">Whether <c>--verbose</c> was set on this invocation; forwarded for the same reason.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>The test stage's exit code.</returns>
     private async Task<int> InvokeTestStageAsync(
         bool quiet,
+        bool verbose,
         CancellationToken cancellationToken)
     {
         RootCommand temporaryRoot = new("ReleaseGen stage invocation root.")
@@ -387,6 +401,11 @@ public sealed class PublishCommand : Command
         if (quiet)
         {
             argv.Add("--quiet");
+        }
+
+        if (verbose)
+        {
+            argv.Add("--verbose");
         }
 
         ParseResult result = temporaryRoot.Parse(argv);
@@ -504,10 +523,12 @@ public sealed class PublishCommand : Command
             ArgumentList = argumentList,
             WorkingDirectory = Environment.CurrentDirectory,
             ArtifactPaths = [push.PackageFile.FullName],
+            Diagnosis = () =>
+                $"publish: this push uploads '{push.PackageFile.Name}' (kind '{push.Kind}', target '{push.TargetProject}') to '{source}'; the first nonzero exit aborts the stage.",
         };
 
         BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
-            command, StageRunMode.Execute, CliOutput.Note, cancellationToken).ConfigureAwait(true);
+            command, StageRunMode.Execute, CliOutput.Note, cancellationToken, CliOutput.Cause).ConfigureAwait(true);
 
         if (result is null)
         {

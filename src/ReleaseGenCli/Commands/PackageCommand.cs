@@ -18,6 +18,9 @@ namespace ReleaseGen.Cli.Commands;
 /// produced by declaring the kind, not by inspecting the csproj, and every declared kind of
 /// every target gets its own invocation even when several targets name the same project.
 /// <c>--dry-run</c> prints each planned pack through the shared runner and writes nothing.
+/// A real run under <c>--verbose</c> shows each pack's command line, raw output, and cause
+/// line, and <c>--quiet</c> together with <c>--verbose</c> fails with the conflict error
+/// before the stage starts.
 /// Output stays local under <c>release/packages/lib|tool/&lt;project-name&gt;/</c> -
 /// nothing is uploaded here.
 /// </summary>
@@ -33,11 +36,16 @@ public sealed class PackageCommand : Command
         "Packages each target's declared artefact kinds.")
     {
         Option<bool> dryRunOption = CliOptions.CreateDryRun();
+        Option<bool> verboseOption = CliOptions.CreateVerbose();
         Add(dryRunOption);
+        Add(verboseOption);
 
         SetAction(async (parseResult, cancellationToken) =>
         {
-            CliOutput.ApplyQuiet(parseResult);
+            if (!CliOutput.ApplyOutputModes(parseResult, verboseOption))
+            {
+                return 1;
+            }
 
             // System.CommandLine swallows exceptions thrown by async action handlers and prints
             // them with a raw stack trace, so every failure surface - manifest error, unknown
@@ -123,6 +131,7 @@ public sealed class PackageCommand : Command
                 projectFile, targetKind, outputRoot,
                 static line => CliOutput.Note(line),
                 static line => CliOutput.Warning(line),
+                CliOutput.Cause,
                 runMode,
                 cancellationToken).ConfigureAwait(true);
 

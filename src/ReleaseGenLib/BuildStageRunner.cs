@@ -185,11 +185,13 @@ public sealed class BuildStageRunner : IBuildStageRunner
                     ArgumentList = argumentList,
                     WorkingDirectory = request.ManifestDirectory.FullName,
                     ArtifactPaths = [outputDirectory.FullName],
+                    Diagnosis = () =>
+                        $"build: this publish targets '{target.Project}' for runtime identifier '{rid}'; a nonzero exit stops the stage at the first failing target and rid.",
                 };
 
                 BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
-                    publishCommand, request.RunMode, request.WriteLine, cancellationToken)
-                    .ConfigureAwait(false);
+                    publishCommand, request.RunMode, request.WriteLine, cancellationToken,
+                    request.WriteDiagnosisLine).ConfigureAwait(false);
 
                 // The dry-run report printed the plan; nothing ran, so there is no result to
                 // replay or fail on.
