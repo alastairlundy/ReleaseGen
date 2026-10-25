@@ -19,10 +19,12 @@ using Models;
 /// Output layout, all under the invocation directory (local-only - nothing here uploads;
 /// the only network destination in v1 is the publish stage's NuGet source):
 /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> holds one target's publish binaries for that
-/// rid, and <c>release/&lt;project-name&gt;-&lt;rid&gt;.zip|.tar.gz</c> sits beside the per-rid
+/// rid, and <c>release/&lt;project-name&gt;-&lt;rid&gt;.zip|.tar.gz|.tar.xz</c> sits beside the per-rid
 /// folders as that folder's archive. The archive formats are the target's declared
-/// <c>archiveFormats</c> key - one archive per declared format, defaulting to zip when the
-/// key is absent; package-kind-only targets are never archived.
+/// <c>archiveFormats</c> key - one archive per declared format per (target, rid) - and when
+/// the key is absent they resolve per rid class: zip for Windows-class and portable
+/// <c>any-*</c> rids, zip plus tar.gz for Unix-based rids (tar.xz is never a default).
+/// Package-kind-only targets are never archived.
 /// </para>
 ///
 /// <para>
@@ -59,9 +61,10 @@ public sealed class BuildStageRunner : IBuildStageRunner
     /// Output layout, all under the invocation directory (local-only - nothing here uploads;
     /// the only network destination in v1 is the publish stage's NuGet source):
     /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> holds one target's publish binaries for that
-    /// rid, and <c>release/&lt;project-name&gt;-&lt;rid&gt;.zip|.tar.gz</c> sits beside the per-rid
-    /// folders as that folder's archive. The archive format is the target's declared
-    /// <c>archive</c> key, defaulting to zip; package-kind-only targets are never archived.
+    /// rid, and <c>release/&lt;project-name&gt;-&lt;rid&gt;.zip|.tar.gz|.tar.xz</c> sits beside the per-rid
+    /// folders as that folder's archive. The archive formats are the target's declared
+    /// <c>archiveFormats</c> key - one archive per declared format per (target, rid), defaulting
+    /// to the rid-class set when the key is absent; package-kind-only targets are never archived.
     /// </para>
     ///
     /// <para>
@@ -109,18 +112,20 @@ public sealed class BuildStageRunner : IBuildStageRunner
             FileInfo projectFile = _manifestLoader.ResolveProjectFile(target.Project, request.ManifestDirectory.FullName);
             string projectName = Path.GetFileNameWithoutExtension(projectFile.Name);
 
-            // Absent key means a single zip (archiving is opt-out), today's default on every
-            // rid; every declared format produces one archive per (target, rid). Per-rid
-            // defaulting for the absent key is a separate, later change.
-            string[] archiveFormats =
-                target.ArchiveFormats.Length > 0 ? target.ArchiveFormats : [ArchiveFormats.Zip];
-
             foreach (string rid in runtimeIdentifiers)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // Absent key resolves per rid class (archiving stays opt-out): zip alone for
+                // Windows-class and portable any-* rids, zip plus tar.gz for Unix-based rids -
+                // tar.xz is never a default. A declared key overrides the defaults entirely,
+                // and every resolved format produces one archive per (target, rid).
+                string[] archiveFormats =
+                    target.ArchiveFormats.Length > 0 ? target.ArchiveFormats : ArchiveFormats.DefaultsFor(rid);
+
                 // Resolved per (target, rid) as pinned; the inputs (preset, build section,
-                // archive format, host OS) are rid-independent, so every rid of a target agrees.
+                // resolved archive formats, host OS) agree for every rid of a target with a
+                // declared key, and the rid-dependent default only ever adds zip or tar.gz.
                 PublishSwitchSet switches = BuildSwitchResolver.Resolve(
                     request.Preset, manifest.Build, SwitchBasisFormat(archiveFormats));
 
@@ -140,7 +145,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
                 // orphaned file beside the new one.
                 string archiveStem = Path.Combine(
                     request.OutputRoot.FullName, $"{projectName}-{rid}");
-                foreach (string staleExtension in new[] { ".zip", ".tar.gz" })
+                foreach (string staleExtension in new[] { ".zip", ".tar.gz", ".tar.xz" })
                 {
                     string stalePath = archiveStem + staleExtension;
                     if (File.Exists(stalePath))
@@ -196,14 +201,24 @@ public sealed class BuildStageRunner : IBuildStageRunner
                 }
 
                 // Only executables-kind outputs get archives; package kinds never do,
-                // and 'none' leaves the per-rid folder unarchived. Each declared format
-                // writes its own archive beside the per-rid folder.
+                // and 'none' leaves the per-rid folder unarchived. Each resolved format
+                // writes its own archive beside the per-rid folder, except tar.xz on a
+                // Windows-class or portable any-* rid: one warning per skipped (target, rid)
+                // pair, naming the target, the rid, the format, and the reason.
                 if (target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase))
                 {
                     foreach (string archiveFormat in archiveFormats)
                     {
                         if (string.Equals(archiveFormat, ArchiveFormats.None, StringComparison.Ordinal))
                         {
+                            continue;
+                        }
+
+                        if (string.Equals(archiveFormat, ArchiveFormats.TarXz, StringComparison.Ordinal) &&
+                            !ArchiveFormats.SupportsTarXz(rid))
+                        {
+                            request.WriteErrorLine?.Invoke(
+                                $"build: target '{target.Project}' with runtime identifier '{rid}' skips archive format '{ArchiveFormats.TarXz}': tar.xz cannot be produced for Windows-class or portable (any-*) runtime identifiers.");
                             continue;
                         }
 
@@ -237,15 +252,17 @@ public sealed class BuildStageRunner : IBuildStageRunner
             : archiveFormats[0];
 
     /// <summary>
-    /// The file extension one archive format writes: tar.gz is the only format whose extension
-    /// is not the plain '.zip' in the shipped set.
+    /// The file extension one archive format writes: zip is the plain '.zip', and the two tar
+    /// formats carry their compression suffix ('.tar.gz', '.tar.xz').
     /// </summary>
     /// <param name="archiveFormat">One of <see cref="ArchiveFormats.All"/>.</param>
     /// <returns>The extension, including its leading dot.</returns>
     private static string ArchiveExtension(string archiveFormat) =>
         string.Equals(archiveFormat, ArchiveFormats.TarGz, StringComparison.OrdinalIgnoreCase)
             ? ".tar.gz"
-            : ".zip";
+            : string.Equals(archiveFormat, ArchiveFormats.TarXz, StringComparison.OrdinalIgnoreCase)
+                ? ".tar.xz"
+                : ".zip";
 
     /// <summary>
     /// Replays captured process output to the sink one line at a time, dropping only empty

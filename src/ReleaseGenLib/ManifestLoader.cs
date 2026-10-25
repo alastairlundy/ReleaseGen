@@ -134,11 +134,12 @@ public sealed class ManifestLoader : IManifestLoader
 
     /// <summary>
     /// Validates a parsed manifest: every target names a project and only known artifact kinds,
-    /// and a declared executables kind agrees with the evaluated OutputType.
+    /// a declared tar.xz format still leaves a usable format for every declared Windows-class or
+    /// portable rid, and a declared executables kind agrees with the evaluated OutputType.
     /// </summary>
     /// <param name="manifest">The parsed manifest.</param>
     /// <param name="manifestFile">The manifest file, for resolving the targets' relative project paths.</param>
-    /// <exception cref="ManifestException">A target entry or kind declaration is invalid, or the OutputType cross-check fails.</exception>
+    /// <exception cref="ManifestException">A target entry or kind declaration is invalid, the tar.xz declaration conflicts with the declared rids, or the OutputType cross-check fails.</exception>
     public void Validate(Manifest manifest, FileInfo manifestFile)
     {
         ArgumentNullException.ThrowIfNull(manifest);
@@ -177,11 +178,48 @@ public sealed class ManifestLoader : IManifestLoader
                 }
             }
 
+            ValidateTarXzAgainstWindowsRids(manifest, target);
+
             if (_projectInfoProvider is not null && target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase))
             {
                 ValidateExecutablesOutputType(target, baseDirectory);
             }
         }
+    }
+
+    /// <summary>
+    /// A target declaring tar.xz as its only archive format while the manifest declares
+    /// Windows-class or portable <c>any-*</c> runtime identifiers fails validation: those rids
+    /// never produce tar.xz, so the target would ship no archive there. A target declaring
+    /// another format alongside tar.xz validates instead: the build stage skips tar.xz, with
+    /// one warning per unsupported rid.
+    /// </summary>
+    /// <param name="manifest">The parsed manifest, holding the declared runtime identifiers.</param>
+    /// <param name="target">The target whose declared formats are checked.</param>
+    /// <exception cref="ManifestException">tar.xz is the target's only declared format against an unsupported rid.</exception>
+    private static void ValidateTarXzAgainstWindowsRids(Manifest manifest, ManifestTarget target)
+    {
+        if (!target.ArchiveFormats.Contains(ArchiveFormats.TarXz, StringComparer.Ordinal) ||
+            !target.ArchiveFormats.All(format => string.Equals(format, ArchiveFormats.TarXz, StringComparison.Ordinal)))
+        {
+            // Absent keys never resolve to tar.xz, and any second declared format still
+            // archives every rid, so no conflict can arise.
+            return;
+        }
+
+        string[] unsupportedRids =
+        [
+            .. manifest.Build.RuntimeIdentifiers.Where(rid => !ArchiveFormats.SupportsTarXz(rid)),
+        ];
+
+        if (unsupportedRids.Length == 0)
+        {
+            return;
+        }
+
+        // The error style: names the target, the conflicting rids, and the fix.
+        throw new ManifestException(
+            $"Manifest validation failed: the target '{target.Project}' declares 'tar.xz' as its only archive format, but tar.xz cannot be produced for the runtime identifier(s) {string.Join(", ", unsupportedRids)}, so those rids would produce no archive. Fix: declare another archive format (for example '{ArchiveFormats.Zip}') in 'archiveFormats', or remove those runtime identifiers from build.runtimeIdentifiers.");
     }
 
     /// <summary>

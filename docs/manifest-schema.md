@@ -38,7 +38,7 @@ multiple artifact kinds.
 |-----|------|----------|---------|
 | `project` | string | Yes | Path to the project file or directory. Relative paths resolve from the Manifest's directory. |
 | `kinds` | string[] | Yes | The artifact kinds this target declares. Only declared kinds are produced. |
-| `archiveFormats` | string or string[] | No (default `zip`) | The archive formats for this target's executables-kind outputs: `zip`, `tar.gz`, or `none`. Accepts a bare string or a list, and each declared format produces one archive per (target, rid). Archiving is opt-out, not opt-in. Package kinds are never archived. |
+| `archiveFormats` | string or string[] | No (default resolves per rid) | The archive formats for this target's executables-kind outputs: `zip`, `tar.gz`, `tar.xz`, or `none`. Accepts a bare string or a list, and each declared format produces one archive per (target, rid). Archiving is opt-out, not opt-in. Package kinds are never archived. |
 
 `archiveFormats` accepts either JSON spelling, and both normalize to one list at parse time:
 
@@ -55,6 +55,33 @@ naming the target, the value, and the known set. A token shape other than a stri
 string list (for example a number, an object, or an explicit `null`) fails parse naming the
 key. The key was named `archive` (single string only) in earlier releases: that name is a
 breaking rename and now fails strict parse like any unknown field.
+
+### Absent-key defaults
+
+When a target declares no `archiveFormats` key, the default set resolves from the rid class.
+Archiving stays opt-out, and `tar.xz` is never a default on any platform:
+
+| RID class | Example rids | Default `archiveFormats` |
+|-----------|--------------|--------------------------|
+| Windows-class | `win-x64`, `win-arm64` | `zip` |
+| Portable `any-*` (carve-out) | `any-x64`, `any-arm64` | `zip` - the portable rids follow the Windows rule regardless of host OS |
+| Unix-based | `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64` | `zip`, `tar.gz` |
+
+An explicit `archiveFormats` key overrides this table for every rid of the target.
+Each resolved format produces one archive per (target, rid).
+
+### `tar.xz` and Windows-class or portable rids
+
+`tar.xz` is opt-in only: neither Windows-class (`win-*`) nor portable (`any-*`) rids produce it.
+Two outcomes follow when a manifest declares it:
+
+- A target declaring `tar.xz` as its **only** format fails validation when the Manifest names a
+  Windows-class or portable rid: the error names the target, the conflicting rids, and the fix -
+  declare another format such as `zip`, or remove those runtime identifiers.
+- A target declaring `tar.xz` **alongside** another format (for example `["zip", "tar.xz"]`)
+  validates; the build stage skips `tar.xz` for each Windows-class or portable rid and prints
+  one warning per skipped (target, rid) pair - see the [command reference](commands.md#build).
+  Unix-based rids in the same target are unaffected by the skip.
 
 The artifact kind vocabulary is exactly:
 

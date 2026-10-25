@@ -11,7 +11,9 @@ using ReleaseGenLib.Models;
 
 /// <summary>
 /// Archive creation: zip is the executable-kind default, tar.gz and none are the declared
-/// opt-outs, package kinds never archive, archives replace any stale file, and an unknown format
+/// opt-outs, an absent key resolves per rid class (zip on Windows-class and any-* rids, zip plus
+/// tar.gz on Unix-based rids), tar.xz skips Windows-class and any-* rids with one warning each,
+/// package kinds never archive, archives replace any stale file, and an unknown format
 /// fails naming the known set. Output stays local under <c>release/</c>. The command-level
 /// tests drive the build stage through the test's own DI container; the pure archive tests need
 /// neither injected service.
@@ -27,10 +29,12 @@ public class ArchiveTests
 
     /// <summary>
     /// Archive creation: zip is the executable-kind default, tar.gz and none are the declared
-    /// opt-outs, package kinds never archive, archives replace any stale file, and an unknown format
-    /// fails naming the known set. Output stays local under <c>release/</c>. The command-level
-    /// tests drive the build stage through the test's own DI container; the pure archive tests need
-    /// neither injected service.
+    /// opt-outs, an absent key resolves per rid class (zip on Windows-class and any-* rids, zip
+    /// plus tar.gz on Unix-based rids), tar.xz skips Windows-class and any-* rids with one
+    /// warning each, package kinds never archive, archives replace any stale file, and an
+    /// unknown format fails naming the known set. Output stays local under <c>release/</c>. The
+    /// command-level tests drive the build stage through the test's own DI container; the pure
+    /// archive tests need neither injected service.
     /// </summary>
     public ArchiveTests(ServiceProvider services, IBuildArchiver archiver, RecordingProcessInvoker invoker)
     {
@@ -105,7 +109,34 @@ public class ArchiveTests
             () => _archiver.CreateArchiveAsync(source, archive, "rar", CancellationToken.None));
 
         await Assert.That(exception.Message).Contains("Unknown archive format 'rar'");
-        await Assert.That(exception.Message).Contains("zip, tar.gz, none");
+        await Assert.That(exception.Message).Contains("zip, tar.gz, tar.xz, none");
+    }
+
+    [Test]
+    public async Task The_absent_key_resolves_per_rid_class()
+    {
+        // Windows-class and the portable any-* rids default to zip alone regardless of host
+        // OS; Unix-based rids default to zip plus tar.gz; tar.xz is never a default.
+        await Assert.That(ArchiveFormats.DefaultsFor("win-x64"))
+            .IsEquivalentTo([ArchiveFormats.Zip]);
+        await Assert.That(ArchiveFormats.DefaultsFor("linux-x64"))
+            .IsEquivalentTo([ArchiveFormats.Zip, ArchiveFormats.TarGz]);
+        await Assert.That(ArchiveFormats.DefaultsFor("osx-arm64"))
+            .IsEquivalentTo([ArchiveFormats.Zip, ArchiveFormats.TarGz]);
+        await Assert.That(ArchiveFormats.DefaultsFor("any-x64"))
+            .IsEquivalentTo([ArchiveFormats.Zip]);
+        await Assert.That(ArchiveFormats.DefaultsFor("any-arm64"))
+            .IsEquivalentTo([ArchiveFormats.Zip]);
+    }
+
+    [Test]
+    public async Task The_tar_xz_eligibility_rule_follows_the_rid_class()
+    {
+        await Assert.That(ArchiveFormats.SupportsTarXz("win-x64")).IsFalse();
+        await Assert.That(ArchiveFormats.SupportsTarXz("any-x64")).IsFalse();
+        await Assert.That(ArchiveFormats.SupportsTarXz("any-arm64")).IsFalse();
+        await Assert.That(ArchiveFormats.SupportsTarXz("linux-x64")).IsTrue();
+        await Assert.That(ArchiveFormats.SupportsTarXz("osx-arm64")).IsTrue();
     }
 
     [Test]
@@ -161,6 +192,66 @@ public class ArchiveTests
         await using ZipArchive zip = await ZipFile.OpenReadAsync(archivePath);
         await Assert.That(zip.Entries.Select(static entry => entry.FullName))
             .IsEquivalentTo(["publish-output.txt"]);
+    }
+
+    [Test]
+    public async Task An_absent_key_archives_once_per_default_format_for_each_rid()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"] } ], "build": { "runtimeIdentifiers": ["win-x64", "linux-x64"] }, "publish": { "sources": [] } }""");
+        _invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(_manifestLoader, _buildStageRunner), "build");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+
+            string releaseRoot = Path.Combine(workspace.Root, "release");
+
+            // Windows-class rid: the zip-only default produces exactly one archive.
+            await Assert.That(File.Exists(Path.Combine(releaseRoot, "Alpha-win-x64.zip"))).IsTrue();
+            await Assert.That(File.Exists(Path.Combine(releaseRoot, "Alpha-win-x64.tar.gz"))).IsFalse();
+
+            // Unix-based rid: zip plus tar.gz, one archive per default format.
+            await Assert.That(File.Exists(Path.Combine(releaseRoot, "Alpha-linux-x64.zip"))).IsTrue();
+            await Assert.That(File.Exists(Path.Combine(releaseRoot, "Alpha-linux-x64.tar.gz"))).IsTrue();
+        });
+    }
+
+    [Test]
+    public async Task Tar_xz_is_skipped_per_windows_rid_with_one_warning_each()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"], "archiveFormats": ["zip", "tar.xz"] } ], "build": { "runtimeIdentifiers": ["win-x64", "win-arm64"] }, "publish": { "sources": [] } }""");
+        _invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            string console = await ConsoleCapture.CaptureAsync(async () =>
+            {
+                int exitCode = await CliHarness.InvokeAsync(
+                    new BuildCommand(_manifestLoader, _buildStageRunner), "build");
+
+                // The conflict leaves a usable format, so the stage still succeeds.
+                await Assert.That(exitCode).IsEqualTo(0);
+            });
+
+            // One warning per skipped (target, rid) pair, naming target, rid, format, reason.
+            string marker = "skips archive format 'tar.xz'";
+            await Assert.That(console.Split(marker).Length - 1).IsEqualTo(2);
+            await Assert.That(console).Contains("src/Alpha/Alpha.csproj");
+            await Assert.That(console).Contains("win-x64");
+            await Assert.That(console).Contains("win-arm64");
+
+            // The usable format still archives; the skipped one writes nothing.
+            string releaseRoot = Path.Combine(workspace.Root, "release");
+            await Assert.That(File.Exists(Path.Combine(releaseRoot, "Alpha-win-x64.zip"))).IsTrue();
+            await Assert.That(File.Exists(Path.Combine(releaseRoot, "Alpha-win-arm64.zip"))).IsTrue();
+            await Assert.That(Directory.GetFiles(releaseRoot, "*.tar.xz").Length).IsEqualTo(0);
+        });
     }
 
     [Test]

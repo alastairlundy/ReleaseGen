@@ -33,10 +33,11 @@ releasegen init [--preset <name>] [--overwrite]
 ## `build`
 
 Builds release binaries: runs `dotnet publish -c Release -r <rid>` once per target per declared
-runtime identifier, writing each (target, rid) publish to
-`release/<rid>/<project-name>/` and attaching per-target archives for executables-kind outputs
-(`release/<project-name>-<rid>.zip` or `.tar.gz`; zip is the default). Output stays local
-- nothing is uploaded.
+runtime identifier, writing each (target, rid) publish to `release/<rid>/<project-name>/`, and
+attaching one archive per (target, rid) for each resolved format (`release/<project-name>-<rid>.zip`,
+`.tar.gz`, or `.tar.xz`). With no `archiveFormats` key the default set resolves per rid class:
+zip for Windows-class and portable `any-*` rids, zip plus tar.gz for Unix-based rids.
+`tar.xz` is opt-in and never a default. Output stays local - nothing is uploaded.
 
 ```
 releasegen build [--preset <name>]
@@ -45,6 +46,18 @@ releasegen build [--preset <name>]
 | Flag | Effect |
 |------|--------|
 | `--preset <name>` | Overrides the Manifest's `build.preset` for this invocation only. Never writes the Manifest. |
+
+A `tar.xz` entry never produces an archive for a Windows-class (`win-*`) or portable (`any-*`) rid.
+When `tar.xz` is declared alongside another format, the stage skips it for each such rid and
+prints one warning per skipped (target, rid) pair:
+
+```
+warning: build: target '<project>' with runtime identifier '<rid>' skips archive format 'tar.xz': tar.xz cannot be produced for Windows-class or portable (any-*) runtime identifiers.
+```
+
+A target whose only declared format is `tar.xz` fails manifest validation before any publish
+runs when the Manifest declares those rids: the error names the target, the conflicting rids,
+and the fix - see the [manifest schema](manifest-schema.md).
 
 ## `test`
 

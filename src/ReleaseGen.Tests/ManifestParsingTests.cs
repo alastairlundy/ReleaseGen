@@ -173,7 +173,7 @@ public class ManifestParsingTests
             () => _loader.Validate(manifest, ManifestFileAtTemp()));
 
         await Assert.That(exception.Message).Contains("'rar'");
-        await Assert.That(exception.Message).Contains("zip, tar.gz, none"); // Error style.
+        await Assert.That(exception.Message).Contains("zip, tar.gz, tar.xz, none"); // Error style.
     }
 
     [Test]
@@ -241,7 +241,60 @@ public class ManifestParsingTests
 
         // Every list entry validates, not just the first.
         await Assert.That(exception.Message).Contains("'rar'");
-        await Assert.That(exception.Message).Contains("zip, tar.gz, none");
+        await Assert.That(exception.Message).Contains("zip, tar.gz, tar.xz, none");
+    }
+
+    [Test]
+    public async Task Tar_xz_as_the_only_format_against_unsupported_rids_fails_naming_the_conflict()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": "tar.xz" } ], "build": { "runtimeIdentifiers": ["win-x64", "any-x64", "linux-x64"] } }""");
+
+        ManifestException exception = Capture.Exception<ManifestException>(
+            () => _loader.Validate(manifest, ManifestFileAtTemp()));
+
+        // Names the target, the conflicting rids (Windows-class and portable), and the fix -
+        // the Unix-based rid is not part of the conflict.
+        await Assert.That(exception.Message).Contains("src/App/App.csproj");
+        await Assert.That(exception.Message).Contains("tar.xz");
+        await Assert.That(exception.Message).Contains("win-x64");
+        await Assert.That(exception.Message).Contains("any-x64");
+        await Assert.That(exception.Message.Contains("linux-x64", StringComparison.Ordinal)).IsFalse();
+        await Assert.That(exception.Message).Contains("archiveFormats");
+        await Assert.That(exception.Message).Contains("zip");
+    }
+
+    [Test]
+    public async Task Zip_alongside_tar_xz_validates_against_windows_rids()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": ["zip", "tar.xz"] } ], "build": { "runtimeIdentifiers": ["win-x64"] } }""");
+
+        // A usable format remains for every rid, so validation passes and the build stage
+        // skips tar.xz per Windows rid with one warning each.
+        _loader.Validate(manifest, ManifestFileAtTemp());
+    }
+
+    [Test]
+    public async Task Tar_xz_only_against_unix_rids_validates()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": "tar.xz" } ], "build": { "runtimeIdentifiers": ["linux-x64", "osx-arm64"] } }""");
+
+        // tar.xz is producible for every declared rid, so no conflict can arise.
+        _loader.Validate(manifest, ManifestFileAtTemp());
+    }
+
+    [Test]
+    public async Task An_absent_archive_key_never_conflicts_with_windows_rids()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"] } ], "build": { "runtimeIdentifiers": ["win-x64", "any-x64"] } }""");
+
+        // Absent keys resolve to the rid-class default sets, never to tar.xz.
+        _loader.Validate(manifest, ManifestFileAtTemp());
+
+        await Assert.That(manifest.Targets[0].ArchiveFormats.Length).IsEqualTo(0);
     }
 
     [Test]

@@ -7,9 +7,15 @@ detection of its own.
 
 ## When single-file applies
 
-- For the four named [build presets](presets.md), single-file defaults to **on on Unix-based
-  OSes**, and **on Windows only when the target's resolved archive format is zip** - declared
-  through the target's `archiveFormats` key, or defaulted to zip.
+- For the four named [build presets](presets.md), single-file defaults **on** on Unix-based OSes,
+  and **on Windows only when that rid's resolved archive format is zip** - declared through
+  the target's `archiveFormats` key (a list counts when it carries `zip` anywhere), or
+  defaulted to zip. The absent-key default resolves per rid class: zip for Windows-class and
+  portable `any-*` rids; zip plus tar.gz for Unix-based rids. Every default set includes zip,
+  so an undeclared key is always zip-archived - see the [manifest schema](manifest-schema.md).
+- Archiving is opt-out, not opt-in: a target with no `archiveFormats` key still archives by
+  the per-rid defaults above, and each declared format produces one archive per (target, rid).
+  The single-file tie-in only asks whether any of those formats is zip.
 - Preset `none` contributes no implicit single-file switch; the project file's own
   `PublishSingleFile` setting stays authoritative.
 - The `build.singleFile` key in the Manifest is the opt-out: `"singleFile": false` disables
