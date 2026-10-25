@@ -1,7 +1,11 @@
 # ReleaseGen
 
-[![CI](https://img.shields.io/github/actions/workflow/status/alastairlundy/ReleaseGen/ci.yml?branch=main)](https://github.com/alastairlundy/ReleaseGen/actions/workflows/ci.yml)
-[![License: MPL-2.0](https://img.shields.io/github/license/alastairlundy/ReleaseGen)](https://github.com/alastairlundy/ReleaseGen/blob/main/LICENSE.txt)
+[![Latest NuGet](https://img.shields.io/nuget/v/ReleaseGen?style=flat-square&label=Latest%20Stable%20Release)](https://www.nuget.org/packages/ReleaseGen/)
+[![Latest Pre-release NuGet](https://img.shields.io/nuget/vpre/ReleaseGen?style=flat-square&label=Latest%20Pre-Release)](https://www.nuget.org/packages/ReleaseGen/)
+[![Downloads](https://img.shields.io/nuget/dt/ReleaseGen?style=flat-square)](https://www.nuget.org/packages/ReleaseGen/)
+[![CI](https://img.shields.io/github/actions/workflow/status/alastairlundy/ReleaseGen/ci.yml?branch=main&style=flat-square)](https://github.com/alastairlundy/ReleaseGen/actions/workflows/ci.yml)
+[![License: MPL-2.0](https://img.shields.io/github/license/alastairlundy/ReleaseGen?style=flat-square)](https://github.com/alastairlundy/ReleaseGen/blob/main/LICENSE.txt)
+
 
 ReleaseGen is an opinionated .NET CLI for building, packaging, and publishing .NET projects. One strict `releasegen.json` manifest drives every stage of a release: build, test, package, and publish.
 
