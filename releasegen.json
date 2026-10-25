@@ -1,0 +1,20 @@
+{
+  "targets": [
+   { 
+    "project":"/src/ReleaseGenCli/ReleaseGenCli.csproj",
+    "kinds":
+      ["tool-package"]
+    }
+  ],
+  "build": {
+    "runtimeIdentifiers": [],
+    "singleFile":false
+  },
+  "test":{
+    "projects":
+      ["/src/ReleaseGen.Tests/ReleaseGen.Tests.csproj"]
+  },
+  "publish": {
+    "sources": []
+  }
+}
