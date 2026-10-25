@@ -2,7 +2,6 @@
 
 namespace ReleaseGenCli.Commands;
 
-using System.CommandLine;
 using System.CommandLine.Help;
 
 /// <summary>

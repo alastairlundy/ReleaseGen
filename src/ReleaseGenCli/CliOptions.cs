@@ -1,7 +1,5 @@
 namespace ReleaseGenCli;
 
-using System.CommandLine;
-
 /// <summary>
 /// Shared command-line options for the ReleaseGen CLI.
 /// </summary>

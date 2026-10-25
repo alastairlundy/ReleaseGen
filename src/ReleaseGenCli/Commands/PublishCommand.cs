@@ -2,7 +2,6 @@ using ReleaseGenCli.Exceptions;
 
 namespace ReleaseGenCli.Commands;
 
-using System.CommandLine;
 using ReleaseGenLib.Models;
 
 /// <summary>

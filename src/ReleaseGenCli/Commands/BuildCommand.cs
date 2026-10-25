@@ -1,7 +1,5 @@
 ﻿namespace ReleaseGenCli.Commands;
 
-using System.CommandLine;
-using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Models;
 
 /// <summary>

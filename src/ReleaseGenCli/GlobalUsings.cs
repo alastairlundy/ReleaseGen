@@ -1,5 +1,6 @@
 ﻿// Global using directives
 
+global using System.CommandLine;
 global using CliInvoke.Core;
 global using ReleaseGenCli.Helpers;
 global using ReleaseGenCli.Localizations;

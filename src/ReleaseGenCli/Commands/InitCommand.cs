@@ -1,7 +1,5 @@
 namespace ReleaseGenCli.Commands;
 
-using System.CommandLine;
-
 /// <summary>
 /// The init stage: writes a minimal valid <c>releasegen.json</c> skeleton to the current
 /// directory following the per-stage manifest layout. <c>--preset</c> seeds the

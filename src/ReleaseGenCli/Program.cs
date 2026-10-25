@@ -1,5 +1,4 @@
-﻿using System.CommandLine;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using ReleaseGenCli.Commands;
 
 // One composition root for the CLI and the test suite: ReleaseGen's stage services plus the

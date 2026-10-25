@@ -1,6 +1,5 @@
 namespace ReleaseGenCli.Helpers;
 
-using System.CommandLine;
 using Spectre.Console;
 
 /// <summary>
