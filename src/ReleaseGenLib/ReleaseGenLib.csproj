@@ -18,9 +18,8 @@
         <Title>ReleaseGenLib</Title>
         <Authors>Alastair Lundy</Authors>
         <Copyright>Copyright (c) 2026 Alastair Lundy</Copyright>
-        <!-- Static version fallback per T019; MinVer pins untagged builds to the 1.0 line. -->
+        <!-- Package version; bump manually before each release. -->
         <Version>1.0.0</Version>
-        <MinVerMinimumMajorMinor>1.0</MinVerMinimumMajorMinor>
     </PropertyGroup>
 
     <ItemGroup>
@@ -34,7 +33,6 @@
       <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" PrivateAssets="all" />
       <PackageReference Include="Microsoft.Build.Locator" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
-      <PackageReference Include="MinVer" PrivateAssets="All" />
     </ItemGroup>
 
 </Project>

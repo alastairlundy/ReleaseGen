@@ -22,10 +22,6 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
-        with:
-          # MinVer resolves package versions from git tags (T019), so versioning needs the
-          # repository's full history and tags rather than a shallow checkout.
-          fetch-depth: 0
 
       - name: Set up the .NET SDK
         uses: actions/setup-dotnet@v6

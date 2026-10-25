@@ -20,8 +20,8 @@
         <ToolCommandName>releasegen</ToolCommandName>
         <Description>Opinionated .NET CLI for building, packaging, and publishing .NET projects, with cross-platform packaging targets and project-file-prioritized build settings.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <!-- Package version; bump manually before each release. -->
         <Version>0.1.0</Version>
-        <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
         <Title>ReleaseGen</Title>
         <Authors>Alastair Lundy</Authors>
         <Copyright>Copyright (c) Alastair Lundy 2026</Copyright>
@@ -37,7 +37,6 @@
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-      <PackageReference Include="MinVer" PrivateAssets="All" />
       <PackageReference Include="Spectre.Console" />
       <PackageReference Include="System.CommandLine" />
     </ItemGroup>
