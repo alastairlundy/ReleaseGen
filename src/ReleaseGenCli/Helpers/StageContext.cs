@@ -16,7 +16,7 @@ namespace ReleaseGen.Cli.Helpers;
 /// the publish stage consults the recorded outcome instead of re-running tests inside the same
 /// chain. Stage commands invoked as separate processes share nothing - each standalone
 /// <c>publish</c> consults the gate itself by running the test stage, and the cross-process
-/// story is the documented artifact-location handoff contract, not this state.
+/// story is the documented artefact-location handoff contract, not this state.
 /// </summary>
 public static class StageContext
 {
