@@ -1,7 +1,8 @@
+using ReleaseGen.Cli;
+
 namespace ReleaseGen.Tests;
 
 using System.CommandLine;
-using ReleaseGenCli;
 
 /// <summary>
 /// Invokes one ReleaseGen command through a throwaway root the same way the shipped CLI does:

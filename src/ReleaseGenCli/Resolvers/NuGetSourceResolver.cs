@@ -1,4 +1,6 @@
-namespace ReleaseGenCli.Commands;
+using ReleaseGen.Cli.Localizations;
+
+namespace ReleaseGen.Cli.Resolvers;
 
 /// <summary>
 /// Resolves the publish stage's push sources: the manifest's listed sources win in

@@ -1,11 +1,10 @@
 using CliInvoke.Core;
 using Microsoft.Extensions.DependencyInjection;
-using ReleaseGenCli.Helpers;
+using ReleaseGen.Cli.Commands;
+using ReleaseGen.Cli.Helpers;
 using ReleaseGenLib.Abstractions;
 
 namespace ReleaseGen.Tests;
-
-using ReleaseGenCli.Commands;
 
 /// <summary>
 /// The publish stage's real-invoker integration leg: a real <c>dotnet nuget push</c> lands a

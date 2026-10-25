@@ -1,11 +1,12 @@
 using Microsoft.Extensions.DependencyInjection;
-using ReleaseGenCli.Helpers;
+using ReleaseGen.Cli.Commands;
+using ReleaseGen.Cli.Helpers;
+using ReleaseGen.Cli.Resolvers;
 using ReleaseGenLib.Abstractions;
 
 namespace ReleaseGen.Tests;
 
 using CliInvoke.Core;
-using ReleaseGenCli.Commands;
 
 /// <summary>
 /// The publish stage's invocation mapping: each declared package kind becomes a

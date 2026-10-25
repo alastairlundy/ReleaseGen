@@ -1,10 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
+using ReleaseGen.Cli.Commands;
 using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Exceptions;
 
 namespace ReleaseGen.Tests;
 
-using ReleaseGenCli.Commands;
 using ReleaseGenLib;
 using ReleaseGenLib.Models;
 

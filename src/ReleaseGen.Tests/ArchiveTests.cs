@@ -1,11 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using ReleaseGen.Cli.Commands;
 using ReleaseGenLib.Exceptions;
 
 namespace ReleaseGen.Tests;
 
 using System.Formats.Tar;
 using System.IO.Compression;
-using ReleaseGenCli.Commands;
 using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Models;
 

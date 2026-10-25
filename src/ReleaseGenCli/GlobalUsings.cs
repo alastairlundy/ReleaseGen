@@ -2,9 +2,7 @@
 
 global using System.CommandLine;
 global using CliInvoke.Core;
-global using ReleaseGenCli.Exceptions;
-global using ReleaseGenCli.Helpers;
-global using ReleaseGenCli.Localizations;
+global using ReleaseGen.Cli.Helpers;
 global using ReleaseGenLib;
 global using ReleaseGenLib.Abstractions;
 global using ReleaseGenLib.Models;

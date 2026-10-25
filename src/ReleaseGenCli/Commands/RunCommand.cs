@@ -1,6 +1,15 @@
-namespace ReleaseGenCli.Commands;
+/*
+    ReleaseGen
+    Copyright (C) 2024-2026  Alastair Lundy
 
-using ReleaseGenLib.Models;
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+using ReleaseGen.Cli.Localizations;
+
+namespace ReleaseGen.Cli.Commands;
 
 /// <summary>
 /// The chained run: <c>releasegen run</c> executes the stages the manifest names in manifest
@@ -8,8 +17,8 @@ using ReleaseGenLib.Models;
 /// and its exit code, and reporting each skipped unnamed stage with a console
 /// note. Each stage runs through its own stage command invoked in-process (the stage commands
 /// remain the separately invocable implementations), so the chained run and separate
-/// stage invocations share one behavior surface and write the identical <c>release/</c>
-/// artifact tree documented by the cross-process handoff contract. init is a
+/// stage invocations share one behaviour surface and write the identical <c>release/</c>
+/// artefact tree documented by the cross-process handoff contract. init is a
 /// one-shot command and takes no part in the chain. The <c>--preset</c> flag overrides
 /// the manifest's <c>build.preset</c> for this invocation only and never writes the file;
 /// stage flags and retry logic stay out of v1.

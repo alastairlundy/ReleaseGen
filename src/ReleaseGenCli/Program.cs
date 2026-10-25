@@ -1,12 +1,23 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using ReleaseGenCli.Commands;
+﻿/*
+    ReleaseGen
+    Copyright (C) 2024-2026  Alastair Lundy
+
+    This Source Code Form is subject to the terms of the Mozilla Public
+    License, v. 2.0. If a copy of the MPL was not distributed with this
+    file, You can obtain one at http://mozilla.org/MPL/2.0/.
+*/
+
+using Microsoft.Extensions.DependencyInjection;
+using ReleaseGen.Cli.Commands;
 
 // One composition root for the CLI and the test suite: ReleaseGen's stage services plus the
 // CliInvoke pipeline, all registered TryAdd-style so hosts may override any piece.
 ServiceCollection services = new();
 services.AddReleaseGen();
 
-using ServiceProvider provider = services.BuildServiceProvider();
+#pragma warning disable MA0004
+await using ServiceProvider provider = services.BuildServiceProvider();
+#pragma warning restore MA0004
 
 RootCommand rootCommand = RootCommandComposer.Compose(provider);
 

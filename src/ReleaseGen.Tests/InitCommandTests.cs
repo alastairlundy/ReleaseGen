@@ -1,6 +1,7 @@
+using ReleaseGen.Cli.Commands;
+
 namespace ReleaseGen.Tests;
 
-using ReleaseGenCli.Commands;
 using ReleaseGenLib;
 using ReleaseGenLib.Abstractions;
 using ReleaseGenLib.Models;
