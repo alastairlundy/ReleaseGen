@@ -83,7 +83,7 @@ releasegen run --verbose
 Passing `--quiet` and `--verbose` together fails before any stage work starts:
 
 ```
-error: --quiet and --verbose conflict; pass only one of them - run with --verbose for full detail.
+error: --quiet and --verbose conflict; pass only one of them. Run with --verbose for full detail.
 ```
 
 ## `init`

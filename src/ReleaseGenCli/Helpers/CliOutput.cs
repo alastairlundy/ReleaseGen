@@ -67,7 +67,7 @@ public static class CliOutput
             // One line, both halves: the conflict is named and the diagnostics tip every
             // failure path carries is named with it, so no output mode stays ambiguous.
             ErrorWithoutHint(
-                "--quiet and --verbose conflict; pass only one of them - run with --verbose for full detail.");
+                "--quiet and --verbose conflict; pass only one of them. Run with --verbose for full detail.");
             return false;
         }
 

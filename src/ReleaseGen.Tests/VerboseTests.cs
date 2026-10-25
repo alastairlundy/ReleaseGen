@@ -51,7 +51,7 @@ public class VerboseTests
             // no output mode is silently chosen; the check runs before any stage work, so no
             // command is spawned and no manifest is read.
             await Assert.That(console).Contains("--quiet and --verbose conflict");
-            await Assert.That(console).Contains("run with --verbose for full detail");
+            await Assert.That(console).Contains(ConflictLine);
             await Assert.That(CountOccurrences(console, "error:")).IsEqualTo(1);
             await Assert.That(console.Contains("hint:")).IsFalse();
             await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
@@ -88,7 +88,7 @@ public class VerboseTests
                 });
 
                 await Assert.That(console).Contains("--quiet and --verbose conflict");
-                await Assert.That(console).Contains("run with --verbose for full detail");
+                await Assert.That(console).Contains(ConflictLine);
                 await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
             }
         });
@@ -241,6 +241,14 @@ public class VerboseTests
             }
         });
     }
+
+    /// <summary>
+    /// The exact one-line refusal the conflict check prints: it names the conflict and carries
+    /// the diagnostics tip as its own sentence, so the tests pin the whole line rather than a
+    /// fragment of it.
+    /// </summary>
+    private const string ConflictLine =
+        "error: --quiet and --verbose conflict; pass only one of them. Run with --verbose for full detail.";
 
     /// <summary>
     /// Counts non-overlapping occurrences of <paramref name="value"/>, so a test can assert a
