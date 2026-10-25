@@ -13,7 +13,7 @@ namespace ReleaseGen.Cli.Helpers;
 
 public static class UserInputHelper
 {
-    public static string GetRuntimeIdentifier()
+    private static string GetRuntimeIdentifier()
     {
         string[] choices =
         [

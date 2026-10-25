@@ -1,5 +1,7 @@
 <Solution>
   <Project Path="ReleaseGenCli/ReleaseGenCli.csproj" />
-  <Project Path="ReleaseGenLib/ReleaseGenLib.csproj" />
+  <Folder Name="/Libraries/">
+    <Project Path="ReleaseGenLib/ReleaseGenLib.csproj" />
+  </Folder>
   <Project Path="ReleaseGen.Tests/ReleaseGen.Tests.csproj" />
 </Solution>
