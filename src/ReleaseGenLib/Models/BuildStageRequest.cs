@@ -43,4 +43,11 @@ public sealed class BuildStageRequest
     /// <c>--quiet</c>. Null swallows the lines.
     /// </summary>
     public Action<string>? WriteErrorLine { get; init; }
+
+    /// <summary>
+    /// The runner's decision for this invocation: execute the stage's planned commands, or
+    /// print them (the dry-run report) without running them, their guards, or the stale-output
+    /// cleanup. Defaults to a real run; the dry-run flag wires it.
+    /// </summary>
+    public StageRunMode RunMode { get; init; } = StageRunMode.Execute;
 }

@@ -28,7 +28,7 @@ namespace ReleaseGen.Cli.Commands;
 /// </remarks>
 public sealed class PackageCommand : Command
 {
-    public PackageCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("package",
+    public PackageCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker, StageRunMode runMode = StageRunMode.Execute) : base("package",
         "Packages each target's declared artefact kinds.")
     {
         SetAction(async (parseResult, cancellationToken) =>
@@ -71,7 +71,7 @@ public sealed class PackageCommand : Command
                         target.Project, directoryPath);
 
                     producedCount +=  await CreatePackage(target, packageCommandRunner, projectFile,
-                            outputRoot, producedKinds, cancellationToken)
+                            outputRoot, producedKinds, runMode, cancellationToken)
                         .ConfigureAwait(true);
                 }
 
@@ -91,7 +91,7 @@ public sealed class PackageCommand : Command
     }
 
     private static async Task<int> CreatePackage(ManifestTarget target, PackageKindRunner packageCommandRunner, FileInfo projectFile,
-        DirectoryInfo outputRoot, List<string> producedKinds, CancellationToken cancellationToken)
+        DirectoryInfo outputRoot, List<string> producedKinds, StageRunMode runMode, CancellationToken cancellationToken)
     {
         int producedCount = 0;
         
@@ -110,6 +110,7 @@ public sealed class PackageCommand : Command
                 projectFile, targetKind, outputRoot,
                 static line => CliOutput.Note(line),
                 static line => CliOutput.Warning(line),
+                runMode,
                 cancellationToken).ConfigureAwait(true);
 
             producedCount++;

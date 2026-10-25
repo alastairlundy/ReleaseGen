@@ -46,7 +46,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
     private const long MaxBufferedOutputBytes = 64 * 1024 * 1024;
 
     private readonly IManifestLoader _manifestLoader;
-    private readonly IProcessInvoker _processInvoker;
+    private readonly PlannedCommandRunner _plannedCommandRunner;
     private readonly IBuildArchiver _buildArchiver;
 
     /// <summary>
@@ -79,8 +79,12 @@ public sealed class BuildStageRunner : IBuildStageRunner
     public BuildStageRunner(IManifestLoader manifestLoader, IProcessInvoker processInvoker, IBuildArchiver buildArchiver)
     {
         _manifestLoader = manifestLoader;
-        _processInvoker = processInvoker;
         _buildArchiver = buildArchiver;
+        _plannedCommandRunner = new PlannedCommandRunner(processInvoker)
+        {
+            ExitConfiguration = ProcessExitConfiguration.WithMaxBufferedOutputBytes(
+                ProcessExitConfiguration.Default, MaxBufferedOutputBytes),
+        };
     }
 
     /// <inheritdoc />
@@ -134,23 +138,27 @@ public sealed class BuildStageRunner : IBuildStageRunner
 
                 // Deterministic local output: a previous run's stale folder or archive must not
                 // leak into this run's binaries (the release/ tree is ours to manage).
+                // Writes only in a real run - the dry-run report leaves the tree untouched.
                 // Fresh OS-level checks: DirectoryInfo/FileInfo cache their first probe.
-                if (Directory.Exists(outputDirectory.FullName))
+                if (request.RunMode == StageRunMode.Execute)
                 {
-                    Directory.Delete(outputDirectory.FullName, recursive: true);
-                }
-
-                // Remove any stale archive for this (target, rid), regardless of the format a
-                // previous run may have used, so switching archive formats never leaves an
-                // orphaned file beside the new one.
-                string archiveStem = Path.Combine(
-                    request.OutputRoot.FullName, $"{projectName}-{rid}");
-                foreach (string staleExtension in new[] { ".zip", ".tar.gz", ".tar.xz" })
-                {
-                    string stalePath = archiveStem + staleExtension;
-                    if (File.Exists(stalePath))
+                    if (Directory.Exists(outputDirectory.FullName))
                     {
-                        File.Delete(stalePath);
+                        Directory.Delete(outputDirectory.FullName, recursive: true);
+                    }
+
+                    // Remove any stale archive for this (target, rid), regardless of the format
+                    // a previous run may have used, so switching archive formats never leaves an
+                    // orphaned file beside the new one.
+                    string archiveStem = Path.Combine(
+                        request.OutputRoot.FullName, $"{projectName}-{rid}");
+                    foreach (string staleExtension in new[] { ".zip", ".tar.gz", ".tar.xz" })
+                    {
+                        string stalePath = archiveStem + staleExtension;
+                        if (File.Exists(stalePath))
+                        {
+                            File.Delete(stalePath);
+                        }
                     }
                 }
 
@@ -167,37 +175,28 @@ public sealed class BuildStageRunner : IBuildStageRunner
                     .. switches.ToArguments(),
                 ];
 
-                // Streamed args note: makes the resolved switch set for this (target, rid)
-                // visible on the console (the evidence surface).
-                request.WriteLine?.Invoke($"build: dotnet {string.Join(' ', argumentList)}");
-
-                ProcessConfiguration configuration =
-                    new(OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet", argumentList)
-                    {
-                        WorkingDirectoryPath = request.ManifestDirectory.FullName,
-                    };
-
-                BufferedProcessResult result = await _processInvoker.ExecuteBufferedAsync(
-                    configuration,
-                    ProcessExitConfiguration.WithMaxBufferedOutputBytes(
-                        ProcessExitConfiguration.Default, MaxBufferedOutputBytes),
-                    cancellationToken).ConfigureAwait(false);
-
-                await ReplayLines(result.StandardOutput, request.WriteLine, cancellationToken).ConfigureAwait(false);
-
-                if (result.WasTruncated)
+                // The planned record is the whole story of this publish: the streamed-args line
+                // (the evidence surface) both printed modes show, and the process the runner
+                // executes only in a real run.
+                PlannedCommand publishCommand = new()
                 {
-                    request.WriteErrorLine?.Invoke(
-                        $"build: publish output for target '{target.Project}' with runtime identifier '{rid}' was truncated; some lines did not reach the console.");
-                }
+                    CommandLine = $"build: dotnet {string.Join(' ', argumentList)}",
+                    TargetFilePath = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet",
+                    ArgumentList = argumentList,
+                    WorkingDirectory = request.ManifestDirectory.FullName,
+                    ArtifactPaths = [outputDirectory.FullName],
+                };
 
-                await ReplayLines(result.StandardError, request.WriteErrorLine, cancellationToken).ConfigureAwait(false);
+                BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
+                    publishCommand, request.RunMode, request.WriteLine, cancellationToken)
+                    .ConfigureAwait(false);
 
-                if (result.ExitCode != 0)
+                // The dry-run report printed the plan; nothing ran, so there is no result to
+                // replay or fail on.
+                if (result is not null)
                 {
-                    // The error style: names the target, the rid, and the exit code.
-                    throw new BuildStageException(
-                        $"build: dotnet publish failed for target '{target.Project}' with runtime identifier '{rid}' (exit code {result.ExitCode}).");
+                    await ReplayPublishResultAsync(result, request, target, rid, cancellationToken)
+                        .ConfigureAwait(false);
                 }
 
                 // Only executables-kind outputs get archives; package kinds never do,
@@ -226,17 +225,66 @@ public sealed class BuildStageRunner : IBuildStageRunner
                             request.OutputRoot.FullName,
                             $"{projectName}-{rid}{ArchiveExtension(archiveFormat)}"));
 
-                        await _buildArchiver.CreateArchiveAsync(outputDirectory, archiveFile, archiveFormat, cancellationToken)
+                        // The archiver re-checks at run time that the publish output folder
+                        // exists; the plan reports that guard as conditional instead of running
+                        // it, so the dry-run print describes work a real run could skip.
+                        PlannedCommand archiveCommand = new()
+                        {
+                            CommandLine =
+                                $"build: archiving '{outputDirectory.FullName}' to '{archiveFile.FullName}' ({archiveFormat}).",
+                            ExecuteAsync = token => _buildArchiver.CreateArchiveAsync(
+                                outputDirectory, archiveFile, archiveFormat, token),
+                            ArtifactPaths = [archiveFile.FullName],
+                            Condition = $"output folder '{outputDirectory.FullName}' exists",
+                        };
+
+                        await _plannedCommandRunner.RunAsync(
+                            archiveCommand, request.RunMode, request.WriteLine, cancellationToken)
                             .ConfigureAwait(false);
-                        request.WriteLine?.Invoke(
-                            $"build: archived '{outputDirectory.FullName}' to '{archiveFile.FullName}' ({archiveFormat}).");
                     }
                 }
             }
         }
 
         request.WriteLine?.Invoke(
-            $"build: published {manifest.Targets.Count} target(s) x {runtimeIdentifiers.Length} runtime identifier(s) under '{request.OutputRoot.FullName}'.");
+            request.RunMode == StageRunMode.Execute
+                ? $"build: published {manifest.Targets.Count} target(s) x {runtimeIdentifiers.Length} runtime identifier(s) under '{request.OutputRoot.FullName}'."
+                : $"build: planned {manifest.Targets.Count} target(s) x {runtimeIdentifiers.Length} runtime identifier(s); the dry run wrote nothing.");
+    }
+
+    /// <summary>
+    /// Replays one executed publish's captured output through the request's sinks and fails the
+    /// stage on a nonzero exit, naming the target, the rid, and the exit code.
+    /// </summary>
+    /// <param name="result">The executed publish's process result.</param>
+    /// <param name="request">The build-stage request carrying the line sinks.</param>
+    /// <param name="target">The target being published, for the wording.</param>
+    /// <param name="rid">The runtime identifier being published, for the wording.</param>
+    /// <param name="cancellationToken">The stage's cancellation token.</param>
+    /// <exception cref="BuildStageException">The publish invocation exited nonzero.</exception>
+    private static async Task ReplayPublishResultAsync(
+        BufferedProcessResult result,
+        BuildStageRequest request,
+        ManifestTarget target,
+        string rid,
+        CancellationToken cancellationToken)
+    {
+        await ReplayLines(result.StandardOutput, request.WriteLine, cancellationToken).ConfigureAwait(false);
+
+        if (result.WasTruncated)
+        {
+            request.WriteErrorLine?.Invoke(
+                $"build: publish output for target '{target.Project}' with runtime identifier '{rid}' was truncated; some lines did not reach the console.");
+        }
+
+        await ReplayLines(result.StandardError, request.WriteErrorLine, cancellationToken).ConfigureAwait(false);
+
+        if (result.ExitCode != 0)
+        {
+            // The error style: names the target, the rid, and the exit code.
+            throw new BuildStageException(
+                $"build: dotnet publish failed for target '{target.Project}' with runtime identifier '{rid}' (exit code {result.ExitCode}).");
+        }
     }
 
     /// <summary>

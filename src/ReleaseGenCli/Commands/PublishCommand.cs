@@ -38,6 +38,8 @@ public sealed class PublishCommand : Command
 {
     private readonly IManifestLoader _manifestLoader;
     private readonly IProcessInvoker _processInvoker;
+    private readonly PlannedCommandRunner _plannedCommandRunner;
+    private readonly StageRunMode _runMode;
 
     /// <summary>
     /// The environment-variable channel for the API key, consulted when the
@@ -45,11 +47,13 @@ public sealed class PublishCommand : Command
     /// </summary>
     private const string ApiKeyEnvironmentVariable = "NUGET_API_KEY";
 
-    public PublishCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("publish",
+    public PublishCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker, StageRunMode runMode = StageRunMode.Execute) : base("publish",
         "Publishes each target's declared package kinds to the configured NuGet sources.")
     {
         _manifestLoader = manifestLoader;
         _processInvoker = processInvoker;
+        _plannedCommandRunner = new PlannedCommandRunner(processInvoker);
+        _runMode = runMode;
         Option<string?> apiKeyOption = new("--api-key")
         {
             Description =
@@ -134,7 +138,7 @@ public sealed class PublishCommand : Command
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        await PushAsync(processInvoker, push, source, apiKey, cancellationToken).ConfigureAwait(true);
+                        await PushAsync(push, source, apiKey, cancellationToken).ConfigureAwait(true);
                         pushedCount++;
 
                         if (!pushedKinds.Contains(push.Kind))
@@ -314,17 +318,17 @@ public sealed class PublishCommand : Command
     }
 
     /// <summary>
-    /// Runs one <c>dotnet nuget push</c> through CliInvoke for one package and one
-    /// source. A nonzero exit fails fast with <see cref="PublishStageException"/> naming the
-    /// package, the source, and the exit code; failure detail stays textual.
+    /// Plans one <c>dotnet nuget push</c> and hands it to the runner: the streamed-args note
+    /// with the key redacted is the record's command line, so both printed modes show the same
+    /// line without leaking the credential, and only a real run spawns the push. A nonzero
+    /// exit fails fast with <see cref="PublishStageException"/> naming the package, the source,
+    /// and the exit code; failure detail stays textual.
     /// </summary>
-    /// <param name="processInvoker">The CliInvoke process invoker.</param>
     /// <param name="push">The package to push.</param>
     /// <param name="source">The resolved push source.</param>
     /// <param name="apiKey">The API key from the API-key channels; redacted from the console.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
-    private static async Task PushAsync(
-        IProcessInvoker processInvoker,
+    private async Task PushAsync(
         PushEntry push,
         string source,
         string apiKey,
@@ -345,21 +349,26 @@ public sealed class PublishCommand : Command
             apiKey,
         ];
 
-        // Streamed args note with the key redacted: the resolved invocation stays visible on
-        // the console (the evidence surface) without leaking the credential.
-        CliOutput.Note(
-            $"publish: dotnet nuget push {push.PackageFile.FullName} --source {source} --api-key **** (kind '{push.Kind}' for target '{push.TargetProject}').");
+        // The printed command line redacts the key; the executed argument list carries it.
+        PlannedCommand command = new()
+        {
+            CommandLine =
+                $"publish: dotnet nuget push {push.PackageFile.FullName} --source {source} --api-key **** (kind '{push.Kind}' for target '{push.TargetProject}').",
+            TargetFilePath = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet",
+            ArgumentList = argumentList,
+            WorkingDirectory = Environment.CurrentDirectory,
+            ArtifactPaths = [push.PackageFile.FullName],
+        };
 
-        ProcessConfiguration configuration =
-            new(OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet", argumentList)
-            {
-                WorkingDirectoryPath = Environment.CurrentDirectory,
-            };
+        BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
+            command, _runMode, CliOutput.Note, cancellationToken).ConfigureAwait(true);
 
-        BufferedProcessResult result = await processInvoker.ExecuteBufferedAsync(
-            configuration,
-            ProcessExitConfiguration.Default,
-            cancellationToken).ConfigureAwait(true);
+        if (result is null)
+        {
+            // Dry run: the plan printed, nothing was pushed; the dry-run gate consult and
+            // would-be push report are the later dry-run ticket's surface.
+            return;
+        }
 
         if (result.WasTruncated)
         {

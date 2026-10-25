@@ -14,7 +14,9 @@ namespace ReleaseGen.Cli.Commands;
 /// <see cref="IBuildStageRunner"/>, driven by the manifest's build section. The
 /// <c>--preset</c> flag overrides the manifest's <c>build.preset</c> for this invocation only
 /// and never writes the file; an unknown preset from either source fails with an error
-/// naming it and the known set, exit 1. Output stays local under
+/// naming it and the known set, exit 1. Each publish and archive is a shared planned record:
+/// the run mode decides at the runner boundary whether the stage executes it or prints it
+/// without writing anything. Output stays local under
 /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> with per-target archives beside the rid
 /// folders - nothing is uploaded.
 /// </summary>
@@ -26,7 +28,7 @@ namespace ReleaseGen.Cli.Commands;
 /// </remarks>
 public sealed class BuildCommand : Command
 {
-    public BuildCommand(IManifestLoader manifestLoader, IBuildStageRunner buildStageRunner) :
+    public BuildCommand(IManifestLoader manifestLoader, IBuildStageRunner buildStageRunner, StageRunMode runMode = StageRunMode.Execute) :
         base("build", "Builds release binaries for the manifest's targets.")
     {
         Option<string?> presetOption = new("--preset")
@@ -85,6 +87,7 @@ public sealed class BuildCommand : Command
                     OutputRoot = new DirectoryInfo(Path.Combine(Environment.CurrentDirectory, "release")),
                     WriteLine = RouteStdoutLine,
                     WriteErrorLine = static line => CliOutput.Warning(line),
+                    RunMode = runMode,
                 };
 
                 await buildStageRunner.RunAsync(request, cancellationToken).ConfigureAwait(true);

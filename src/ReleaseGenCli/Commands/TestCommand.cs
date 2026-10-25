@@ -15,7 +15,9 @@ namespace ReleaseGen.Cli.Commands;
 /// A declared section that exits nonzero fails the stage with a one-line error naming the
 /// project and the exit code and returns 1, so a chained run aborts before publish;
 /// a manifest with no test section warns and returns 0 - the test gate passes by
-/// default. The stage records its gate outcome for the publish stage to consume;
+/// default. Each test invocation is a shared planned record: the run mode decides at the
+/// runner boundary whether the stage executes it or prints it without running anything.
+/// The stage records its gate outcome for the publish stage to consume;
 /// there is no runner-override key or gate-forcing flag in v1.
 /// </summary>
 /// <remarks>
@@ -27,10 +29,14 @@ namespace ReleaseGen.Cli.Commands;
 public sealed class TestCommand : Command
 {
     private readonly IManifestLoader _manifestLoader;
+    private readonly PlannedCommandRunner _plannedCommandRunner;
+    private readonly StageRunMode _runMode;
 
-    public TestCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("test", "Runs dotnet test on the manifest's test projects.")
+    public TestCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker, StageRunMode runMode = StageRunMode.Execute) : base("test", "Runs dotnet test on the manifest's test projects.")
     {
         _manifestLoader = manifestLoader;
+        _plannedCommandRunner = new PlannedCommandRunner(processInvoker);
+        _runMode = runMode;
         SetAction(async (parseResult, cancellationToken) =>
         {
             CliOutput.ApplyQuiet(parseResult);
@@ -51,7 +57,6 @@ public sealed class TestCommand : Command
                 }
                 
                 int exitCode = await RunTestsAsync(
-                    processInvoker,
                     manifest.Test.Projects,
                     manifestFile.Directory!.FullName,
                     cancellationToken).ConfigureAwait(true);
@@ -83,13 +88,11 @@ public sealed class TestCommand : Command
     /// directory when none are named, fail-fast on the first nonzero exit: later
     /// projects are not run after a failure.
     /// </summary>
-    /// <param name="processInvoker">The CliInvoke process invoker.</param>
     /// <param name="projects">The test section's named test projects; empty means the cwd fallback.</param>
     /// <param name="manifestDirectory">The manifest's directory, the working directory for named-project runs.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>The first nonzero exit code, or 0 when every invocation passed.</returns>
     private async Task<int> RunTestsAsync(
-        IProcessInvoker processInvoker,
         string[] projects,
         string manifestDirectory,
         CancellationToken cancellationToken)
@@ -98,7 +101,7 @@ public sealed class TestCommand : Command
         {
             // Cwd fallback: the section names no projects, so run from the current directory.
             return await RunDotnetTestAsync(
-                processInvoker, ["test"], Environment.CurrentDirectory, project: null, cancellationToken).ConfigureAwait(true);
+                ["test"], Environment.CurrentDirectory, project: null, cancellationToken).ConfigureAwait(true);
         }
 
         foreach (string project in projects)
@@ -106,7 +109,7 @@ public sealed class TestCommand : Command
             FileInfo projectFile = _manifestLoader.ResolveProjectFile(project, manifestDirectory);
 
             int exitCode = await RunDotnetTestAsync(
-                    processInvoker, ["test", projectFile.FullName], manifestDirectory, project, cancellationToken)
+                    ["test", projectFile.FullName], manifestDirectory, project, cancellationToken)
                 .ConfigureAwait(true);
 
             if (exitCode != 0)
@@ -120,37 +123,39 @@ public sealed class TestCommand : Command
     }
 
     /// <summary>
-    /// Runs one <c>dotnet test</c> invocation through CliInvoke, replaying its captured output
-    /// through the conventions layer and emitting the one-line error - naming the
-    /// project, or the current directory for the cwd fallback - on a nonzero exit.
+    /// Plans one <c>dotnet test</c> invocation as a shared record and hands it to the runner:
+    /// the runner prints the streamed-args line (the evidence surface) in both modes, executes
+    /// the process only in a real run, and prints the plan without running anything under the
+    /// dry-run report, where nothing ran so nothing can fail.
     /// </summary>
-    /// <param name="processInvoker">The CliInvoke process invoker.</param>
     /// <param name="argumentList">The <c>dotnet</c> argument list for this invocation.</param>
     /// <param name="workingDirectory">The process working directory.</param>
     /// <param name="project">The named project for the error wording, or null for the cwd fallback.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
-    /// <returns>The invocation's exit code.</returns>
-    private static async Task<int> RunDotnetTestAsync(
-        IProcessInvoker processInvoker,
+    /// <returns>The invocation's exit code, or 0 when the dry-run report printed the plan.</returns>
+    private async Task<int> RunDotnetTestAsync(
         List<string> argumentList,
         string workingDirectory,
         string? project,
         CancellationToken cancellationToken)
     {
-        // Streamed args note: makes the resolved invocation visible on the console, like the
-        // build stage's 'build: dotnet ...' line (the evidence surface).
-        CliOutput.Note($"test: dotnet {string.Join(' ', argumentList)}");
+        PlannedCommand command = new()
+        {
+            CommandLine = $"test: dotnet {string.Join(' ', argumentList)}",
+            TargetFilePath = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet",
+            ArgumentList = argumentList,
+            WorkingDirectory = workingDirectory,
+        };
 
-        ProcessConfiguration configuration =
-            new(OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet", argumentList)
-            {
-                WorkingDirectoryPath = workingDirectory,
-            };
+        BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
+            command, _runMode, CliOutput.Note, cancellationToken).ConfigureAwait(true);
 
-        BufferedProcessResult result = await processInvoker.ExecuteBufferedAsync(
-            configuration,
-            ProcessExitConfiguration.Default,
-            cancellationToken).ConfigureAwait(true);
+        if (result is null)
+        {
+            // Dry run: the plan printed, nothing executed, so the stage reports clean; the
+            // dry-run gate consult is the later dry-run ticket's surface.
+            return 0;
+        }
 
         if (result.WasTruncated)
         {

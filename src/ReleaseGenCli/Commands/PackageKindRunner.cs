@@ -34,7 +34,7 @@ namespace ReleaseGen.Cli.Commands;
 /// </summary>
 public sealed class PackageKindRunner
 {
-    private readonly IProcessInvoker _processInvoker;
+    private readonly PlannedCommandRunner _plannedCommandRunner;
 
     /// <summary>
     /// Runs one artefact kind's pack invocation for the package stage: a single
@@ -59,17 +59,20 @@ public sealed class PackageKindRunner
     /// </summary>
     public PackageKindRunner(IProcessInvoker processInvoker)
     {
-        _processInvoker = processInvoker;
+        _plannedCommandRunner = new PlannedCommandRunner(processInvoker);
     }
 
     /// <summary>
-    /// Runs <c>dotnet pack -c Release -o &lt;output&gt;</c> once for the given project and kind.
+    /// Plans and runs <c>dotnet pack -c Release -o &lt;output&gt;</c> once for the given project
+    /// and kind: the invocation is a shared planned record the runner executes, or prints
+    /// without running it under the dry-run report.
     /// </summary>
     /// <param name="projectFile">The project file to pack.</param>
     /// <param name="kind">The declared artifact kind: 'lib-package' or 'tool-package'.</param>
     /// <param name="outputRoot">The package stage's output root (release/packages); the kind and project name partition it.</param>
     /// <param name="writeLine">Optional stdout line sink; the command routes these to stage notes.</param>
     /// <param name="writeErrorLine">Optional stderr line sink; the command routes these to warnings.</param>
+    /// <param name="runMode">The runner's decision for this invocation: execute the pack, or print the plan.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <exception cref="ArgumentException"><paramref name="kind"/> is not a package-stage kind; the message names it.</exception>
     /// <exception cref="PackageStageException">The pack invocation exited nonzero.</exception>
@@ -79,6 +82,7 @@ public sealed class PackageKindRunner
         DirectoryInfo outputRoot,
         Action<string>? writeLine,
         Action<string>? writeErrorLine,
+        StageRunMode runMode,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(projectFile);
@@ -109,22 +113,49 @@ public sealed class PackageKindRunner
             outputDirectory.FullName,
         ];
 
-        // Streamed args note: makes the pack invocation for this (target, kind) visible on
-        // the console (the evidence surface, mirrored for the package stage).
-        writeLine?.Invoke(
-            $"package: dotnet {string.Join(' ', argumentList)} (kind '{kind}' for target '{projectName}').");
+        // The planned record carries the streamed-args note (the evidence surface, mirrored
+        // for the package stage) and the pack output directory; the runner prints that one
+        // line in both modes and spawns the pack only in a real run.
+        PlannedCommand command = new()
+        {
+            CommandLine =
+                $"package: dotnet {string.Join(' ', argumentList)} (kind '{kind}' for target '{projectName}').",
+            TargetFilePath = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet",
+            ArgumentList = argumentList,
+            WorkingDirectory = projectFile.Directory?.FullName ?? Environment.CurrentDirectory,
+            ArtifactPaths = [outputDirectory.FullName],
+        };
 
-        ProcessConfiguration configuration =
-            new(OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet", argumentList)
-            {
-                WorkingDirectoryPath = projectFile.Directory?.FullName ?? Environment.CurrentDirectory,
-            };
+        BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
+            command, runMode, writeLine, cancellationToken).ConfigureAwait(true);
 
-        BufferedProcessResult result = await _processInvoker.ExecuteBufferedAsync(
-            configuration,
-            ProcessExitConfiguration.Default,
-            cancellationToken).ConfigureAwait(true);
+        if (result is null)
+        {
+            // Dry run: the plan printed, nothing executed, so there is no pack to replay or
+            // fail on.
+            return;
+        }
 
+        ReportPackResult(result, projectName, kind, writeLine, writeErrorLine);
+    }
+
+    /// <summary>
+    /// Replays one executed pack's captured output through the sinks and fails the stage on a
+    /// nonzero exit, naming the target, the kind, and the exit code.
+    /// </summary>
+    /// <param name="result">The executed pack's process result.</param>
+    /// <param name="projectName">The packed project's name, for the wording.</param>
+    /// <param name="kind">The declared artifact kind, for the wording.</param>
+    /// <param name="writeLine">Optional stdout line sink; the command routes these to stage notes.</param>
+    /// <param name="writeErrorLine">Optional stderr line sink; the command routes these to warnings.</param>
+    /// <exception cref="PackageStageException">The pack invocation exited nonzero.</exception>
+    private static void ReportPackResult(
+        BufferedProcessResult result,
+        string projectName,
+        string kind,
+        Action<string>? writeLine,
+        Action<string>? writeErrorLine)
+    {
         if (result.WasTruncated)
         {
             writeErrorLine?.Invoke(
