@@ -27,3 +27,15 @@ A manifest entry naming one project and the artifacts it produces.
 ## Release artifact
 
 Something a target produces: release binaries, lib package, or dotnet tool package.
+
+## Archive format
+
+The packaging ReleaseGen produces for a target's release binaries; zip and tar.xz are members of this set.
+
+## Dry run
+
+A mode in which every Stage runs its planning and read-only steps and reports what it would have done, with writes and outward effects suppressed.
+
+## Package kind
+
+What a target's package output is: a `nupkg` library package or a dotnet tool package. The kind drives the package stage's switches.
