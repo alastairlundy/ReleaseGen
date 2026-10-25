@@ -22,7 +22,10 @@ namespace ReleaseGen.Cli.Commands;
 /// stage consults the test gate: a blocked outcome stops the stage with an error before
 /// any network call, and an absent test section proceeds with a warning. Failure detail is
 /// textual, not structured, in v1: the first failing push aborts the stage with a
-/// one-line error naming the package, the source, and the exit code.
+/// one-line error naming the package, the source, and the exit code. Under <c>--dry-run</c> the
+/// stage plans instead: it prints the would-be gate consult (the test projects the gate would
+/// run) and the would-be pushes, runs no tests, writes no <c>TestResults/</c>, and exits on
+/// manifest validation alone.
 /// </summary>
 /// <remarks>
 /// Packages are the package stage's local product: each declared package kind maps to
@@ -32,14 +35,15 @@ namespace ReleaseGen.Cli.Commands;
 /// not a NuGet package, and is skipped here, never pushed. Push output reaches the
 /// console through the conventions layer - stdout lines become stage notes and stderr
 /// lines become warnings - and the streamed-args note redacts the API key so the key never
-/// reaches the console.
+/// reaches the console. The dry-run plan names each kind's package directory rather than the
+/// concrete <c>.nupkg</c> files a real run enumerates, because a plan may run before the
+/// package stage has produced any.
 /// </remarks>
 public sealed class PublishCommand : Command
 {
     private readonly IManifestLoader _manifestLoader;
     private readonly IProcessInvoker _processInvoker;
     private readonly PlannedCommandRunner _plannedCommandRunner;
-    private readonly StageRunMode _runMode;
 
     /// <summary>
     /// The environment-variable channel for the API key, consulted when the
@@ -47,20 +51,22 @@ public sealed class PublishCommand : Command
     /// </summary>
     private const string ApiKeyEnvironmentVariable = "NUGET_API_KEY";
 
-    public PublishCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker, StageRunMode runMode = StageRunMode.Execute) : base("publish",
+    public PublishCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("publish",
         "Publishes each target's declared package kinds to the configured NuGet sources.")
     {
         _manifestLoader = manifestLoader;
         _processInvoker = processInvoker;
         _plannedCommandRunner = new PlannedCommandRunner(processInvoker);
-        _runMode = runMode;
         Option<string?> apiKeyOption = new("--api-key")
         {
             Description =
                 $"The NuGet API key. Falls back to the {ApiKeyEnvironmentVariable} environment variable. Never read from the manifest.",
         };
 
+        Option<bool> dryRunOption = CliOptions.CreateDryRun();
+
         Add(apiKeyOption);
+        Add(dryRunOption);
 
         SetAction(async (parseResult, cancellationToken) =>
         {
@@ -80,6 +86,31 @@ public sealed class PublishCommand : Command
                 // stray one, so nothing on disk can carry a key or key reference.
                 string? apiKey = ResolveApiKey(parseResult.GetValue(apiKeyOption));
 
+                // One decision point for the runner: the flag.
+                bool dryRun = parseResult.GetValue(dryRunOption);
+
+                if (manifestFile.Directory is null || !Directory.Exists(manifestFile.Directory.FullName))
+                {
+                    CliOutput.Error(Resources.Exceptions_ManifestFile_NotFound);
+                    return 1;
+                }
+
+                string directoryPath = manifestFile.Directory.FullName;
+
+                if (dryRun)
+                {
+                    // A plan pushes nothing, so it needs no credential: a missing key is
+                    // reported, never failed, so the exit code stays manifest-validation only.
+                    if (apiKey is null)
+                    {
+                        CliOutput.Note(
+                            $"publish: dry run: no API key resolved from --api-key or {ApiKeyEnvironmentVariable}; a real run needs one before it can push.");
+                    }
+
+                    await PlanAsync(manifest, directoryPath, cancellationToken).ConfigureAwait(true);
+                    return 0;
+                }
+
                 if (apiKey is null)
                 {
                     // A refused condition is a named report, not an exception.
@@ -87,14 +118,6 @@ public sealed class PublishCommand : Command
                         $"publish: no API key. Pass --api-key or set the {ApiKeyEnvironmentVariable} environment variable.");
                     return 1;
                 }
-                
-                if (manifestFile.Directory is null || !Directory.Exists(manifestFile.Directory.FullName))
-                {
-                    CliOutput.Error(Resources.Exceptions_ManifestFile_NotFound);
-                    return 1;
-                }
-                
-                string directoryPath = manifestFile.Directory.FullName;
 
                 // The gate consult happens before the first push, so a blocked manifest
                 // stops with no network call.
@@ -178,6 +201,129 @@ public sealed class PublishCommand : Command
         string? fromEnvironment = Environment.GetEnvironmentVariable(ApiKeyEnvironmentVariable);
 
         return string.IsNullOrWhiteSpace(fromEnvironment) ? null : fromEnvironment;
+    }
+
+    /// <summary>
+    /// Prints the whole publish plan under <c>--dry-run</c>: the would-be gate consult, the
+    /// would-be pushes as shared planned records the runner prints without spawning, and the
+    /// closing plan-not-certification note. Nothing here runs tests, writes
+    /// <c>TestResults/</c>, reads the package tree, or pushes - a plan must fail on manifest
+    /// validation alone, so it names each kind's package directory rather than the concrete
+    /// packages a real run enumerates.
+    /// </summary>
+    /// <param name="manifest">The loaded manifest.</param>
+    /// <param name="manifestDirectory">The manifest's directory, for resolving relative project paths.</param>
+    /// <param name="cancellationToken">The stage's cancellation token.</param>
+    private async Task PlanAsync(Manifest manifest, string manifestDirectory, CancellationToken cancellationToken)
+    {
+        PrintGateConsult(manifest);
+
+        string[] sources = NuGetSourceResolver.Resolve(manifest.Publish.Sources);
+
+        if (sources.Length > 1)
+        {
+            CliOutput.Note($"publish: dry run: would push to {sources.Length} sources: {string.Join(", ", sources)}.");
+        }
+
+        int plannedCount = 0;
+
+        foreach (ManifestTarget target in manifest.Targets)
+        {
+            plannedCount += await PlanTargetPushesAsync(
+                target, manifestDirectory, sources, cancellationToken).ConfigureAwait(true);
+        }
+
+        if (plannedCount == 0)
+        {
+            CliOutput.Note(
+                $"publish: dry run: no package kinds declared across {manifest.Targets.Count} target(s); nothing to publish.");
+        }
+
+        CliOutput.Note(
+            "publish: dry run: pushed nothing; a zero-exit dry run is a plan, not a certification - run publish for real before pushing.");
+    }
+
+    /// <summary>
+    /// Prints one target's would-be pushes - one planned record per declared package kind per
+    /// resolved source, in the same manifest order a real run pushes in.
+    /// </summary>
+    /// <param name="target">The manifest target whose kinds are planned.</param>
+    /// <param name="manifestDirectory">The manifest's directory, for resolving relative project paths.</param>
+    /// <param name="sources">The resolved push sources.</param>
+    /// <param name="cancellationToken">The stage's cancellation token.</param>
+    /// <returns>How many planned pushes printed for this target.</returns>
+    private async Task<int> PlanTargetPushesAsync(
+        ManifestTarget target,
+        string manifestDirectory,
+        string[] sources,
+        CancellationToken cancellationToken)
+    {
+        FileInfo projectFile = _manifestLoader.ResolveProjectFile(target.Project, manifestDirectory);
+        string projectName = Path.GetFileNameWithoutExtension(projectFile.Name);
+        int plannedCount = 0;
+
+        foreach (string kind in target.Kinds)
+        {
+            // The executables kind is the build stage's product, never a push.
+            if (string.Equals(kind, ArtifactKinds.Executables, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string kindFolder = kind switch
+            {
+                ArtifactKinds.LibPackage => "lib",
+                ArtifactKinds.ToolPackage => "tool",
+                _ => throw new PublishStageException(
+                    $"publish: unknown artifact kind '{kind}'; the publish stage pushes '{ArtifactKinds.LibPackage}' and '{ArtifactKinds.ToolPackage}'."),
+            };
+
+            string packagesPath = Path.Combine(
+                Environment.CurrentDirectory, "release", "packages", kindFolder, projectName, "*.nupkg");
+
+            foreach (string source in sources)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // The printed line is the real push's shape with the key redacted, so the
+                // plan and the run read as one command set.
+                PlannedCommand command = new()
+                {
+                    CommandLine =
+                        $"publish: dotnet nuget push {packagesPath} --source {source} --api-key **** (kind '{kind}' for target '{projectName}').",
+                    ArtifactPaths = [packagesPath],
+                };
+
+                await _plannedCommandRunner.RunAsync(
+                    command, StageRunMode.DryRun, CliOutput.Note, cancellationToken).ConfigureAwait(true);
+                plannedCount++;
+            }
+        }
+
+        return plannedCount;
+    }
+
+    /// <summary>
+    /// Prints the would-be gate consult for the dry-run report: an absent test section warns
+    /// exactly as a real run does, and a declared section names the test projects the gate
+    /// would run instead of running them - no tests execute and no <c>TestResults/</c> is
+    /// written.
+    /// </summary>
+    /// <param name="manifest">The loaded manifest.</param>
+    private static void PrintGateConsult(Manifest manifest)
+    {
+        if (manifest.Test is null)
+        {
+            CliOutput.Warning("publish: no test section in the manifest; the test gate passes by default.");
+            return;
+        }
+
+        string projects = manifest.Test.Projects.Length == 0
+            ? "every test project in the current directory (the test section names none)"
+            : string.Join(", ", manifest.Test.Projects);
+
+        CliOutput.Note(
+            $"publish: dry run: tests would run for: {projects}; the gate executed nothing and wrote no TestResults/.");
     }
 
     /// <summary>
@@ -361,12 +507,12 @@ public sealed class PublishCommand : Command
         };
 
         BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
-            command, _runMode, CliOutput.Note, cancellationToken).ConfigureAwait(true);
+            command, StageRunMode.Execute, CliOutput.Note, cancellationToken).ConfigureAwait(true);
 
         if (result is null)
         {
-            // Dry run: the plan printed, nothing was pushed; the dry-run gate consult and
-            // would-be push report are the later dry-run ticket's surface.
+            // Unreachable here - the dry-run branch returned before any push was planned -
+            // but the runner's contract still decides per mode: no result means nothing ran.
             return;
         }
 

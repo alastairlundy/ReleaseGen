@@ -23,4 +23,17 @@ public static class CliOptions
         Description = "Suppress stage notes and progress. Warnings and errors stay visible.",
         Recursive = true,
     };
+
+    /// <summary>
+    /// The dry-run switch every stage command and the chained run registers. A System.CommandLine
+    /// symbol belongs to the command that adds it, so each command asks for its own instance;
+    /// the spelling and description stay shared here so the flag cannot drift between stages.
+    /// </summary>
+    /// <returns>A fresh <c>--dry-run</c> option for one stage command.</returns>
+    public static Option<bool> CreateDryRun() =>
+        new("--dry-run")
+        {
+            Description =
+                "Print the stage's would-be actions (spawned command lines and artifact paths) and write nothing anywhere, including release/ and TestResults/. The exit code reflects manifest validation errors only; a zero-exit dry run is a plan, not a certification.",
+        };
 }

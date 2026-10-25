@@ -17,6 +17,7 @@ namespace ReleaseGen.Cli.Commands;
 /// and nothing more. No inference from project file type: a <c>tool-package</c> is
 /// produced by declaring the kind, not by inspecting the csproj, and every declared kind of
 /// every target gets its own invocation even when several targets name the same project.
+/// <c>--dry-run</c> prints each planned pack through the shared runner and writes nothing.
 /// Output stays local under <c>release/packages/lib|tool/&lt;project-name&gt;/</c> -
 /// nothing is uploaded here.
 /// </summary>
@@ -28,9 +29,12 @@ namespace ReleaseGen.Cli.Commands;
 /// </remarks>
 public sealed class PackageCommand : Command
 {
-    public PackageCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker, StageRunMode runMode = StageRunMode.Execute) : base("package",
+    public PackageCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("package",
         "Packages each target's declared artefact kinds.")
     {
+        Option<bool> dryRunOption = CliOptions.CreateDryRun();
+        Add(dryRunOption);
+
         SetAction(async (parseResult, cancellationToken) =>
         {
             CliOutput.ApplyQuiet(parseResult);
@@ -40,6 +44,11 @@ public sealed class PackageCommand : Command
             // kind, failed pack - is caught here and rendered as the one-line error.
             try
             {
+                // One decision point for the runner: the flag.
+                StageRunMode runMode = parseResult.GetValue(dryRunOption)
+                    ? StageRunMode.DryRun
+                    : StageRunMode.Execute;
+
                 FileInfo manifestFile = manifestLoader.FindManifestFile(new DirectoryInfo(Environment.CurrentDirectory));
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
 
@@ -75,10 +84,14 @@ public sealed class PackageCommand : Command
                         .ConfigureAwait(true);
                 }
 
+                // The dry run planned every pack above without spawning it, so its summary
+                // reports plans rather than artefacts it did not produce.
                 CliOutput.Note(
                     producedCount == 0
                         ? $"package: no package kinds declared across {manifest.Targets.Count} target(s); nothing to package."
-                        : $"package: produced {producedCount} release artifact(s) of kind(s) {string.Join(", ", producedKinds)} across {manifest.Targets.Count} target(s) under '{outputRoot.FullName}'.");
+                        : runMode == StageRunMode.DryRun
+                            ? $"package: dry run: planned {producedCount} pack invocation(s) of kind(s) {string.Join(", ", producedKinds)} across {manifest.Targets.Count} target(s); nothing was written under '{outputRoot.FullName}'."
+                            : $"package: produced {producedCount} release artifact(s) of kind(s) {string.Join(", ", producedKinds)} across {manifest.Targets.Count} target(s) under '{outputRoot.FullName}'.");
 
                 return 0;
             }

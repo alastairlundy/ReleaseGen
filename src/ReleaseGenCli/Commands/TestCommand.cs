@@ -16,7 +16,9 @@ namespace ReleaseGen.Cli.Commands;
 /// project and the exit code and returns 1, so a chained run aborts before publish;
 /// a manifest with no test section warns and returns 0 - the test gate passes by
 /// default. Each test invocation is a shared planned record: the run mode decides at the
-/// runner boundary whether the stage executes it or prints it without running anything.
+/// runner boundary whether the stage executes it or prints it without running anything, and
+/// <c>--dry-run</c> is that flag - it prints the invocation plan, runs no tests, writes no
+/// <c>TestResults/</c>, and exits on manifest validation alone.
 /// The stage records its gate outcome for the publish stage to consume;
 /// there is no runner-override key or gate-forcing flag in v1.
 /// </summary>
@@ -30,13 +32,15 @@ public sealed class TestCommand : Command
 {
     private readonly IManifestLoader _manifestLoader;
     private readonly PlannedCommandRunner _plannedCommandRunner;
-    private readonly StageRunMode _runMode;
 
-    public TestCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker, StageRunMode runMode = StageRunMode.Execute) : base("test", "Runs dotnet test on the manifest's test projects.")
+    public TestCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("test", "Runs dotnet test on the manifest's test projects.")
     {
         _manifestLoader = manifestLoader;
         _plannedCommandRunner = new PlannedCommandRunner(processInvoker);
-        _runMode = runMode;
+
+        Option<bool> dryRunOption = CliOptions.CreateDryRun();
+        Add(dryRunOption);
+
         SetAction(async (parseResult, cancellationToken) =>
         {
             CliOutput.ApplyQuiet(parseResult);
@@ -46,6 +50,11 @@ public sealed class TestCommand : Command
             // project, failed test run - is caught here and rendered as the one-line error.
             try
             {
+                // One decision point for the runner: the flag.
+                StageRunMode runMode = parseResult.GetValue(dryRunOption)
+                    ? StageRunMode.DryRun
+                    : StageRunMode.Execute;
+
                 FileInfo manifestFile = manifestLoader.FindManifestFile(new DirectoryInfo(Environment.CurrentDirectory));
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
 
@@ -59,7 +68,16 @@ public sealed class TestCommand : Command
                 int exitCode = await RunTestsAsync(
                     manifest.Test.Projects,
                     manifestFile.Directory!.FullName,
+                    runMode,
                     cancellationToken).ConfigureAwait(true);
+
+                if (runMode == StageRunMode.DryRun)
+                {
+                    // The plan above is the whole report: nothing executed, so nothing can
+                    // fail and the exit code reflects manifest validation only.
+                    CliOutput.Note("test: dry run: no tests ran and no TestResults/ was written.");
+                    return 0;
+                }
 
                 if (exitCode != 0)
                 {
@@ -95,13 +113,14 @@ public sealed class TestCommand : Command
     private async Task<int> RunTestsAsync(
         string[] projects,
         string manifestDirectory,
+        StageRunMode runMode,
         CancellationToken cancellationToken)
     {
         if (projects.Length == 0)
         {
             // Cwd fallback: the section names no projects, so run from the current directory.
             return await RunDotnetTestAsync(
-                ["test"], Environment.CurrentDirectory, project: null, cancellationToken).ConfigureAwait(true);
+                ["test"], Environment.CurrentDirectory, project: null, runMode, cancellationToken).ConfigureAwait(true);
         }
 
         foreach (string project in projects)
@@ -109,7 +128,7 @@ public sealed class TestCommand : Command
             FileInfo projectFile = _manifestLoader.ResolveProjectFile(project, manifestDirectory);
 
             int exitCode = await RunDotnetTestAsync(
-                    ["test", projectFile.FullName], manifestDirectory, project, cancellationToken)
+                    ["test", projectFile.FullName], manifestDirectory, project, runMode, cancellationToken)
                 .ConfigureAwait(true);
 
             if (exitCode != 0)
@@ -131,12 +150,14 @@ public sealed class TestCommand : Command
     /// <param name="argumentList">The <c>dotnet</c> argument list for this invocation.</param>
     /// <param name="workingDirectory">The process working directory.</param>
     /// <param name="project">The named project for the error wording, or null for the cwd fallback.</param>
+    /// <param name="runMode">The runner's decision for this invocation: execute the test run, or print the plan.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>The invocation's exit code, or 0 when the dry-run report printed the plan.</returns>
     private async Task<int> RunDotnetTestAsync(
         List<string> argumentList,
         string workingDirectory,
         string? project,
+        StageRunMode runMode,
         CancellationToken cancellationToken)
     {
         PlannedCommand command = new()
@@ -148,12 +169,12 @@ public sealed class TestCommand : Command
         };
 
         BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
-            command, _runMode, CliOutput.Note, cancellationToken).ConfigureAwait(true);
+            command, runMode, CliOutput.Note, cancellationToken).ConfigureAwait(true);
 
         if (result is null)
         {
             // Dry run: the plan printed, nothing executed, so the stage reports clean; the
-            // dry-run gate consult is the later dry-run ticket's surface.
+            // command's closing note records that no TestResults/ was written either.
             return 0;
         }
 

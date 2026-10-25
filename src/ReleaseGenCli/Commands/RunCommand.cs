@@ -21,7 +21,8 @@ namespace ReleaseGen.Cli.Commands;
 /// artefact tree documented by the cross-process handoff contract. init is a
 /// one-shot command and takes no part in the chain. The <c>--preset</c> flag overrides
 /// the manifest's <c>build.preset</c> for this invocation only and never writes the file;
-/// stage flags and retry logic stay out of v1.
+/// <c>--dry-run</c> forwards to every stage, so the chain prints each stage's plan stage by
+/// stage and writes nothing anywhere; retry logic stays out of v1.
 /// </summary>
 /// <remarks>
 /// Stage selection follows the manifest: build always runs; test is named by a declared test
@@ -46,7 +47,10 @@ public sealed class RunCommand : Command
             Description = "Override the manifest's build.preset for this invocation only. Does not write the manifest.",
         };
 
+        Option<bool> dryRunOption = CliOptions.CreateDryRun();
+
         Add(presetOption);
+        Add(dryRunOption);
 
         SetAction(async (parseResult, cancellationToken) =>
         {
@@ -59,6 +63,7 @@ public sealed class RunCommand : Command
             {
                 // Preset precedence: --preset beats the manifest key for this invocation only.
                 string? flagPreset = parseResult.GetValue(presetOption);
+                bool dryRun = parseResult.GetValue(dryRunOption);
 
                 if (!string.IsNullOrWhiteSpace(flagPreset) && !BuildPreset.TryParse(flagPreset, out _))
                 {
@@ -97,7 +102,9 @@ public sealed class RunCommand : Command
                 ];
 
                 CliOutput.Note(
-                    $"run: chained run starting; stages in manifest order: {string.Join(", ", stages.Where(static s => s.Included).Select(static s => s.Name))}.");
+                    dryRun
+                        ? $"run: dry run: chained plan starting; stages in manifest order: {string.Join(", ", stages.Where(static s => s.Included).Select(static s => s.Name))}."
+                        : $"run: chained run starting; stages in manifest order: {string.Join(", ", stages.Where(static s => s.Included).Select(static s => s.Name))}.");
 
                 // A stale in-process gate outcome must never leak into this chain.
                 StageContext.Reset();
@@ -115,7 +122,7 @@ public sealed class RunCommand : Command
                     }
 
                     int exitCode = await InvokeStageAsync(
-                        stage.Name, stage.Arguments, quiet, cancellationToken).ConfigureAwait(true);
+                        stage.Name, stage.Arguments, quiet, dryRun, cancellationToken).ConfigureAwait(true);
 
                     if (exitCode != 0)
                     {
@@ -126,17 +133,22 @@ public sealed class RunCommand : Command
                         return exitCode;
                     }
 
-                    if (string.Equals(stage.Name, "test", StringComparison.Ordinal))
+                    if (!dryRun && string.Equals(stage.Name, "test", StringComparison.Ordinal))
                     {
                         // Gate handoff: the chain already ran the test stage, so the
                         // publish stage consults this outcome instead of re-running it.
+                        // A dry run executed no tests, so it records no outcome - its
+                        // publish stage prints the would-be consult from the manifest.
                         StageContext.TestGate = TestGateResult.FromStage(exitCode, hasTestSection: true);
                     }
 
                     executedCount++;
                 }
 
-                CliOutput.Note($"run: {executedCount} stage(s) completed successfully.");
+                CliOutput.Note(
+                    dryRun
+                        ? $"run: dry run: {executedCount} stage(s) planned; nothing was written anywhere."
+                        : $"run: {executedCount} stage(s) completed successfully.");
                 return 0;
             }
             catch (Exception ex)
@@ -161,18 +173,20 @@ public sealed class RunCommand : Command
     /// <summary>
     /// Runs one stage in-process through its stage command, so the chain and a separate
     /// invocation of the same stage share one behavior surface. The stage re-resolves the
-    /// manifest itself; <c>--quiet</c> (and, for build, <c>--preset</c>) forward so the stage
-    /// sees the chain's invocation flags.
+    /// manifest itself; <c>--quiet</c>, <c>--dry-run</c> (and, for build, <c>--preset</c>)
+    /// forward so the stage sees the chain's invocation flags.
     /// </summary>
     /// <param name="stageName">The stage command to invoke: build, test, package, or publish.</param>
     /// <param name="extraArguments">Extra stage flags for this invocation, such as the preset override.</param>
     /// <param name="quiet">Whether the chain runs under <c>--quiet</c>; forwarded to the stage.</param>
+    /// <param name="dryRun">Whether the chain runs under <c>--dry-run</c>; forwarded to the stage.</param>
     /// <param name="cancellationToken">The chain's cancellation token.</param>
     /// <returns>The stage command's exit code.</returns>
     private async Task<int> InvokeStageAsync(
         string stageName,
         IReadOnlyList<string> extraArguments,
         bool quiet,
+        bool dryRun,
         CancellationToken cancellationToken)
     {
         Command stageCommand = stageName switch
@@ -196,6 +210,13 @@ public sealed class RunCommand : Command
         if (quiet)
         {
             argv.Add("--quiet");
+        }
+
+        // The flag reaches each stage the same way a user would pass it, so the chain and a
+        // separate invocation of the stage share one behaviour surface.
+        if (dryRun)
+        {
+            argv.Add("--dry-run");
         }
 
         ParseResult result = temporaryRoot.Parse(argv);

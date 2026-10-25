@@ -146,7 +146,7 @@ public class PlannedCommandTests
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
                 int exitCode = await CliHarness.InvokeAsync(
-                    new BuildCommand(_manifestLoader, _buildStageRunner, StageRunMode.DryRun), "build");
+                    new BuildCommand(_manifestLoader, _buildStageRunner), "build", "--dry-run");
 
                 await Assert.That(exitCode).IsEqualTo(0);
             });

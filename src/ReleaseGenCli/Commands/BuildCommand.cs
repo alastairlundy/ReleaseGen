@@ -16,7 +16,9 @@ namespace ReleaseGen.Cli.Commands;
 /// and never writes the file; an unknown preset from either source fails with an error
 /// naming it and the known set, exit 1. Each publish and archive is a shared planned record:
 /// the run mode decides at the runner boundary whether the stage executes it or prints it
-/// without writing anything. Output stays local under
+/// without writing anything, and <c>--dry-run</c> is that decision's flag - it prints the plan,
+/// writes nothing anywhere (including the <c>release/</c> tree), and exits on manifest
+/// validation alone. Output stays local under
 /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> with per-target archives beside the rid
 /// folders - nothing is uploaded.
 /// </summary>
@@ -28,7 +30,7 @@ namespace ReleaseGen.Cli.Commands;
 /// </remarks>
 public sealed class BuildCommand : Command
 {
-    public BuildCommand(IManifestLoader manifestLoader, IBuildStageRunner buildStageRunner, StageRunMode runMode = StageRunMode.Execute) :
+    public BuildCommand(IManifestLoader manifestLoader, IBuildStageRunner buildStageRunner) :
         base("build", "Builds release binaries for the manifest's targets.")
     {
         Option<string?> presetOption = new("--preset")
@@ -36,7 +38,10 @@ public sealed class BuildCommand : Command
             Description = "Override the manifest's build.preset for this invocation only. Does not write the manifest.",
         };
 
+        Option<bool> dryRunOption = CliOptions.CreateDryRun();
+
         Add(presetOption);
+        Add(dryRunOption);
 
         SetAction(async (parseResult, cancellationToken) =>
         {
@@ -78,6 +83,13 @@ public sealed class BuildCommand : Command
                 }
 
                 string preset = string.IsNullOrWhiteSpace(effectivePreset) ? BuildPreset.None : effectivePreset;
+
+                // One decision point for the runner: the flag. The stage still plans every
+                // publish and archive identically in both modes; only the runner's branch
+                // differs.
+                StageRunMode runMode = parseResult.GetValue(dryRunOption)
+                    ? StageRunMode.DryRun
+                    : StageRunMode.Execute;
 
                 BuildStageRequest request = new()
                 {
