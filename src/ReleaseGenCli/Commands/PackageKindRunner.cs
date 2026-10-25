@@ -1,5 +1,3 @@
-using ReleaseGenCli.Exceptions;
-
 namespace ReleaseGenCli.Commands;
 
 using ReleaseGenLib.Models;

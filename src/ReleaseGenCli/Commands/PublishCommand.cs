@@ -1,11 +1,9 @@
-using ReleaseGenCli.Exceptions;
-
 namespace ReleaseGenCli.Commands;
 
 using ReleaseGenLib.Models;
 
 /// <summary>
-/// The publish stage: pushes each target's declared package kinds with
+/// The publishing stage: pushes each target's declared package kinds with
 /// <c>dotnet nuget push</c> through CliInvoke, in manifest target order, to the
 /// resolved sources. The API key arrives only through the <c>--api-key</c> option or the
 /// <see cref="ApiKeyEnvironmentVariable"/> environment variable - never the manifest, whose
