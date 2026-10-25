@@ -21,7 +21,7 @@
         <Description>Opinionated .NET CLI for building, packaging, and publishing .NET projects, with cross-platform packaging targets and project-file-prioritized build settings.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Version>0.1.0</Version>
-        <MinVerMinimumMajorMinor>0.1.0</MinVerMinimumMajorMinor>
+        <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
         <Title>ReleaseGen</Title>
         <Authors>Alastair Lundy</Authors>
         <Copyright>Copyright (c) Alastair Lundy 2026</Copyright>
