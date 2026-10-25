@@ -1,3 +1,5 @@
+using ReleaseGenCli.Exceptions;
+
 namespace ReleaseGenCli.Commands;
 
 using System.CommandLine;
@@ -73,6 +75,14 @@ public sealed class PublishCommand : Command
                         $"publish: no API key. Pass --api-key or set the {ApiKeyEnvironmentVariable} environment variable.");
                     return 1;
                 }
+                
+                if (manifestFile.Directory is null || !Directory.Exists(manifestFile.Directory.FullName))
+                {
+                    CliOutput.Error(Resources.Exceptions_ManifestFile_NotFound);
+                    return 1;
+                }
+                
+                string directoryPath = manifestFile.Directory.FullName;
 
                 // The gate consult happens before the first push, so a blocked manifest
                 // stops with no network call.
@@ -98,7 +108,7 @@ public sealed class PublishCommand : Command
                     CliOutput.Note($"publish: pushing to {sources.Length} sources: {string.Join(", ", sources)}.");
                 }
 
-                List<PushEntry> pushes = CollectPushEntries(manifest, manifestFile.Directory?.FullName);
+                List<PushEntry> pushes = CollectPushEntries(manifest, directoryPath);
 
                 if (pushes.Count == 0)
                 {

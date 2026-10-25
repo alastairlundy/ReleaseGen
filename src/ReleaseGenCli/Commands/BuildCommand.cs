@@ -21,7 +21,8 @@ using ReleaseGenLib.Models;
 /// </remarks>
 public sealed class BuildCommand : Command
 {
-    public BuildCommand(IManifestLoader manifestLoader, IBuildStageRunner buildStageRunner) : base("build", "Builds release binaries for the manifest's targets.")
+    public BuildCommand(IManifestLoader manifestLoader, IBuildStageRunner buildStageRunner) :
+        base("build", "Builds release binaries for the manifest's targets.")
     {
         Option<string?> presetOption = new("--preset")
         {

@@ -60,6 +60,15 @@ namespace ReleaseGenCli.Localizations {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to package: Could not find the manifest file..
+        /// </summary>
+        internal static string Exceptions_ManifestFile_NotFound {
+            get {
+                return ResourceManager.GetString("Exceptions.ManifestFile.NotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to publish: the manifest&apos;s publish.sources entry at position {0} is empty..
         /// </summary>
         internal static string Exceptions_Publishing_ManifestPublishSource_IsEmpty {

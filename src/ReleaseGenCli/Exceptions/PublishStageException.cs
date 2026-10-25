@@ -1,4 +1,4 @@
-﻿namespace ReleaseGenCli.Commands;
+﻿namespace ReleaseGenCli.Exceptions;
 
 /// <summary>
 /// Thrown when the publish stage cannot push: a declared kind has no package output, or a push

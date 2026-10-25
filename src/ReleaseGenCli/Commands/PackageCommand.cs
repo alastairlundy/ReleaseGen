@@ -37,7 +37,7 @@ public sealed class PackageCommand : Command
 
                 if (manifestFile.Directory is null || !Directory.Exists(manifestFile.Directory.FullName))
                 {
-                    CliOutput.Error("package: Could not find the manifest file.");
+                    CliOutput.Error(Resources.Exceptions_ManifestFile_NotFound);
                     return 1;
                 }
 

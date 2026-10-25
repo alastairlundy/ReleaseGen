@@ -27,7 +27,7 @@ public sealed class InitCommand : Command
         Add(presetOption);
         Add(overwriteOption);
 
-        SetAction((parseResult, _) =>
+        SetAction(async (parseResult, _) =>
         {
             CliOutput.ApplyQuiet(parseResult);
 
@@ -41,7 +41,7 @@ public sealed class InitCommand : Command
                 {
                     CliOutput.Error(
                         $"Unknown preset '{preset}'. Known presets: {string.Join(", ", BuildPreset.All)}.");
-                    return Task.FromResult(1);
+                    return 1;
                 }
 
                 if (!string.Equals(canonicalPreset, BuildPreset.None, StringComparison.Ordinal))
@@ -58,16 +58,16 @@ public sealed class InitCommand : Command
                 CliOutput.Error(
                     $"{ManifestLoader.ManifestFileName} already exists at '{manifestFile.FullName}'. " +
                     "Re-run init with --overwrite to replace it.");
-                return Task.FromResult(1);
+                return 1;
             }
 
-            File.WriteAllText(manifestFile.FullName, ComposeSkeleton(seededPreset));
+            await File.WriteAllTextAsync(manifestFile.FullName, ComposeSkeleton(seededPreset)).ConfigureAwait(true);
 
             CliOutput.Note(seededPreset is null
                 ? $"init: wrote {manifestFile.FullName} (no build preset)."
                 : $"init: wrote {manifestFile.FullName} (build preset '{seededPreset}').");
 
-            return Task.FromResult(0);
+            return 0;
         });
     }
 

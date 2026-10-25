@@ -1,6 +1,4 @@
-namespace ReleaseGenCli.Commands;
-
-using ReleaseGenLib.Models;
+namespace ReleaseGenCli.Helpers;
 
 /// <summary>
 /// The shared stage context: the in-process handoff between stage commands invoked within one

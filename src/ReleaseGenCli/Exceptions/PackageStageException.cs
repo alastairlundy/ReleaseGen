@@ -1,4 +1,4 @@
-﻿namespace ReleaseGenCli.Commands;
+﻿namespace ReleaseGenCli.Exceptions;
 
 /// <summary>
 /// Thrown when a pack invocation exits nonzero; the message names the target, the kind, and

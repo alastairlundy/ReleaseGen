@@ -1,5 +1,6 @@
 using CliInvoke.Core;
 using Microsoft.Extensions.DependencyInjection;
+using ReleaseGenCli.Helpers;
 using ReleaseGenLib.Abstractions;
 
 namespace ReleaseGen.Tests;

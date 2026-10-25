@@ -33,4 +33,7 @@
     <data name="Exceptions.Stages.UnknownStageName" xml:space="preserve">
         <value>run: unknown stage name.</value>
     </data>
+    <data name="Exceptions.ManifestFile.NotFound" xml:space="preserve">
+        <value>package: Could not find the manifest file.</value>
+    </data>
 </root>
