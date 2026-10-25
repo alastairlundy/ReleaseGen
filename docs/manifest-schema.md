@@ -38,7 +38,23 @@ multiple artifact kinds.
 |-----|------|----------|---------|
 | `project` | string | Yes | Path to the project file or directory. Relative paths resolve from the Manifest's directory. |
 | `kinds` | string[] | Yes | The artifact kinds this target declares. Only declared kinds are produced. |
-| `archive` | string | No (default `zip`) | The archive format for this target's executables-kind outputs: `zip`, `tar.gz`, or `none`. Archiving is opt-out, not opt-in. Package kinds are never archived. |
+| `archiveFormats` | string or string[] | No (default `zip`) | The archive formats for this target's executables-kind outputs: `zip`, `tar.gz`, or `none`. Accepts a bare string or a list, and each declared format produces one archive per (target, rid). Archiving is opt-out, not opt-in. Package kinds are never archived. |
+
+`archiveFormats` accepts either JSON spelling, and both normalize to one list at parse time:
+
+```json
+"archiveFormats": "zip"
+```
+
+```json
+"archiveFormats": ["zip", "tar.gz"]
+```
+
+Every list entry must be a known format; an unknown value fails validation with an error
+naming the target, the value, and the known set. A token shape other than a string or a
+string list (for example a number, an object, or an explicit `null`) fails parse naming the
+key. The key was named `archive` (single string only) in earlier releases: that name is a
+breaking rename and now fails strict parse like any unknown field.
 
 The artifact kind vocabulary is exactly:
 
@@ -97,7 +113,7 @@ Sources only - credentials never live on disk.
     {
       "project": "src/MyCli/MyCli.csproj",
       "kinds": ["executables", "tool-package"],
-      "archive": "zip"
+      "archiveFormats": ["zip", "tar.gz"]
     }
   ],
   "build": {

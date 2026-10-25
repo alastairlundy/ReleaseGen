@@ -168,10 +168,13 @@ public sealed class ManifestLoader : IManifestLoader
                 }
             }
 
-            if (target.Archive is not null && !ArchiveFormats.IsKnown(target.Archive))
+            foreach (string archiveFormat in target.ArchiveFormats)
             {
-                throw new ManifestException(
-                    $"Manifest validation failed: the target '{target.Project}' declares unknown archive format '{target.Archive}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
+                if (!ArchiveFormats.IsKnown(archiveFormat))
+                {
+                    throw new ManifestException(
+                        $"Manifest validation failed: the target '{target.Project}' declares unknown archive format '{archiveFormat}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
+                }
             }
 
             if (_projectInfoProvider is not null && target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase))

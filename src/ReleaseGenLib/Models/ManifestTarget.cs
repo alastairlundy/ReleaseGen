@@ -20,10 +20,12 @@ public sealed class ManifestTarget
     public string[] Kinds { get; set; } = [];
 
     /// <summary>
-    /// The archive format for this target's executables-kind outputs: exactly 'zip',
-    /// 'tar.gz', or 'none'. Absent means zip - archiving is opt-out, not opt-in. Package kinds
-    /// are never archived regardless of this key.
+    /// The archive formats for this target's executables-kind outputs: each entry is exactly
+    /// 'zip', 'tar.gz', or 'none', and every declared format produces one archive per
+    /// (target, rid). Absent means a single zip - archiving is opt-out, not opt-in. Package
+    /// kinds are never archived regardless of this key.
     /// </summary>
-    [JsonPropertyName("archive")]
-    public string? Archive { get; set; }
+    [JsonPropertyName("archiveFormats")]
+    [JsonConverter(typeof(ArchiveFormatsConverter))]
+    public string[] ArchiveFormats { get; set; } = [];
 }

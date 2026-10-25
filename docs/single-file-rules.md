@@ -9,7 +9,7 @@ detection of its own.
 
 - For the four named [build presets](presets.md), single-file defaults to **on on Unix-based
   OSes**, and **on Windows only when the target's resolved archive format is zip** - declared
-  through the target's `archive` key, or defaulted to zip.
+  through the target's `archiveFormats` key, or defaulted to zip.
 - Preset `none` contributes no implicit single-file switch; the project file's own
   `PublishSingleFile` setting stays authoritative.
 - The `build.singleFile` key in the Manifest is the opt-out: `"singleFile": false` disables

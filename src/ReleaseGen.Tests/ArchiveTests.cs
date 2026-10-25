@@ -169,10 +169,32 @@ public class ArchiveTests
         using TestWorkspace workspace = TestWorkspace.Create();
         string archivePath = await RunBuildAsync(
             workspace,
-            """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"], "archive": "tar.gz" } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
+            """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"], "archiveFormats": "tar.gz" } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
 
         await Assert.That(archivePath.EndsWith(".tar.gz", StringComparison.Ordinal)).IsTrue();
         await Assert.That(File.Exists(archivePath)).IsTrue();
+    }
+
+    [Test]
+    public async Task Every_declared_format_writes_one_archive_per_target_and_rid()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"], "archiveFormats": ["zip", "tar.gz"] } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
+        _invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            int exitCode = await CliHarness.InvokeAsync(new BuildCommand(_manifestLoader, _buildStageRunner), "build");
+
+            await Assert.That(exitCode).IsEqualTo(0);
+
+            // One archive per declared format for this (target, rid), both beside the rid folder.
+            await Assert.That(File.Exists(
+                Path.Combine(workspace.Root, "release", "Alpha-win-x64.zip"))).IsTrue();
+            await Assert.That(File.Exists(
+                Path.Combine(workspace.Root, "release", "Alpha-win-x64.tar.gz"))).IsTrue();
+        });
     }
 
     [Test]
@@ -180,7 +202,7 @@ public class ArchiveTests
     {
         using TestWorkspace workspace = TestWorkspace.Create();
         workspace.WriteManifest(
-            """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"], "archive": "none" } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
+            """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["executables"], "archiveFormats": "none" } ], "build": { "runtimeIdentifiers": ["win-x64"] }, "publish": { "sources": [] } }""");
         _invoker.OnInvocation = RecordingProcessInvoker.MaterializePublishOutput;
 
         await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>

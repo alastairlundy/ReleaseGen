@@ -86,7 +86,7 @@ public class ManifestParsingTests
             """
             {
               "targets": [
-                { "project": "src/App/App.csproj", "kinds": ["executables"], "archive": "tar.gz" }
+                { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": "tar.gz" }
               ],
               "build": {
                 "preset": "ready-to-run",
@@ -102,7 +102,7 @@ public class ManifestParsingTests
         await Assert.That(manifest.Targets.Count).IsEqualTo(1);
         await Assert.That(manifest.Targets[0].Project).IsEqualTo("src/App/App.csproj");
         await Assert.That(manifest.Targets[0].Kinds[0]).IsEqualTo(ArtifactKinds.Executables);
-        await Assert.That(manifest.Targets[0].Archive).IsEqualTo(ArchiveFormats.TarGz);
+        await Assert.That(manifest.Targets[0].ArchiveFormats).IsEquivalentTo([ArchiveFormats.TarGz]);
         await Assert.That(manifest.Build.Preset).IsEqualTo(BuildPreset.ReadyToRun);
         await Assert.That(string.Join(", ", manifest.Build.RuntimeIdentifiers))
             .IsEqualTo("linux-x64, win-x64");
@@ -167,13 +167,81 @@ public class ManifestParsingTests
     public async Task Unknown_archive_format_fails_validation_naming_the_known_set()
     {
         Manifest manifest = _loader.Parse(
-            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archive": "rar" } ] }""");
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": "rar" } ] }""");
 
         ManifestException exception = Capture.Exception<ManifestException>(
             () => _loader.Validate(manifest, ManifestFileAtTemp()));
 
         await Assert.That(exception.Message).Contains("'rar'");
         await Assert.That(exception.Message).Contains("zip, tar.gz, none"); // Error style.
+    }
+
+    [Test]
+    public async Task Archive_formats_accept_the_bare_string_spelling()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": "tar.gz" } ] }""");
+
+        // Both spellings normalize to one list at parse time.
+        await Assert.That(manifest.Targets[0].ArchiveFormats).IsEquivalentTo([ArchiveFormats.TarGz]);
+    }
+
+    [Test]
+    public async Task Archive_formats_accept_the_list_spelling()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": ["zip", "tar.gz"] } ] }""");
+
+        await Assert.That(manifest.Targets[0].ArchiveFormats)
+            .IsEquivalentTo([ArchiveFormats.Zip, ArchiveFormats.TarGz]);
+    }
+
+    [Test]
+    public async Task A_malformed_archive_formats_token_fails_parse_naming_the_key()
+    {
+        ManifestException exception = Capture.Exception<ManifestException>(
+            () => _loader.Parse(
+                """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": 7 } ] }"""));
+
+        await Assert.That(exception.Message).Contains("Manifest parse failed");
+        await Assert.That(exception.Message).Contains("archiveFormats");
+    }
+
+    [Test]
+    public async Task A_non_string_array_entry_fails_parse_naming_the_key()
+    {
+        ManifestException exception = Capture.Exception<ManifestException>(
+            () => _loader.Parse(
+                """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": ["zip", 7] } ] }"""));
+
+        await Assert.That(exception.Message).Contains("Manifest parse failed");
+        await Assert.That(exception.Message).Contains("archiveFormats");
+    }
+
+    [Test]
+    public async Task The_retired_archive_key_fails_strict_parse_naming_the_field()
+    {
+        // Hard rename: the old key is an unknown field now, like any misspelling.
+        ManifestException exception = Capture.Exception<ManifestException>(
+            () => _loader.Parse(
+                """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archive": "zip" } ] }"""));
+
+        await Assert.That(exception.Message).Contains("Manifest parse failed");
+        await Assert.That(exception.Message).Contains("archive");
+    }
+
+    [Test]
+    public async Task An_unknown_format_inside_a_declared_list_fails_validation_naming_it()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": ["zip", "rar"] } ] }""");
+
+        ManifestException exception = Capture.Exception<ManifestException>(
+            () => _loader.Validate(manifest, ManifestFileAtTemp()));
+
+        // Every list entry validates, not just the first.
+        await Assert.That(exception.Message).Contains("'rar'");
+        await Assert.That(exception.Message).Contains("zip, tar.gz, none");
     }
 
     [Test]

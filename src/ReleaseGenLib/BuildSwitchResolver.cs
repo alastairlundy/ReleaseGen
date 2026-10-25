@@ -17,7 +17,10 @@ public static class BuildSwitchResolver
     /// </summary>
     /// <param name="preset">The canonical preset name in force (flag override already applied by the CLI).</param>
     /// <param name="section">The manifest's build section; each present tri-state key overrides its preset default.</param>
-    /// <param name="archiveFormat">The target's resolved archive format (declared or defaulted to zip); drives the Windows single-file default.</param>
+    /// <param name="archiveFormat">
+    /// The target's resolved archive format: a declared format (zip when the declared list
+    /// carries zip anywhere) or the zip default; drives the Windows single-file default.
+    /// </param>
     /// <param name="isWindows">Host OS override for the single-file OS rule; defaults to the current OS.</param>
     /// <returns>The resolved switch set.</returns>
     /// <exception cref="BuildStageException"><paramref name="preset"/> is not a known preset name.</exception>

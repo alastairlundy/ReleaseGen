@@ -20,8 +20,9 @@ using Models;
 /// the only network destination in v1 is the publish stage's NuGet source):
 /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> holds one target's publish binaries for that
 /// rid, and <c>release/&lt;project-name&gt;-&lt;rid&gt;.zip|.tar.gz</c> sits beside the per-rid
-/// folders as that folder's archive. The archive format is the target's declared
-/// <c>archive</c> key, defaulting to zip; package-kind-only targets are never archived.
+/// folders as that folder's archive. The archive formats are the target's declared
+/// <c>archiveFormats</c> key - one archive per declared format, defaulting to zip when the
+/// key is absent; package-kind-only targets are never archived.
 /// </para>
 ///
 /// <para>
@@ -107,7 +108,12 @@ public sealed class BuildStageRunner : IBuildStageRunner
         {
             FileInfo projectFile = _manifestLoader.ResolveProjectFile(target.Project, request.ManifestDirectory.FullName);
             string projectName = Path.GetFileNameWithoutExtension(projectFile.Name);
-            string archiveFormat = target.Archive ?? ArchiveFormats.Zip;
+
+            // Absent key means a single zip (archiving is opt-out), today's default on every
+            // rid; every declared format produces one archive per (target, rid). Per-rid
+            // defaulting for the absent key is a separate, later change.
+            string[] archiveFormats =
+                target.ArchiveFormats.Length > 0 ? target.ArchiveFormats : [ArchiveFormats.Zip];
 
             foreach (string rid in runtimeIdentifiers)
             {
@@ -116,14 +122,10 @@ public sealed class BuildStageRunner : IBuildStageRunner
                 // Resolved per (target, rid) as pinned; the inputs (preset, build section,
                 // archive format, host OS) are rid-independent, so every rid of a target agrees.
                 PublishSwitchSet switches = BuildSwitchResolver.Resolve(
-                    request.Preset, manifest.Build, archiveFormat);
+                    request.Preset, manifest.Build, SwitchBasisFormat(archiveFormats));
 
                 DirectoryInfo outputDirectory =
                     new(Path.Combine(request.OutputRoot.FullName, rid, projectName));
-                FileInfo archiveFile = new(Path.Combine(
-                    request.OutputRoot.FullName,
-                    $"{projectName}-{rid}{(string.Equals(archiveFormat, ArchiveFormats.TarGz, StringComparison.OrdinalIgnoreCase)
-                        ? ".tar.gz" : ".zip")}"));
 
                 // Deterministic local output: a previous run's stale folder or archive must not
                 // leak into this run's binaries (the release/ tree is ours to manage).
@@ -194,14 +196,26 @@ public sealed class BuildStageRunner : IBuildStageRunner
                 }
 
                 // Only executables-kind outputs get archives; package kinds never do,
-                // and 'none' leaves the per-rid folder unarchived.
-                if (target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase) &&
-                    !string.Equals(archiveFormat, ArchiveFormats.None, StringComparison.Ordinal))
+                // and 'none' leaves the per-rid folder unarchived. Each declared format
+                // writes its own archive beside the per-rid folder.
+                if (target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase))
                 {
-                    await _buildArchiver.CreateArchiveAsync(outputDirectory, archiveFile, archiveFormat, cancellationToken)
-                        .ConfigureAwait(false);
-                    request.WriteLine?.Invoke(
-                        $"build: archived '{outputDirectory.FullName}' to '{archiveFile.FullName}' ({archiveFormat}).");
+                    foreach (string archiveFormat in archiveFormats)
+                    {
+                        if (string.Equals(archiveFormat, ArchiveFormats.None, StringComparison.Ordinal))
+                        {
+                            continue;
+                        }
+
+                        FileInfo archiveFile = new(Path.Combine(
+                            request.OutputRoot.FullName,
+                            $"{projectName}-{rid}{ArchiveExtension(archiveFormat)}"));
+
+                        await _buildArchiver.CreateArchiveAsync(outputDirectory, archiveFile, archiveFormat, cancellationToken)
+                            .ConfigureAwait(false);
+                        request.WriteLine?.Invoke(
+                            $"build: archived '{outputDirectory.FullName}' to '{archiveFile.FullName}' ({archiveFormat}).");
+                    }
                 }
             }
         }
@@ -209,6 +223,29 @@ public sealed class BuildStageRunner : IBuildStageRunner
         request.WriteLine?.Invoke(
             $"build: published {manifest.Targets.Count} target(s) x {runtimeIdentifiers.Length} runtime identifier(s) under '{request.OutputRoot.FullName}'.");
     }
+
+    /// <summary>
+    /// The archive format switch resolution keys on: the Windows single-file default asks
+    /// whether the target is zip-archived, so a declared list counts as zip-archived when it
+    /// carries zip anywhere; otherwise the first declared format carries the answer.
+    /// </summary>
+    /// <param name="archiveFormats">The target's resolved format list (never empty).</param>
+    /// <returns>The format the switch resolver should treat as the target's archive format.</returns>
+    private static string SwitchBasisFormat(string[] archiveFormats) =>
+        archiveFormats.Contains(ArchiveFormats.Zip, StringComparer.Ordinal)
+            ? ArchiveFormats.Zip
+            : archiveFormats[0];
+
+    /// <summary>
+    /// The file extension one archive format writes: tar.gz is the only format whose extension
+    /// is not the plain '.zip' in the shipped set.
+    /// </summary>
+    /// <param name="archiveFormat">One of <see cref="ArchiveFormats.All"/>.</param>
+    /// <returns>The extension, including its leading dot.</returns>
+    private static string ArchiveExtension(string archiveFormat) =>
+        string.Equals(archiveFormat, ArchiveFormats.TarGz, StringComparison.OrdinalIgnoreCase)
+            ? ".tar.gz"
+            : ".zip";
 
     /// <summary>
     /// Replays captured process output to the sink one line at a time, dropping only empty
