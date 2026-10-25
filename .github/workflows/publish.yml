@@ -20,8 +20,8 @@ jobs:
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@6
-      - uses: actions/setup-dotnet@5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 10.0.x
 
