@@ -64,8 +64,7 @@ public static class CliOutput
 
         if (Quiet && Verbose)
         {
-            // One line, both halves: the conflict is named and the diagnostics tip every
-            // failure path carries is named with it, so no output mode stays ambiguous.
+            // The message carries the tip itself, so no hint line follows.
             ErrorWithoutHint(
                 "--quiet and --verbose conflict; pass only one of them. Run with --verbose for full detail.");
             return false;
@@ -112,8 +111,8 @@ public static class CliOutput
     }
 
     /// <summary>
-    /// Writes an error with no hint line: the conflict report (which carries the tip itself)
-    /// and the commands that register no <c>--verbose</c> option (init), whose errors already
+    /// Writes an error with no hint line: for output conflicts (whose message carries the
+    /// tip itself) and for commands that register no <c>--verbose</c> option, whose errors
     /// name their own next step instead of a flag they do not accept.
     /// </summary>
     /// <param name="message">The error text; names the failing thing.</param>

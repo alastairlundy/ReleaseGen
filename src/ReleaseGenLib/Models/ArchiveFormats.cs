@@ -2,7 +2,7 @@ namespace ReleaseGenLib.Models;
 
 /// <summary>
 /// The archive formats a manifest target may declare for its executables-kind outputs.
-/// Exactly these four values are accepted in v1; anything else fails manifest validation
+/// Exactly these four values are accepted; anything else fails manifest validation
 /// with an error naming the target and this set. When a target declares no
 /// <c>archiveFormats</c> key, the effective formats resolve per (target, rid) through
 /// <see cref="DefaultsFor"/> - archiving is opt-out, not opt-in.
@@ -40,7 +40,7 @@ public static class ArchiveFormats
     public static readonly string[] All = [Zip, TarGz, TarXz, None];
 
     /// <summary>
-    /// Returns whether <paramref name="format"/> is a declared archive format valid in v1.
+    /// Returns whether <paramref name="format"/> is a declared archive format.
     /// </summary>
     /// <param name="format">The target's 'archiveFormats' value.</param>
     public static bool IsKnown(string format) => format is Zip or TarGz or TarXz or None;

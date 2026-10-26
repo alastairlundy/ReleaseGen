@@ -19,11 +19,11 @@ public static class RidDefaults
     /// compares against. macOS and iOS left sequential majors behind at macOS 15: 26 shipped
     /// in late 2025 and 27 in late 2026, so no version between 16 and 25 exists - every
     /// pre-jump pin lands below the threshold and every model year lands at or above it.
-    /// Mac Catalyst versions mirrored iOS before that jump (so a <c>-maccatalyst.18</c> pin is
-    /// the macOS 15 era) and unified with macOS from 26 on, which is why the same comparison
-    /// is correct for both markers with no translation between them. A TFM pinned below the
-    /// threshold can still run on Intel hardware, so <c>osx-x64</c> stays a default there; a
-    /// TFM pinned to this release or later is not, unless the installed SDK says otherwise.
+    /// Mac Catalyst versions mirrored iOS before that jump and unified with macOS from 26 on,
+    /// which is why the same comparison is correct for both markers with no translation
+    /// between them. A TFM pinned below the threshold can still run on Intel hardware, so
+    /// <c>osx-x64</c> stays a default there; a TFM pinned to this release or later is not,
+    /// unless the installed SDK says otherwise.
     /// </summary>
     public const int MacOsIntelDropVersion = 26;
 
@@ -85,12 +85,11 @@ public static class RidDefaults
     /// <summary>
     /// Whether a TFM's required platform version is pinned and predates macOS 26 - the TFM
     /// clause of the union rule. A <c>-macos.N</c> pin and a <c>-maccatalyst.N</c> pin are
-    /// read the same way, with no translation between them: below the 26 seam the numbers are
-    /// pre-jump versions on both markers (see <see cref="MacOsIntelDropVersion"/>). Only an
-    /// explicit pin settles it: a TFM that names no such platform (<c>net10.0</c>,
-    /// <c>net10.0-windows</c>) or names one without a version (<c>net10.0-macos</c>,
-    /// <c>net10.0-maccatalyst</c>) states no required version at all, so it never satisfies
-    /// this clause - the run then checks the installed SDK's supported rids instead.
+    /// read the same way (see <see cref="MacOsIntelDropVersion"/>). Only an explicit pin
+    /// settles it: a TFM that names no such platform (<c>net10.0</c>, <c>net10.0-windows</c>)
+    /// or names one without a version (<c>net10.0-macos</c>, <c>net10.0-maccatalyst</c>) states
+    /// no required version at all, so it never satisfies this clause - the run then checks the
+    /// installed SDK's supported rids instead.
     /// </summary>
     /// <param name="targetFramework">One declared TFM, for example <c>net10.0-macos.15</c>.</param>
     /// <returns>

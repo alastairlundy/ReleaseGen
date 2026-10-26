@@ -15,8 +15,7 @@ namespace ReleaseGen.Cli;
 public static class CliOptions
 {
     /// <summary>
-    /// The only verbosity switch in v1: suppresses stage notes and progress while
-    /// warnings and errors stay visible.
+    /// Suppresses stage notes and progress while warnings and errors stay visible.
     /// </summary>
     public static readonly Option<bool> Quiet = new("--quiet")
     {

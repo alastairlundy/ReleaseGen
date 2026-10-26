@@ -236,7 +236,6 @@ public sealed class ManifestLoader : IManifestLoader
             return;
         }
 
-        // The error style: names the target, the conflicting rids, and the fix.
         throw new ManifestException(
             $"Manifest validation failed: the target '{target.Project}' declares 'tar.xz' as its only archive format, but tar.xz cannot be produced for the runtime identifier(s) {string.Join(", ", unsupportedRids)}, so those rids would produce no archive. Fix: declare another archive format (for example '{ArchiveFormats.Zip}') in 'archiveFormats', or remove those runtime identifiers from build.runtimeIdentifiers.");
     }

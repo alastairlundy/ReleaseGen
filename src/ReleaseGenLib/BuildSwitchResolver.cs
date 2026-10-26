@@ -7,8 +7,7 @@ using Models;
 /// <summary>
 /// Resolves the build preset in force plus the manifest build section's explicit keys into a
 /// <see cref="PublishSwitchSet"/>. Pure logic - no I/O - so the preset-to-
-/// switch mapping stays directly testable. Supersedes the legacy ProjectBuilder flag
-/// mapping, including the inverted ReadyToRun check, rather than patching it.
+/// switch mapping stays directly testable.
 /// </summary>
 public static class BuildSwitchResolver
 {

@@ -16,20 +16,17 @@ namespace ReleaseGen.Cli.Commands;
 /// <c>dotnet pack -c Release -o &lt;output&gt;</c> per declared kind. Only declared kinds are
 /// produced and nothing is inferred from the project file: <c>lib-package</c> and
 /// <c>tool-package</c> are the same pack shape landing in different output partitions
-/// (<c>release/packages/lib|tool/&lt;project-name&gt;</c> under the invocation directory,
-/// local-only - nothing here uploads; the only network destination in v1 is the publish
-/// stage's NuGet source). Whether a pack yields a dotnet tool is the project's own
-/// <c>PackAsTool</c> configuration, not something this stage reads. Any other kind is
-/// rejected with an error naming it; the stage command never dispatches the build stage's
-/// <c>executables</c> kind here.
+/// (<c>release/packages/lib|tool/&lt;project-name&gt;</c> under the invocation directory).
+/// Whether a pack yields a dotnet tool is the project's own <c>PackAsTool</c> configuration,
+/// not something this stage reads. Any other kind is rejected with an error naming it; the
+/// stage command never dispatches the build stage's <c>executables</c> kind here.
 ///
 /// <para>
 /// Pack output reaches the caller only through the line sinks - this type never writes to
 /// the console - and no pack line is filtered, mirroring the build stage's pass-through.
-/// CliInvoke 3.1.0 exposes no line-level process events, so each pack's captured
-/// output is replayed to the sinks as soon as that pack completes rather than interleaved
-/// live; a nonzero exit fails fast with a <see cref="PackageStageException"/> naming the
-/// target, the kind, and the exit code.
+/// Each pack's captured output is replayed to the sinks as soon as that pack completes
+/// rather than interleaved live; a nonzero exit fails fast with a
+/// <see cref="PackageStageException"/> naming the target, the kind, and the exit code.
 /// </para>
 /// </summary>
 public sealed class PackageKindRunner
@@ -73,8 +70,7 @@ public sealed class PackageKindRunner
         ArgumentNullException.ThrowIfNull(outputRoot);
 
         // The declared kind alone picks the output partition; the project file is never
-        // inspected to decide what to produce - a tool package is produced by declaring the
-        // kind and letting pack emit whatever the project is configured to emit.
+        // inspected to decide what to produce.
         string kindFolder = kind switch
         {
             ArtifactKinds.LibPackage => "lib",
@@ -97,9 +93,7 @@ public sealed class PackageKindRunner
             outputDirectory.FullName,
         ];
 
-        // The planned record carries the streamed-args note (the evidence surface, mirrored
-        // for the package stage) and the pack output directory; the runner prints that one
-        // line in both modes and spawns the pack only in a real run.
+        // One line both printed modes show; the runner spawns the pack only in a real run.
         PlannedCommand command = new()
         {
             CommandLine =
@@ -117,8 +111,7 @@ public sealed class PackageKindRunner
 
         if (result is null)
         {
-            // Dry run: the plan printed, nothing executed, so there is no pack to replay or
-            // fail on.
+            // Dry run: the plan printed, nothing executed.
             return;
         }
 
@@ -153,7 +146,6 @@ public sealed class PackageKindRunner
 
         if (result.ExitCode != 0)
         {
-            // The error style: names the target, the kind, and the exit code.
             throw new PackageStageException(
                 $"package: dotnet pack failed for target '{projectName}' with kind '{kind}' (exit code {result.ExitCode}).");
         }
