@@ -177,6 +177,22 @@ public class ManifestParsingTests
     }
 
     [Test]
+    public async Task A_duplicated_archive_format_fails_validation_naming_the_target_and_the_format()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"], "archiveFormats": ["zip", "tar.gz", "zip"] } ] }""");
+
+        ManifestException exception = Capture.Exception<ManifestException>(
+            () => _loader.Validate(manifest, ManifestFileAtTemp()));
+
+        // The fail-loudly contract names the target and the duplicated value rather than
+        // silently deduping; the first duplicate is the one reported.
+        await Assert.That(exception.Message).Contains("src/App/App.csproj");
+        await Assert.That(exception.Message).Contains("'zip' more than once");
+        await Assert.That(exception.Message.Contains("'tar.gz' more than once", StringComparison.Ordinal)).IsFalse();
+    }
+
+    [Test]
     public async Task Archive_formats_accept_the_bare_string_spelling()
     {
         Manifest manifest = _loader.Parse(

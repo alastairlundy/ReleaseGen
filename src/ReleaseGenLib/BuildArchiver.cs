@@ -185,7 +185,7 @@ public class BuildArchiver : IBuildArchiver
     /// <param name="stagedXz">The .xz file xz writes beside the staged tar.</param>
     /// <param name="archiveFile">The archive file the errors name.</param>
     /// <param name="cancellationToken"></param>
-    /// <exception cref="BuildStageException"><c>xz</c> is missing from PATH, exited nonzero, or wrote no output.</exception>
+    /// <exception cref="BuildStageException"><c>xz</c> is missing from PATH or cannot be launched, exited nonzero, or wrote no output.</exception>
     private async Task CompressWithSystemXz(
         string stagedTar,
         string stagedXz,
@@ -206,10 +206,11 @@ public class BuildArchiver : IBuildArchiver
         }
         catch (Exception ex) when (ex is FileNotFoundException or Win32Exception)
         {
-            // Environment-not-tooled: the stage's compression tool is not installed. The
-            // message names the binary and how to get it, in the archiver's usual error style.
+            // Launch failure: the message names the binary, carries the OS's own detail so a
+            // permission problem does not read as "not installed", and keeps the install hint
+            // in the archiver's usual error style.
             throw new BuildStageException(
-                $"build: cannot create archive '{archiveFile.FullName}': the '{_xzBinary}' binary was not found on PATH. Install xz (for example 'apt-get install xz-utils', 'brew install xz', or 'pacman -S xz') to produce '{ArchiveFormats.TarXz}' archives, or declare '{ArchiveFormats.Zip}' or '{ArchiveFormats.TarGz}' instead.");
+                $"build: cannot create archive '{archiveFile.FullName}': the '{_xzBinary}' binary was not found on PATH or could not be launched ({ex.Message}). Install xz (for example 'apt-get install xz-utils', 'brew install xz', or 'pacman -S xz') to produce '{ArchiveFormats.TarXz}' archives, or declare '{ArchiveFormats.Zip}' or '{ArchiveFormats.TarGz}' instead.");
         }
 
         if (result.ExitCode != 0)

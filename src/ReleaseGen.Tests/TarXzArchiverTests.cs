@@ -69,10 +69,10 @@ public class TarXzArchiverTests
         BuildStageException exception = await Capture.ExceptionAsync<BuildStageException>(
             () => archiver.CreateArchiveAsync(source, archive, ArchiveFormats.TarXz, CancellationToken.None));
 
-        // The error names the missing binary, where it was looked for, and the format it
-        // would have produced.
+        // The error names the missing binary, where it was looked for, the OS's own detail,
+        // and the format it would have produced.
         await Assert.That(exception.Message).Contains("releasegen-test-xz-not-on-path");
-        await Assert.That(exception.Message).Contains("not found on PATH");
+        await Assert.That(exception.Message).Contains("not found on PATH or could not be launched");
         await Assert.That(exception.Message).Contains(ArchiveFormats.TarXz);
 
         // Nothing half-written: no archive, and no staging tar left beside it.

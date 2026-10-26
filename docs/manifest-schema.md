@@ -38,7 +38,7 @@ multiple artifact kinds.
 |-----|------|----------|---------|
 | `project` | string | Yes | Path to the project file or directory. Relative paths resolve from the Manifest's directory. |
 | `kinds` | string[] | Yes | The artifact kinds this target declares. Only declared kinds are produced. |
-| `archiveFormats` | string or string[] | No (default resolves per rid) | The archive formats for this target's executables-kind outputs: `zip`, `tar.gz`, `tar.xz`, or `none`. Accepts a bare string or a list, and each declared format produces one archive per (target, rid). Archiving is opt-out, not opt-in. Package kinds are never archived. |
+| `archiveFormats` | string or string[] | No (default resolves per rid) | The archive formats for this target's executables-kind outputs: `zip`, `tar.gz`, `tar.xz`, or `none`. Accepts a bare string or a list, and each declared format produces one archive per (target, rid); a format may appear at most once - a duplicate fails validation. Archiving is opt-out, not opt-in. Package kinds are never archived. |
 
 `archiveFormats` accepts either JSON spelling, and both normalize to one list at parse time:
 

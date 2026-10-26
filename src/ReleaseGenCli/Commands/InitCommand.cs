@@ -94,105 +94,118 @@ public sealed class InitCommand : Command
         {
             CliOutput.ApplyQuiet(parseResult);
 
-            // Only a known preset may reach the skeleton; 'none' — like absence — seeds no key.
-            (bool rejected, string? seededPreset) =
-                ResolveSeededPreset(parseResult.GetValue(presetOption));
-
-            if (rejected)
+            // System.CommandLine swallows exceptions thrown by async action handlers and prints
+            // them with a raw stack trace, so every failure surface - a refused preset, a failed
+            // scan, an unwritable manifest - is caught here and rendered as the one-line error.
+            try
             {
-                return 1;
-            }
+                // Only a known preset may reach the skeleton; 'none' — like absence — seeds no key.
+                (bool rejected, string? seededPreset) =
+                    ResolveSeededPreset(parseResult.GetValue(presetOption));
 
-            bool interactive = parseResult.GetValue(interactiveOption);
-
-            // Piped or redirected stdin cannot answer prompts, so the questionnaire refuses
-            // before anything is scanned or written and names the flag it came from.
-            if (interactive && !_interactiveConsole.InputIsConsole)
-            {
-                CliOutput.ErrorWithoutHint(
-                    "--interactive needs an interactive console: stdin is not a terminal, so " +
-                    "nobody can answer the five prompts. Run plain 'releasegen init' to write " +
-                    "the detected skeleton instead.");
-                return 1;
-            }
-
-            FileInfo manifestFile = new(Path.Combine(Environment.CurrentDirectory, ManifestLoader.ManifestFileName));
-
-            // Refusing an expected condition is control flow, not an exception.
-            if (RefusesExistingManifest(manifestFile, parseResult.GetValue(overwriteOption)))
-            {
-                return 1;
-            }
-
-            // Detection runs read-only, after the refusal so a refused init still scans nothing.
-            DirectoryInfo root = new(Environment.CurrentDirectory);
-            RepoDetection detection = _repoDetector.Detect(root);
-
-            // One warning per uncertain classification, printed before the write (and before
-            // the prompts) so the defaults that follow can say what detection left out.
-            foreach (string warning in detection.Warnings)
-            {
-                CliOutput.Warning(warning);
-            }
-
-            string? preset;
-            IReadOnlyList<ManifestTarget> targets;
-            IReadOnlyList<string> runtimeIdentifiers;
-            IReadOnlyList<string> testProjects;
-
-            if (interactive)
-            {
-                // The questionnaire owns every key it asks about; input ending mid-question
-                // returns null with the error already printed, so nothing is written.
-                InitAnswers? answers = InitInteractive.Run(
-                    detection, seededPreset, _interactiveConsole, _sdkSupportsOsxX64);
-
-                if (answers is null)
+                if (rejected)
                 {
                     return 1;
                 }
 
-                preset = answers.Preset;
-                targets = answers.Targets;
-                runtimeIdentifiers = answers.RuntimeIdentifiers;
-                testProjects = answers.TestProjects;
-            }
-            else
-            {
-                preset = seededPreset;
-                targets = detection.Targets;
-                runtimeIdentifiers = [];
-                testProjects = detection.TestProjects;
-            }
+                bool interactive = parseResult.GetValue(interactiveOption);
 
-            string manifestContents = ComposeSkeleton(preset, targets, runtimeIdentifiers, testProjects);
+                // Piped or redirected stdin cannot answer prompts, so the questionnaire refuses
+                // before anything is scanned or written and names the flag it came from.
+                if (interactive && !_interactiveConsole.InputIsConsole)
+                {
+                    CliOutput.ErrorWithoutHint(
+                        "--interactive needs an interactive console: stdin is not a terminal, so " +
+                        "nobody can answer the five prompts. Run plain 'releasegen init' to write " +
+                        "the detected skeleton instead.");
+                    return 1;
+                }
 
-            // Belt and braces before the write: the composed content must clear the same
-            // strict parse and validation the stages run, so init can never write a manifest
-            // the next run would refuse - the questionnaire's guards answer to the same sets,
-            // but neither they nor detection are trusted on their own.
-            try
-            {
-                Manifest composed = _manifestLoader.Parse(manifestContents);
-                _manifestLoader.Validate(composed, manifestFile);
+                FileInfo manifestFile = new(Path.Combine(Environment.CurrentDirectory, ManifestLoader.ManifestFileName));
+
+                // Refusing an expected condition is control flow, not an exception.
+                if (RefusesExistingManifest(manifestFile, parseResult.GetValue(overwriteOption)))
+                {
+                    return 1;
+                }
+
+                // Detection runs read-only, after the refusal so a refused init still scans nothing.
+                DirectoryInfo root = new(Environment.CurrentDirectory);
+                RepoDetection detection = _repoDetector.Detect(root);
+
+                // One warning per uncertain classification, printed before the write (and before
+                // the prompts) so the defaults that follow can say what detection left out.
+                foreach (string warning in detection.Warnings)
+                {
+                    CliOutput.Warning(warning);
+                }
+
+                string? preset;
+                IReadOnlyList<ManifestTarget> targets;
+                IReadOnlyList<string> runtimeIdentifiers;
+                IReadOnlyList<string> testProjects;
+
+                if (interactive)
+                {
+                    // The questionnaire owns every key it asks about; input ending mid-question
+                    // returns null with the error already printed, so nothing is written.
+                    InitAnswers? answers = InitInteractive.Run(
+                        detection, seededPreset, _interactiveConsole, _sdkSupportsOsxX64);
+
+                    if (answers is null)
+                    {
+                        return 1;
+                    }
+
+                    preset = answers.Preset;
+                    targets = answers.Targets;
+                    runtimeIdentifiers = answers.RuntimeIdentifiers;
+                    testProjects = answers.TestProjects;
+                }
+                else
+                {
+                    preset = seededPreset;
+                    targets = detection.Targets;
+                    runtimeIdentifiers = [];
+                    testProjects = detection.TestProjects;
+                }
+
+                string manifestContents = ComposeSkeleton(preset, targets, runtimeIdentifiers, testProjects);
+
+                // Belt and braces before the write: the composed content must clear the same
+                // strict parse and validation the stages run, so init can never write a manifest
+                // the next run would refuse - the questionnaire's guards answer to the same sets,
+                // but neither they nor detection are trusted on their own.
+                try
+                {
+                    Manifest composed = _manifestLoader.Parse(manifestContents);
+                    _manifestLoader.Validate(composed, manifestFile);
+                }
+                catch (ManifestException ex)
+                {
+                    CliOutput.ErrorWithoutHint(
+                        $"init: the composed manifest failed validation, so nothing was written. {ex.Message}");
+                    return 1;
+                }
+
+                await File.WriteAllTextAsync(manifestFile.FullName, manifestContents)
+                    .ConfigureAwait(true);
+
+                CliOutput.Note(preset is null
+                    ? $"init: wrote {manifestFile.FullName} (no build preset)."
+                    : $"init: wrote {manifestFile.FullName} (build preset '{preset}').");
+
+                WriteAftercare(manifestFile, root, targets.Count, testProjects.Count);
+
+                return 0;
             }
-            catch (ManifestException ex)
+            catch (Exception ex)
             {
-                CliOutput.ErrorWithoutHint(
-                    $"init: the composed manifest failed validation, so nothing was written. {ex.Message}");
+                // Init registers no --verbose option, so its errors name their own next step
+                // instead of the hint line.
+                CliOutput.ErrorWithoutHint(ex.Message);
                 return 1;
             }
-
-            await File.WriteAllTextAsync(manifestFile.FullName, manifestContents)
-                .ConfigureAwait(true);
-
-            CliOutput.Note(preset is null
-                ? $"init: wrote {manifestFile.FullName} (no build preset)."
-                : $"init: wrote {manifestFile.FullName} (build preset '{preset}').");
-
-            WriteAftercare(manifestFile, root, targets.Count, testProjects.Count);
-
-            return 0;
         });
     }
 

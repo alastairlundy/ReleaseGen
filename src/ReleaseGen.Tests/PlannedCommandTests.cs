@@ -46,10 +46,12 @@ public class PlannedCommandTests
         BufferedProcessResult? result = await runner.RunAsync(
             command, StageRunMode.DryRun, printed.Add, CancellationToken.None);
 
-        // The plan printed; nothing ran, so there is no process result to interpret.
+        // The plan printed - command line and artifact paths - and nothing ran, so there is
+        // no process result to interpret.
         await Assert.That(result).IsNull();
         await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
         await Assert.That(printed).Contains(command.CommandLine);
+        await Assert.That(printed).Contains($"  artifact: release/App-win-x64");
     }
 
     [Test]
@@ -65,11 +67,13 @@ public class PlannedCommandTests
         BufferedProcessResult? realRunResult = await runner.RunAsync(
             command, StageRunMode.Execute, realRunPrint.Add, CancellationToken.None);
 
-        // One record, one command line, both modes: the plan cannot diverge across flags.
+        // One record, one command line, both modes: the plan cannot diverge across flags -
+        // command line and artifact paths print identically in each.
         await Assert.That(dryRunResult).IsNull();
         await Assert.That(realRunResult).IsNotNull();
         await Assert.That(dryRunPrint).IsEquivalentTo(realRunPrint);
         await Assert.That(dryRunPrint[0]).IsEqualTo(command.CommandLine);
+        await Assert.That(dryRunPrint).Contains($"  artifact: release/App-win-x64");
         await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
     }
 

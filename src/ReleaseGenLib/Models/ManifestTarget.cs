@@ -21,7 +21,8 @@ public sealed class ManifestTarget
 
     /// <summary>
     /// The archive formats for this target's executables-kind outputs: each entry is exactly
-    /// 'zip', 'tar.gz', 'tar.xz', or 'none', and every declared format produces one archive per
+    /// 'zip', 'tar.gz', 'tar.xz', or 'none', no entry appears twice (a duplicate fails
+    /// validation), and every declared format produces one archive per
     /// (target, rid). Absent means the rid-class default set (zip for Windows-class and any-*
     /// rids, zip plus tar.gz for Unix-based rids) - archiving is opt-out, not opt-in, and tar.xz
     /// is never a default. Package kinds are never archived regardless of this key.

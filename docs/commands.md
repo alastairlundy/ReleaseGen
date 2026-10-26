@@ -39,7 +39,8 @@ while every write and outward side effect is suppressed. It composes with `--qui
   cleanup, no publish folders, no archives, no packages) and `TestResults/`. Archives and
   package contents stay invisible: the report describes them instead of producing them.
 - **One plan, both modes** - each spawned command appears as the exact command line a real run
-  would execute. Side effects a real run guards at run time (for example archiving a publish
+  would execute, with one `  artifact: <path>` line under it for each artifact the command
+  writes or pushes. Side effects a real run guards at run time (for example archiving a publish
   output folder) print as `(<command line>) (conditional: <guard>)`, so the report may describe
   work a real run would later skip.
 - **Publish prints the gate consult** - instead of running tests, publish prints the would-be
@@ -63,8 +64,8 @@ report into the full detail behind each spawned command. It reads the same plann
 dry-run report prints, so neither flag can show a stale picture of what ReleaseGen runs. It
 composes with `--dry-run` (nothing runs either way) but never with `--quiet`.
 
-- **Command line** - every spawned command prints its full command line before it runs - the
-  exact line a dry run would print, read from the one shared record.
+- **Command line** - every spawned command prints its full command line and its artifact paths
+  before it runs - the exact lines a dry run would print, read from the one shared record.
 - **Raw output** - the spawned command's captured stdout and stderr replay line by line as
   the tool emitted them, with no content filtering: MSBuild diagnostic lines and stderr keep
   their warning styling so nothing is dropped.
@@ -234,7 +235,7 @@ running the stage must have `xz` on PATH. A machine without it fails the stage b
 archive is produced, naming the missing tool:
 
 ```
-error: build: cannot create archive '<release>/<project-name>-<rid>.tar.xz': the 'xz' binary was not found on PATH. Install xz (for example 'apt-get install xz-utils', 'brew install xz', or 'pacman -S xz') to produce 'tar.xz' archives, or declare 'zip' or 'tar.gz' instead.
+error: build: cannot create archive '<release>/<project-name>-<rid>.tar.xz': the 'xz' binary was not found on PATH or could not be launched (<OS detail>). Install xz (for example 'apt-get install xz-utils', 'brew install xz', or 'pacman -S xz') to produce 'tar.xz' archives, or declare 'zip' or 'tar.gz' instead.
 ```
 
 An `xz` run that exits nonzero fails the stage in the same shape, naming the tool and its exit

@@ -6,7 +6,7 @@ using CliInvoke.Core;
 /// by the <see cref="StageRunMode"/> argument, so one plan serves every mode. Printing never
 /// runs the record's process or local side effect, never evaluates its runtime guard, and never
 /// surfaces its diagnosis text - nothing has been verified. Executing prints the same command
-/// line first (the evidence surface), runs the record's process or local side effect, and may
+/// line and artifact paths first (the evidence surface), runs the record's process or local side effect, and may
 /// surface the diagnosis through a sink.
 /// </summary>
 public sealed class PlannedCommandRunner
@@ -31,15 +31,15 @@ public sealed class PlannedCommandRunner
 
     /// <summary>
     /// Runs <paramref name="command"/> per <paramref name="mode"/>: under
-    /// <see cref="StageRunMode.Execute"/> it prints the command line, executes the record's
-    /// process or local side effect, and returns the process result (null for a local side
-    /// effect); under <see cref="StageRunMode.DryRun"/> it prints the command line - marking a
-    /// guarded record as conditional - and returns null without touching the work, its guards,
-    /// or its diagnosis.
+    /// <see cref="StageRunMode.Execute"/> it prints the command line and artifact paths,
+    /// executes the record's process or local side effect, and returns the process result
+    /// (null for a local side effect); under <see cref="StageRunMode.DryRun"/> it prints the
+    /// same plan - marking a guarded record as conditional - and returns null without touching
+    /// the work, its guards, or its diagnosis.
     /// </summary>
     /// <param name="command">The planned work item, built by the stage identically in every mode.</param>
     /// <param name="mode">The runner's decision for this item.</param>
-    /// <param name="writeLine">Sink for the printed command line, in both modes; null swallows it.</param>
+    /// <param name="writeLine">Sink for the printed command line and artifact lines, in both modes; null swallows them.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <param name="diagnosisSink">
     /// Receives the record's diagnosis line after a verified execution. Null keeps diagnoses
@@ -61,6 +61,13 @@ public sealed class PlannedCommandRunner
             mode == StageRunMode.DryRun && command.Condition is { } condition
                 ? $"{command.CommandLine} (conditional: {condition})"
                 : command.CommandLine);
+
+        // The plan names its artifacts in both modes, so the report and the executed run
+        // carry the same evidence surface and cannot diverge across flags.
+        foreach (string artifact in command.ArtifactPaths)
+        {
+            writeLine?.Invoke($"  artifact: {artifact}");
+        }
 
         if (mode == StageRunMode.DryRun)
         {

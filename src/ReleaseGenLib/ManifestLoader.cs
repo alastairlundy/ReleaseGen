@@ -136,13 +136,14 @@ public sealed class ManifestLoader : IManifestLoader
 
     /// <summary>
     /// Validates a parsed manifest: every target names a project and only known artifact kinds,
-    /// a declared tar.xz format still leaves a usable format for every declared Windows-class or
-    /// portable rid, a declared executables kind agrees with the evaluated OutputType, and a
-    /// declared tool-package kind agrees with the expanded PackAsTool property.
+    /// every declared archive format is known and appears at most once, a declared tar.xz
+    /// format still leaves a usable format for every declared Windows-class or portable rid, a
+    /// declared executables kind agrees with the evaluated OutputType, and a declared
+    /// tool-package kind agrees with the expanded PackAsTool property.
     /// </summary>
     /// <param name="manifest">The parsed manifest.</param>
     /// <param name="manifestFile">The manifest file, for resolving the targets' relative project paths.</param>
-    /// <exception cref="ManifestException">A target entry or kind declaration is invalid, the tar.xz declaration conflicts with the declared rids, or a kind cross-check fails.</exception>
+    /// <exception cref="ManifestException">A target entry or kind declaration is invalid, a declared archive format is unknown or duplicated, the tar.xz declaration conflicts with the declared rids, or a kind cross-check fails.</exception>
     public void Validate(Manifest manifest, FileInfo manifestFile)
     {
         ArgumentNullException.ThrowIfNull(manifest);
@@ -172,6 +173,8 @@ public sealed class ManifestLoader : IManifestLoader
                 }
             }
 
+            List<string> declaredFormats = [];
+
             foreach (string archiveFormat in target.ArchiveFormats)
             {
                 if (!ArchiveFormats.IsKnown(archiveFormat))
@@ -179,6 +182,18 @@ public sealed class ManifestLoader : IManifestLoader
                     throw new ManifestException(
                         $"Manifest validation failed: the target '{target.Project}' declares unknown archive format '{archiveFormat}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
                 }
+
+                // A repeated entry is a manifest mistake, not information: one entry archives
+                // once, so a duplicate would only double the work. The fail-loudly contract
+                // names it rather than silently deduping (formats are canonical spellings by
+                // the IsKnown check above, so ordinal equality is the whole story).
+                if (declaredFormats.Contains(archiveFormat))
+                {
+                    throw new ManifestException(
+                        $"Manifest validation failed: the target '{target.Project}' declares archive format '{archiveFormat}' more than once; remove the duplicate entry from 'archiveFormats'.");
+                }
+
+                declaredFormats.Add(archiveFormat);
             }
 
             ValidateTarXzAgainstWindowsRids(manifest, target);

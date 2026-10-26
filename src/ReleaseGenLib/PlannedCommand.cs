@@ -43,8 +43,10 @@ public sealed class PlannedCommand
     public Func<CancellationToken, Task>? ExecuteAsync { get; init; }
 
     /// <summary>
-    /// The artifact paths this work item writes or pushes, named in the plan. The dry-run
-    /// report describes them; nothing writes them.
+    /// The artifact paths this work item writes or pushes, named in the plan. The runner
+    /// prints one <c>  artifact: &lt;path&gt;</c> line per path under the command line, in both
+    /// printed modes - the dry-run report describes them without producing them, and a real
+    /// run shows the same plan it executes.
     /// </summary>
     public IReadOnlyList<string> ArtifactPaths { get; init; } = [];
 

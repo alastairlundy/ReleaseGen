@@ -17,8 +17,9 @@ diagnostics flags, and a helpful `init`.
   `framework-dependent`, `none`. Rename the preset before upgrading.
 - **Manifest key rename**: each target's `archive` key is now `archiveFormats`. It accepts
   a bare string or a list (`"zip"` or `["zip", "tar.gz"]`), both normalizing to one list at
-  parse time. Manifests are parsed strictly, so a leftover `archive` key fails as an unknown
-  field - rename it to `archiveFormats`.
+  parse time, and each format may appear at most once - a duplicate fails validation naming
+  the target and the format. Manifests are parsed strictly, so a leftover `archive` key fails
+  as an unknown field - rename it to `archiveFormats`.
 - **Unix archive defaults**: an absent `archiveFormats` key used to mean zip everywhere. It
   now resolves to zip plus tar.gz for Unix-based rids (`linux-*`, `osx-*`), while
   Windows-class (`win-*`) and portable (`any-*`) rids keep zip alone. `tar.xz` is never a
