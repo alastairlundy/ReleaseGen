@@ -114,8 +114,8 @@ internal sealed class RepoDetector
         if (evaluation.IsExecutableOutput)
         {
             // Trusted classification: the OutputType says executable, the metadata adds the
-            // tool-package kind, and the explicit archive list makes D009's default set
-            // visible in the file instead of hiding behind an absent key.
+            // tool-package kind, and the explicit archive list makes the absent-key default
+            // set visible in the file instead of hiding behind an absent key.
             detection.AddTarget(new ManifestTarget
             {
                 Project = relativePath,

@@ -7,13 +7,12 @@ using ReleaseGenLib.Models;
 /// The five-question questionnaire behind init's <c>--interactive</c> flag: build preset,
 /// projects to release, runtime identifiers, archive formats, test projects - asked in that
 /// fixed order, every answer defaulting to what detection found (Enter accepts), and every
-/// typed answer validated against the same sets the manifest validates against
-/// [DECISIONS-ReleaseGen-adoption-friction.md#D015]. The prompt list is a stability
-/// constraint [#D005], the rid answers default through the union rule's rid set
-/// [#D021, see <see cref="Helpers.RidDefaults"/>], and an answer that would leave an
-/// executables target without a rid is refused at the prompt rather than at build time. Input
-/// that ends mid-question aborts the run with an explanatory error, so nothing is ever written
-/// from a half-answered questionnaire.
+/// typed answer validated against the same sets the manifest validates against. The prompt
+/// list and their order are a stability constraint, the rid answers default through the
+/// union rule's rid set [<see cref="Helpers.RidDefaults"/>], and an answer that would leave
+/// an executables target without a rid is refused at the prompt rather than at build time.
+/// Input that ends mid-question aborts the run with an explanatory error, so nothing is ever
+/// written from a half-answered questionnaire.
 /// </summary>
 internal static class InitInteractive
 {
@@ -49,7 +48,7 @@ internal static class InitInteractive
     /// <param name="console">The channel answers arrive on and prompts are written to.</param>
     /// <param name="installedSdkSupportsOsxX64">
     /// The installed-SDK clause of the rid default union rule; the real RID-catalog probe when
-    /// null, so the default set reflects the machine's SDK [D021].
+    /// null, so the default set reflects the machine's SDK.
     /// </param>
     /// <returns>
     /// The questionnaire's result, or null when input ended mid-question (the error is
@@ -134,7 +133,8 @@ internal static class InitInteractive
         }
 
         // Question 4 of 5: the archive formats. The default mirrors what the non-interactive
-        // skeleton seeds, and tar.xz stays an explicit opt-in [D009].
+        // skeleton seeds: zip and tar.gz are the absent-key defaults, and tar.xz stays an
+        // explicit opt-in that is never defaulted to.
         string archivesDefault = $"{ArchiveFormats.Zip}, {ArchiveFormats.TarGz}";
         string archivesPrompt =
             $"{PromptPrefix}archive formats (comma-separated) [{archivesDefault}]:";

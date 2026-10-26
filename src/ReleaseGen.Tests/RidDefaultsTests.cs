@@ -45,7 +45,7 @@ public class RidDefaultsTests
     public async Task A_tfm_without_a_macos_pin_falls_through_to_the_sdk_clause()
     {
         // Neither net10.0 nor an unpinned maccatalyst platform states a required version, so
-        // the TFM clause says nothing and the installed SDK's supported rids decide [D021].
+        // the TFM clause says nothing and the installed SDK's supported rids decide.
         await Assert.That(RidDefaults.For(["net10.0"], () => false)).IsEquivalentTo(Core);
         await Assert.That(RidDefaults.For(["net10.0"], () => true))
             .IsEquivalentTo([.. Core, "osx-x64"]);

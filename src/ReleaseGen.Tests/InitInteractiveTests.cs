@@ -49,7 +49,7 @@ public class InitInteractiveTests
 
             await Assert.That(run.ExitCode).IsEqualTo(0);
 
-            // The prompt list and its order are a stability constraint [D005].
+            // The prompt list and its order are a stability constraint.
             await AssertAskedInOrder(prompts.ToString());
 
             Manifest manifest = Parse(workspace);
@@ -58,7 +58,7 @@ public class InitInteractiveTests
 
             // net10.0 pins no macOS version, so the TFM clause stays silent and the run
             // checks the installed SDK's supported rids - here injected as supporting
-            // osx-x64 [D021].
+            // osx-x64.
             await Assert.That(manifest.Build.RuntimeIdentifiers).IsEquivalentTo(
             [
                 "win-x64", "win-arm64", "linux-x64", "linux-arm64", "osx-arm64", "osx-x64",
@@ -231,7 +231,7 @@ public class InitInteractiveTests
     public async Task The_osx_x64_default_follows_both_clauses_of_the_union_rule()
     {
         // The TFM gates osx-x64 out (macos.26 is not older than macOS 26), so only the
-        // installed-SDK clause can light it up [D021].
+        // installed-SDK clause can light it up.
         const string gatedTfm = "net10.0-macos.26";
 
         using TestWorkspace withoutSdkSupport = TestWorkspace.Create();
@@ -384,8 +384,7 @@ public class InitInteractiveTests
     }
 
     /// <summary>
-    /// Asserts the five questions each appear, in the order the ledger fixed them
-    /// [DECISIONS-ReleaseGen-adoption-friction.md#D015].
+    /// Asserts the five questions each appear, in the order they are fixed in.
     /// </summary>
     /// <param name="prompts">Everything the questionnaire wrote.</param>
     /// <returns>A completed assertion set.</returns>

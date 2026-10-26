@@ -30,7 +30,8 @@ Something a target produces: release binaries, lib package, or dotnet tool packa
 
 ## Archive format
 
-The packaging ReleaseGen produces for a target's release binaries; zip and tar.xz are members of this set.
+The packaging ReleaseGen produces for a target's release binaries; zip, tar.gz, and tar.xz
+are members of this set.
 
 ## Dry run
 

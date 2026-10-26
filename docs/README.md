@@ -18,5 +18,6 @@ quickstart.
 
 - [Glossary](../GLOSSARY.md) - the domain vocabulary (Manifest, Stage, Chained run, Test
   gate, Target, Release artifact, Build preset)
-- [Decision ledger](decisions/DECISIONS-ReleaseGen-v1-release.md) - the resolved decisions
-  behind v1
+- [Changelog](../CHANGELOG.md) - what shipped in each release, breaking changes first
+- [Decision ledger](decisions/DECISIONS-ReleaseGen-adoption-friction.md) - the resolved
+  decisions behind the adoption-friction release

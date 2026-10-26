@@ -50,10 +50,13 @@ Build output stays local under a `release/` directory; the only network destinat
 | `publish` | Push packages to NuGet sources (test-gated) |
 | `run` | Chained run of the stages above, in manifest order |
 
-Every command accepts the global `--quiet` flag; exit code is `0` on success and `1` on any failure. See the [command reference](docs/commands.md) for flags and behavior.
+Every command accepts the global `--quiet` flag; every stage command and `run` also accept
+`--dry-run` and `--verbose` (which contradict `--quiet`); exit code is `0` on success and `1`
+on any failure. See the [command reference](docs/commands.md) for flags and behavior.
 
 ## Documentation
 
+- [Changelog](CHANGELOG.md)
 - [Command reference](docs/commands.md)
 - [Manifest schema](docs/manifest-schema.md)
 - [Build presets](docs/presets.md)

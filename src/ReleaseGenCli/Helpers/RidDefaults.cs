@@ -8,10 +8,9 @@ using System.Globalization;
 /// <c>linux-x64</c>, <c>linux-arm64</c>, <c>osx-arm64</c>) join <c>osx-x64</c> when either
 /// clause of the union rule holds - a declared TFM that pins a required platform version
 /// older than macOS 26 (a <c>-macos.N</c> or a <c>-maccatalyst.N</c> pin, read the same way),
-/// or an installed SDK whose RID catalog still lists <c>osx-x64</c>
-/// [DECISIONS-ReleaseGen-adoption-friction.md#D021]. A TFM that pins nothing leaves the
-/// question to the SDK clause. The portable <c>any-x64</c> and <c>any-arm64</c> rids stay
-/// selectable at the prompt but are never part of the default set [#D015].
+/// or an installed SDK whose RID catalog still lists <c>osx-x64</c>. A TFM that pins nothing
+/// leaves the question to the SDK clause. The portable <c>any-x64</c> and <c>any-arm64</c>
+/// rids stay selectable at the prompt but are never part of the default set.
 /// </summary>
 public static class RidDefaults
 {
@@ -60,8 +59,7 @@ public static class RidDefaults
     /// The default rid set for one run: the five core rids, plus <c>osx-x64</c> when either
     /// clause of the union rule holds. The TFM clause is checked first because it needs no
     /// I/O, so the SDK probe runs whenever no declared TFM pins an older macOS version - a
-    /// plain <c>net10.0</c> repository always reaches it
-    /// [DECISIONS-ReleaseGen-adoption-friction.md#D021].
+    /// plain <c>net10.0</c> repository always reaches it.
     /// </summary>
     /// <param name="targetFrameworks">
     /// The declared target frameworks of the projects under the root; empty when detection
@@ -92,8 +90,7 @@ public static class RidDefaults
     /// explicit pin settles it: a TFM that names no such platform (<c>net10.0</c>,
     /// <c>net10.0-windows</c>) or names one without a version (<c>net10.0-macos</c>,
     /// <c>net10.0-maccatalyst</c>) states no required version at all, so it never satisfies
-    /// this clause - the run then checks the installed SDK's supported rids instead
-    /// [DECISIONS-ReleaseGen-adoption-friction.md#D021].
+    /// this clause - the run then checks the installed SDK's supported rids instead.
     /// </summary>
     /// <param name="targetFramework">One declared TFM, for example <c>net10.0-macos.15</c>.</param>
     /// <returns>
@@ -167,9 +164,9 @@ public static class RidDefaults
     /// clause of the union rule. The probe reads <c>RuntimeIdentifierGraph.json</c> from each
     /// <c>sdk/&lt;version&gt;</c> folder of the dotnet root (declared via
     /// <c>DOTNET_ROOT</c>, otherwise the root the running runtime lives under), so the answer
-    /// can change when the SDK is upgraded or an Intel macOS rid is retired from the catalog
-    /// [DECISIONS-ReleaseGen-adoption-friction.md#D021]. A missing or unreadable catalog is
-    /// not support: the clause then simply does not hold and the TFM clause decides alone.
+    /// can change when the SDK is upgraded or an Intel macOS rid is retired from the catalog.
+    /// A missing or unreadable catalog is not support: the clause then simply does not hold
+    /// and the TFM clause decides alone.
     /// </summary>
     /// <returns><see langword="true"/> when at least one installed SDK ships an osx-x64 catalog entry.</returns>
     public static bool InstalledSdkSupportsOsxX64()

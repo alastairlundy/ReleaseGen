@@ -1,8 +1,8 @@
-# CI evidence on every push (T020): one workflow that builds and tests on pull requests and
-# main. Releases are deliberate manual `releasegen run` executions using the D011 channels, so
-# this workflow carries no tag trigger and no restore-independent publishing or push step, and
-# no trusted-publishing setup exists here (D001). Adding a release workflow later is a new
-# decision (T020).
+# CI evidence on every push: one workflow that builds and tests on pull requests and
+# main. Releases are deliberate manual `releasegen run` executions using the publish
+# stage's channels, so this workflow carries no tag trigger and no restore-independent
+# publishing or push step, and no trusted-publishing setup exists here. Adding a release
+# workflow later is a separate decision.
 
 name: CI
 
@@ -26,7 +26,7 @@ jobs:
       - name: Set up the .NET SDK
         uses: actions/setup-dotnet@v6
         with:
-          # Everything targets net10.0 only (T001), and the TUnit suite runs on that TFM (T018).
+          # Everything targets net10.0 only, and the TUnit suite runs on that TFM.
           dotnet-version: 10.0.x
 
       - name: Restore

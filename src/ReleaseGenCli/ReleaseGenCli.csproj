@@ -21,11 +21,11 @@
         <Description>Opinionated .NET CLI for building, packaging, and publishing .NET projects, with cross-platform packaging targets and project-file-prioritized build settings.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <!-- Package version; bump manually before each release. -->
-        <Version>0.1.0</Version>
+        <Version>0.2.0</Version>
         <Title>ReleaseGen</Title>
         <Authors>Alastair Lundy</Authors>
         <Copyright>Copyright (c) Alastair Lundy 2026</Copyright>
-        <PackageReleaseNotes>Initial Release</PackageReleaseNotes>
+        <PackageReleaseNotes>Breaking release: the build preset is now `aot` (was `aot-plus-trimming`), the target key is now `archiveFormats` (was `archive`), and an absent archive key defaults to zip plus tar.gz on Unix-based rids. New: `--dry-run`, `--verbose`, tar.xz archives, and a detection-seeded, `--interactive` init. See CHANGELOG.md.</PackageReleaseNotes>
         <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
         <AssemblyName>ReleaseGen</AssemblyName>
         <RootNamespace>ReleaseGen.Cli</RootNamespace>
