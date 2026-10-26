@@ -49,33 +49,6 @@ public sealed class BuildStageRunner : IBuildStageRunner
     private readonly PlannedCommandRunner _plannedCommandRunner;
     private readonly IBuildArchiver _buildArchiver;
 
-    /// <summary>
-    /// The build stage runner: runs <c>dotnet publish -c Release -r &lt;rid&gt;</c> once per
-    /// (target project x configured rid) through CliInvoke 3.1.0, fail-fast on the first failing
-    /// target/rid with an error naming both plus the exit code, and attaches per-target
-    /// archives for executables-kind outputs. This type supersedes the legacy
-    /// <c>ProjectBuilder</c> - the publish-only flags on <c>dotnet build</c> and the inverted
-    /// ReadyToRun check are retired, not patched.
-    ///
-    /// <para>
-    /// Output layout, all under the invocation directory (local-only - nothing here uploads;
-    /// the only network destination in v1 is the publish stage's NuGet source):
-    /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> holds one target's publish binaries for that
-    /// rid, and <c>release/&lt;project-name&gt;-&lt;rid&gt;.zip|.tar.gz|.tar.xz</c> sits beside the per-rid
-    /// folders as that folder's archive. The archive formats are the target's declared
-    /// <c>archiveFormats</c> key - one archive per declared format per (target, rid), defaulting
-    /// to the rid-class set when the key is absent; package-kind-only targets are never archived.
-    /// </para>
-    ///
-    /// <para>
-    /// Publish output reaches the caller only through the request's line sinks - this type never
-    /// writes to the console - and no publish line is filtered or suppressed, so the SDK's
-    /// IL3000-family analyzer warnings pass through intact. CliInvoke 3.1.0 exposes no
-    /// line-level process events, so each publish command invocation's captured output is replayed to the sinks as
-    /// soon as that publish completes rather than interleaved live; fail-fast still stops the
-    /// stage at the first failing rid.
-    /// </para>
-    /// </summary>
     public BuildStageRunner(IManifestLoader manifestLoader, IProcessInvoker processInvoker, IBuildArchiver buildArchiver)
     {
         _manifestLoader = manifestLoader;

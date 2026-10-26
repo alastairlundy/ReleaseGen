@@ -17,12 +17,6 @@ public sealed class ManifestLoader : IManifestLoader
 {
     private readonly IProjectInfoProvider _projectInfoProvider;
 
-    /// <summary>
-    /// Loads and validates <c>releasegen.json</c> manifests: strict System.Text.Json parsing,
-    /// walk-up discovery with an explicit-path override, and the kind cross-checks against one
-    /// expanded MSBuild evaluation (OutputType for <c>executables</c>, PackAsTool for
-    /// <c>tool-package</c>).
-    /// </summary>
     /// <param name="projectInfoProvider">
     /// The Microsoft.Build evaluation path behind the kind cross-checks. When null, only
     /// manifest-internal validation runs.
