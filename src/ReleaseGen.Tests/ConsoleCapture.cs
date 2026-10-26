@@ -13,7 +13,10 @@ internal static class ConsoleCapture
     /// <summary>
     /// Captures everything the CLI wrote to the console, with whitespace flattened: Spectre
     /// wraps long lines at the console profile width, which would otherwise insert artificial
-    /// line breaks inside the sentences tests assert on.
+    /// line breaks inside the sentences tests assert on. The default profile enrichment is
+    /// dropped so the capture stays plain text everywhere: on CI it force-enables ANSI after
+    /// <see cref="AnsiSupport.No"/> is applied, which would put escape codes around the styled
+    /// prefixes into the captured text and break the assertions on those prefixes.
     /// </summary>
     /// <param name="action">The test body that drives the command.</param>
     /// <returns>The captured plain-text console output.</returns>
@@ -26,6 +29,8 @@ internal static class ConsoleCapture
         {
             Out = new AnsiConsoleOutput(writer),
             Ansi = AnsiSupport.No,
+            ColorSystem = ColorSystemSupport.NoColors,
+            Enrichment = new ProfileEnrichment { UseDefaultEnrichers = false },
         });
 
         try
