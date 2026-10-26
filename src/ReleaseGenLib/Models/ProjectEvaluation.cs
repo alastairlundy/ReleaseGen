@@ -2,7 +2,8 @@ namespace ReleaseGenLib.Models;
 
 /// <summary>
 /// The expanded MSBuild properties ReleaseGen reads in one evaluation pass over a project
-/// file: <c>OutputType</c>, <c>PackAsTool</c>, and <c>IsPackable</c>. Every value is MSBuild's
+/// file: <c>OutputType</c>, <c>PackAsTool</c>, <c>IsPackable</c>, and the declared target
+/// frameworks. Every value is MSBuild's
 /// expanded property, so a <c>Directory.Build.props</c> or any other imported props file flows
 /// through unchanged - ReleaseGen never reads raw project text, and it never passes the
 /// properties as build switches either: the project file stays authoritative.
@@ -35,6 +36,15 @@ public sealed record ProjectEvaluation(string OutputType, string PackAsTool, str
     /// </summary>
     public bool IsPackableEnabled =>
         PackAsToolIsTrue || string.IsNullOrEmpty(IsPackable) || IsTrue(IsPackable);
+
+    /// <summary>
+    /// The expanded target frameworks the project declares: <c>TargetFramework</c>, or
+    /// <c>TargetFrameworks</c> split on ';' when the project multi-targets. Empty when the
+    /// project declares neither. Init's interactive questionnaire reads it to decide whether
+    /// the TFM's required macOS version predates macOS 26 - one clause of the osx-x64 default
+    /// rule - so it arrives through the same single evaluation pass as the other properties.
+    /// </summary>
+    public string[] TargetFrameworks { get; init; } = [];
 
     /// <summary>
     /// Whether the project declares pack intent itself: <c>PackAsTool</c> true, or

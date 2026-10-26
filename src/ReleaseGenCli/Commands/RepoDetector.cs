@@ -8,9 +8,10 @@ using ReleaseGenLib.Models;
 /// root, classifies each through a single expanded-property evaluation, and keeps only what is
 /// certain - executable targets (trusted by their OutputType), test projects matching the
 /// <c>.Tests</c>/<c>.Test</c> naming convention, and package kinds from project metadata
-/// (including an expanded <c>PackAsTool=true</c>). Every uncertain classification contributes
-/// exactly one warning and seeds nothing, and an outright detection failure clears everything
-/// it found so init falls back to the minimal skeleton.
+/// (including an expanded <c>PackAsTool=true</c>) - while recording every declared target
+/// framework for the interactive questionnaire's rid defaults. Every uncertain classification
+/// contributes exactly one warning and seeds nothing, and an outright detection failure clears
+/// everything it found so init falls back to the minimal skeleton.
 /// </summary>
 internal sealed class RepoDetector
 {
@@ -87,6 +88,14 @@ internal sealed class RepoDetector
             detection.AddWarning(
                 $"init: could not evaluate '{relativePath}' ({ex.Message}); seeded nothing for it.");
             return;
+        }
+
+        // The declared TFMs of every project that evaluated cleanly feed the interactive
+        // rid defaults (the osx-x64 union rule's TFM clause), whether or not the project
+        // itself ends up seeded as a target.
+        foreach (string targetFramework in evaluation.TargetFrameworks)
+        {
+            detection.AddTargetFramework(targetFramework);
         }
 
         if (IsTestProjectName(projectFile))

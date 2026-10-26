@@ -108,8 +108,8 @@ public class ProjectInfoProvider : IProjectInfoProvider
     /// </summary>
     /// <param name="projectFile">The project file to evaluate.</param>
     /// <returns>
-    /// The expanded OutputType (or 'Library' when the project sets none), PackAsTool, and
-    /// IsPackable.
+    /// The expanded OutputType (or 'Library' when the project sets none), PackAsTool,
+    /// IsPackable, and the declared target frameworks.
     /// </returns>
     public ProjectEvaluation EvaluateProject(FileInfo projectFile) =>
         RunWithScopedMsBuildEnvironment(() =>
@@ -117,6 +117,27 @@ public class ProjectInfoProvider : IProjectInfoProvider
             EnsureSdkResolverRegistered();
             return EvaluateProjectCore(projectFile);
         });
+
+    /// <summary>
+    /// Reads a project's declared target frameworks the way the two evaluation paths agree on:
+    /// the singular <c>TargetFramework</c> when the project sets it, the ';' separated
+    /// <c>TargetFrameworks</c> otherwise, split, trimmed, and never carrying empty entries.
+    /// </summary>
+    /// <param name="project">The evaluated project.</param>
+    /// <returns>The declared target frameworks; empty when the project declares none.</returns>
+    private static string[] ReadTargetFrameworks(Project project)
+    {
+        string singular = project.GetPropertyValue("TargetFramework");
+        string declared = singular == string.Empty
+            ? project.GetPropertyValue("TargetFrameworks")
+            : singular;
+
+        return
+        [
+            .. declared.Split(
+                ';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+        ];
+    }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static ProjectInfo DetectProjectInfoCore(FileInfo projectFile)
@@ -136,22 +157,9 @@ public class ProjectInfoProvider : IProjectInfoProvider
 
         try
         {
-            string[] targets;
-
-            bool usesPlural = project.GetPropertyValue("TargetFramework") == string.Empty;
+            string[] targets = ReadTargetFrameworks(project);
 
             ProjectInfo projectInfo = new ProjectInfo([], []);
-
-            if (usesPlural)
-            {
-                string targetFrameworkString = project.GetPropertyValue("TargetFrameworks");
-
-                targets = targetFrameworkString.Split(';');
-            }
-            else
-            {
-                targets = [project.GetPropertyValue("TargetFramework")];
-            }
 
             string publishAoTValue = project.GetPropertyValue("PublishAoT");
             projectInfo.BuildConfiguration.PublishAoT = publishAoTValue != string.Empty;
@@ -209,7 +217,12 @@ public class ProjectInfoProvider : IProjectInfoProvider
             return new ProjectEvaluation(
                 outputType == string.Empty ? "Library" : outputType,
                 project.GetPropertyValue("PackAsTool"),
-                project.GetPropertyValue("IsPackable"));
+                project.GetPropertyValue("IsPackable"))
+            {
+                // The declared TFMs ride the same pass: init's interactive rid defaults read
+                // them for the osx-x64 union rule without a second evaluation.
+                TargetFrameworks = ReadTargetFrameworks(project),
+            };
         }
         finally
         {

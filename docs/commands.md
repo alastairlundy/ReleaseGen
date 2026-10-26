@@ -92,16 +92,18 @@ Writes a valid `releasegen.json` Manifest to the current directory. Init is a on
 command and takes no part in the chained run, and the default invocation stays
 non-interactive: it scans the current directory for .NET projects (skipping `bin`, `obj`, and
 dot-directories), seeds what it can classify with certainty, and warns once for every
-classification it cannot make.
+classification it cannot make. `--interactive` opts into a five-question questionnaire that
+writes the tailored Manifest instead.
 
 ```
-releasegen init [--preset <name>] [--overwrite]
+releasegen init [--preset <name>] [--overwrite] [--interactive]
 ```
 
 | Flag | Effect |
 |------|--------|
-| `--preset <name>` | Seeds the Manifest's `build.preset` key with a known preset name. `none`, or omitting the flag, seeds no key (absence means preset none). An unknown name fails with an error listing the known set. |
+| `--preset <name>` | Seeds the Manifest's `build.preset` key with a known preset name. `none`, or omitting the flag, seeds no key (absence means preset none). An unknown name fails with an error listing the known set. Under `--interactive` it also becomes the first question's default. |
 | `--overwrite` | Replace `releasegen.json` when it already exists in the current directory. Without it, an existing file is refused with exit code 1. |
+| `--interactive` | Ask five questions and write the tailored Manifest instead of the detected skeleton. Needs a console on stdin: piped or redirected input fails with an error naming the flag and pointing at plain `releasegen init`. |
 
 **What gets seeded**
 
@@ -130,6 +132,59 @@ skeleton: an empty `targets` array, an empty rid list, and an empty publish sour
 `test` section is omitted unless test projects were detected - an absent section keeps the
 [test gate](manifest-schema.md#test-section) warn-and-pass, while an empty one would run
 `dotnet test` from the current directory.
+
+**The `--interactive` questionnaire**
+
+`--interactive` replaces the detected skeleton with five questions, asked in this fixed
+order, each showing the detected default in brackets and accepting it on Enter:
+
+1. **build preset** - the known preset set (`aot`, `ready-to-run`, `trimming-only`,
+   `framework-dependent`, `none`), defaulting to `--preset`'s value or `none`. An unknown
+   answer is refused and the question is asked again.
+2. **projects to release** - the detected projects, listed and numbered, defaulting to all of
+   them. Enter comma-separated numbers to keep a subset, or `none` to release nothing; a
+   number outside the listing is refused rather than dropped.
+3. **runtime identifiers** - written to `build.runtimeIdentifiers`. The default is the rid
+   set below; `none` clears it, except that a selection including an `executables` target
+   must keep at least one rid, and an answer without one is refused at the prompt.
+4. **archive formats** - written to each chosen `executables` target's `archiveFormats`.
+   Defaults to `zip, tar.gz` (the absent-key default set made explicit); `tar.xz` is offered
+   but stays opt-in and never a default; `none` means archive nothing and cannot be combined
+   with other formats. Targets without an `executables` kind get no key, as on the default
+   path.
+5. **test projects** - the detected test projects, numbered and defaulting to all of them.
+   `none` omits the `test` section entirely, keeping the gate's warn-and-pass default.
+
+An answer that does not parse prints the reason and the same question is asked again; stdin
+ending before the fifth answer aborts with an explanatory error and writes nothing. The
+questions themselves print even under `--quiet` - they are the interaction - while init's
+notes stay suppressed. Without the flag, no question is ever asked: the default path stays
+non-interactive.
+
+**The default rid set**
+
+The rid default is where `--interactive` reads the machine. The set always holds `win-x64`,
+`win-arm64`, `linux-x64`, `linux-arm64`, and `osx-arm64`, and joins `osx-x64` when either
+clause of the union rule holds:
+
+- **the TFM clause** - some project under the root declares a TFM that pins a required
+  platform version older than macOS 26 (for example `net10.0-macos.15`); a `-maccatalyst.N`
+  pin is read the same way, with no translation between them. macOS (and iOS) dropped
+  sequential majors at macOS 15 - 26 shipped in late 2025, 27 in late 2026 - so every pin
+  below 26 is a pre-jump version and every model year is at or above it; Mac Catalyst
+  versions mirrored iOS before that jump and unified with macOS from 26 on. Only an explicit
+  pin settles the clause: a TFM that names no such platform (`net10.0`, `net10.0-windows`) or
+  names one without a version (`net10.0-macos`, `net10.0-maccatalyst`) states no required
+  version, so it never satisfies this clause - the run checks the installed SDK's supported
+  rids instead.
+- **the installed-SDK clause** - any installed SDK's RID catalog
+  (`sdk/<version>/RuntimeIdentifierGraph.json` under the dotnet root, declared via
+  `DOTNET_ROOT` or derived from the running runtime) still lists `osx-x64`.
+
+**The default set therefore depends on the machine**: the SDK version installed, and the
+TFMs the repository declares, both change what Enter accepts here. `any-x64` and `any-arm64`
+are always offered but never default - they resolve to the zip-only archive rule everywhere
+([absent-key defaults](manifest-schema.md#absent-key-defaults)).
 
 **Aftercare**
 
