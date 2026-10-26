@@ -11,6 +11,7 @@ namespace ReleaseGen.Cli.Commands;
 
 using System.Text;
 using System.Text.Json;
+using ReleaseGenLib.Exceptions;
 
 /// <summary>
 /// The init stage: writes a valid <c>releasegen.json</c> skeleton to the current directory
@@ -21,13 +22,16 @@ using System.Text.Json;
 /// when detection fails or turns ambiguous. <c>--preset</c> seeds the build section's
 /// <c>preset</c> key; without the flag, or with <c>none</c>, the key stays out of the skeleton
 /// (absence means preset none). <c>--interactive</c> opts into the five-question questionnaire
-/// that writes the tailored shape instead, refused outright where stdin is not a console. An
+/// that writes the tailored shape instead, refused outright where stdin is not a console. Both
+/// write paths parse and validate the composed manifest through the same strict loader the
+/// stages use before it reaches disk, so a validation failure writes nothing and exits 1. An
 /// existing manifest is refused with exit code 1 unless <c>--overwrite</c> is passed. Init is
 /// a one-shot command and takes no part in the chained run.
 /// </summary>
 public sealed class InitCommand : Command
 {
     private readonly RepoDetector _repoDetector;
+    private readonly ManifestLoader _manifestLoader;
     private readonly InitConsole _interactiveConsole;
     private readonly Func<bool> _sdkSupportsOsxX64;
 
@@ -37,8 +41,9 @@ public sealed class InitCommand : Command
     /// <c>--interactive</c> questionnaire where that flag opts in.
     /// </summary>
     /// <param name="projectInfoProvider">
-    /// The Microsoft.Build evaluation path repo detection reads; the production provider when
-    /// omitted. Tests inject a fixed evaluation instead of touching the real toolchain.
+    /// The Microsoft.Build evaluation path repo detection reads; the same provider answers the
+    /// pre-write verification's kind cross-checks. Tests inject a fixed evaluation instead of
+    /// touching the real toolchain.
     /// </param>
     /// <param name="interactiveConsole">
     /// The channel the questionnaire reads answers from and writes prompts to; the process
@@ -54,7 +59,14 @@ public sealed class InitCommand : Command
         Func<bool>? sdkSupportsOsxX64 = null)
         : base("init", "Writes a minimal valid releasegen.json manifest.")
     {
-        _repoDetector = new RepoDetector(projectInfoProvider ?? new ProjectInfoProvider());
+        IProjectInfoProvider evaluationProvider = projectInfoProvider ?? new ProjectInfoProvider();
+
+        _repoDetector = new RepoDetector(evaluationProvider);
+
+        // The same evaluation path powers the pre-write verification: the composed manifest is
+        // checked against the very loader (and provider) the stages run.
+        _manifestLoader = new ManifestLoader(evaluationProvider);
+
         _interactiveConsole = interactiveConsole ??
             new InitConsole(Console.In, Console.Out, !Console.IsInputRedirected);
         _sdkSupportsOsxX64 = sdkSupportsOsxX64 ?? RidDefaults.InstalledSdkSupportsOsxX64;
@@ -153,9 +165,25 @@ public sealed class InitCommand : Command
                 testProjects = detection.TestProjects;
             }
 
-            await File.WriteAllTextAsync(
-                manifestFile.FullName,
-                ComposeSkeleton(preset, targets, runtimeIdentifiers, testProjects))
+            string manifestContents = ComposeSkeleton(preset, targets, runtimeIdentifiers, testProjects);
+
+            // Belt and braces before the write: the composed content must clear the same
+            // strict parse and validation the stages run, so init can never write a manifest
+            // the next run would refuse - the questionnaire's guards answer to the same sets,
+            // but neither they nor detection are trusted on their own.
+            try
+            {
+                Manifest composed = _manifestLoader.Parse(manifestContents);
+                _manifestLoader.Validate(composed, manifestFile);
+            }
+            catch (ManifestException ex)
+            {
+                CliOutput.ErrorWithoutHint(
+                    $"init: the composed manifest failed validation, so nothing was written. {ex.Message}");
+                return 1;
+            }
+
+            await File.WriteAllTextAsync(manifestFile.FullName, manifestContents)
                 .ConfigureAwait(true);
 
             CliOutput.Note(preset is null

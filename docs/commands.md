@@ -150,13 +150,18 @@ order, each showing the detected default in brackets and accepting it on Enter:
 4. **archive formats** - written to each chosen `executables` target's `archiveFormats`.
    Defaults to `zip, tar.gz` (the absent-key default set made explicit); `tar.xz` is offered
    but stays opt-in and never a default; `none` means archive nothing and cannot be combined
-   with other formats. Targets without an `executables` kind get no key, as on the default
-   path.
+   with other formats. A lone `tar.xz` answer is refused when the chosen rids include rids
+   tar.xz cannot be produced for (Windows-class and `any-*`), so the questionnaire never
+   writes a manifest validation would reject. Targets without an `executables` kind get no
+   key, as on the default path.
 5. **test projects** - the detected test projects, numbered and defaulting to all of them.
    `none` omits the `test` section entirely, keeping the gate's warn-and-pass default.
 
 An answer that does not parse prints the reason and the same question is asked again; stdin
-ending before the fifth answer aborts with an explanatory error and writes nothing. The
+ending before the fifth answer aborts with an explanatory error and writes nothing. Both
+write paths - the detected skeleton and the questionnaire's answers - parse and validate the
+composed manifest through the same strict loader the stages use before it reaches disk, so a
+validation failure writes nothing and exits 1. The
 questions themselves print even under `--quiet` - they are the interaction - while init's
 notes stay suppressed. Without the flag, no question is ever asked: the default path stays
 non-interactive.

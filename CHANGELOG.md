@@ -43,11 +43,14 @@ diagnostics flags, and a helpful `init`.
 - **`releasegen init --interactive`**: a five-question questionnaire (build preset, projects,
   runtime identifiers, archive formats, test projects) that writes a tailored manifest, with
   defaults read from repo detection. It needs a console on stdin; piped input fails with an
-  error pointing at plain `releasegen init`.
+  error pointing at plain `releasegen init`. A lone `tar.xz` answer is refused at the prompt
+  when the chosen rids include rids tar.xz cannot be produced for.
 - **Detection-seeded `init`**: the default non-interactive path scans the repository for .NET
   projects, seeds executable targets, test projects, and package kinds it can classify with
   certainty, warns once for each classification it cannot make, and falls back to the minimal
-  skeleton when detection fails.
+  skeleton when detection fails. Both init write paths validate the composed manifest through
+  the strict loader before writing, so a validation failure writes nothing; detection skips
+  junctions and symlinked directories, so a link cycle cannot diverge the scan.
 - **`tool-package` validation**: a target declaring the `tool-package` kind is checked
   against the project's evaluated `PackAsTool` property and fails the build naming the csproj
   fix when it is not `true`.

@@ -169,8 +169,9 @@ internal sealed class RepoDetector
 
     /// <summary>
     /// Enumerates every .NET project file under <paramref name="root"/>, skipping build output
-    /// (<c>bin</c>, <c>obj</c>) and dot-directories such as <c>.git</c>, with inaccessible
-    /// directories ignored instead of failing the scan.
+    /// (<c>bin</c>, <c>obj</c>), hidden and system entries, and dot-directories such as
+    /// <c>.git</c>. Junctions and symlinked directories are skipped so a link cycle cannot
+    /// diverge the walk, and inaccessible directories are ignored instead of failing the scan.
     /// </summary>
     /// <param name="root">The directory to scan.</param>
     /// <returns>The project files found, in filesystem order; the caller sorts them.</returns>
@@ -179,18 +180,24 @@ internal sealed class RepoDetector
         Stack<DirectoryInfo> pending = new();
         pending.Push(root);
 
-        EnumerationOptions fileOptions = new()
+        // One option set answers both enumerations: inaccessible entries are ignored rather
+        // than failing the scan, and reparse points (junctions and symlinked directories) are
+        // skipped so a link cycle cannot make the walk diverge. Hidden and system entries stay
+        // out for the same bounded-walk reason.
+        EnumerationOptions scanOptions = new()
         {
             IgnoreInaccessible = true,
             MatchCasing = MatchCasing.CaseInsensitive,
             RecurseSubdirectories = false,
+            AttributesToSkip =
+                FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint,
         };
 
         while (pending.Count > 0)
         {
             DirectoryInfo directory = pending.Pop();
 
-            foreach (FileInfo file in directory.EnumerateFiles("*", fileOptions))
+            foreach (FileInfo file in directory.EnumerateFiles("*", scanOptions))
             {
                 if (file.Name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) ||
                     file.Name.EndsWith(".fsproj", StringComparison.OrdinalIgnoreCase) ||
@@ -200,7 +207,7 @@ internal sealed class RepoDetector
                 }
             }
 
-            foreach (DirectoryInfo child in directory.EnumerateDirectories())
+            foreach (DirectoryInfo child in directory.EnumerateDirectories("*", scanOptions))
             {
                 if (IsSkippedDirectory(child))
                 {

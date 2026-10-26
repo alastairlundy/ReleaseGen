@@ -9,7 +9,8 @@ using ReleaseGenLib.Models;
 /// <summary>
 /// The init questionnaire behind <c>--interactive</c>: the five questions arrive in their
 /// fixed order, Enter accepts each detected default, typed answers are validated against the
-/// manifest's own sets, executable targets refuse to leave without a rid, input ending
+/// manifest's own sets, executable targets refuse to leave without a rid, a lone tar.xz
+/// answer is refused while any chosen rid cannot produce it, input ending
 /// mid-question writes nothing, and a non-tty stdin fails with an error that names the flag
 /// and points at plain init. The prompts ride an injected writer (the capture console never
 /// sees them) while errors and warnings ride the captured console, and every run that can
@@ -199,6 +200,70 @@ public class InitInteractiveTests
             // 'none' on its own means archive nothing, written as the explicit opt-out.
             await Assert.That(manifest.Targets[0].ArchiveFormats)
                 .IsEquivalentTo([ArchiveFormats.None]);
+        });
+    }
+
+    [Test]
+    public async Task A_lone_tar_xz_answer_is_refused_while_the_default_rids_cannot_produce_it()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        StubProjectInfoProvider provider = DetectionProvider(
+            workspace,
+            ("src/App/App.csproj", "Exe", string.Empty, "false", "net10.0"));
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            // Enter keeps the executable selected and the rid defaults, which carry win-x64
+            // and win-arm64. The lone tar.xz answer is refused and the question is asked
+            // again; the follow-up carries zip beside tar.xz so every rid keeps a usable
+            // format.
+            const string answers = "\n\n\ntar.xz\nzip, tar.xz\n\n";
+
+            StringWriter prompts = new();
+            InteractiveRun run = await RunAsync(
+                new InitConsole(new StringReader(answers), prompts, true),
+                provider,
+                "init", "--interactive");
+
+            await Assert.That(run.ExitCode).IsEqualTo(0);
+            await Assert.That(run.Console).Contains("cannot be the only archive format");
+            await Assert.That(run.Console).Contains("win-x64");
+            await Assert.That(CountOccurrences(prompts.ToString(), "init: archive formats"))
+                .IsEqualTo(2);
+
+            Manifest manifest = Parse(workspace);
+            await Assert.That(manifest.Targets[0].ArchiveFormats)
+                .IsEquivalentTo([ArchiveFormats.Zip, ArchiveFormats.TarXz]);
+        });
+    }
+
+    [Test]
+    public async Task A_lone_tar_xz_answer_is_accepted_when_every_chosen_rid_can_produce_it()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        StubProjectInfoProvider provider = DetectionProvider(
+            workspace,
+            ("src/App/App.csproj", "Exe", string.Empty, "false", "net10.0"));
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            const string answers = "\n\nlinux-x64, osx-arm64\ntar.xz\n\n";
+
+            StringWriter prompts = new();
+            InteractiveRun run = await RunAsync(
+                new InitConsole(new StringReader(answers), prompts, true),
+                provider,
+                "init", "--interactive");
+
+            await Assert.That(run.ExitCode).IsEqualTo(0);
+
+            // Unix-based rids only, so tar.xz is producible for every declared rid and the
+            // composed manifest clears the strict validation init runs before writing.
+            Manifest manifest = Parse(workspace);
+            await Assert.That(manifest.Build.RuntimeIdentifiers)
+                .IsEquivalentTo(["linux-x64", "osx-arm64"]);
+            await Assert.That(manifest.Targets[0].ArchiveFormats)
+                .IsEquivalentTo([ArchiveFormats.TarXz]);
         });
     }
 

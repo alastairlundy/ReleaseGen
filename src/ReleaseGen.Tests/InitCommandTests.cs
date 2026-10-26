@@ -328,6 +328,88 @@ public class InitCommandTests
         });
     }
 
+    [Test]
+    public async Task A_composed_manifest_that_fails_validation_writes_nothing_and_fails()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        WriteProject(workspace, Path.Combine("src", "App", "App.csproj"));
+
+        // Detection sees an executable and seeds the executables kind; the kind cross-check
+        // - the same evaluation path init verifies the composed manifest through - then sees
+        // a library. The drifting answers stand in for any drift between detection and the
+        // loader, and the pre-write verification is the guarantee that such drift writes
+        // nothing instead of a manifest the next run would refuse.
+        DriftingEvaluationProvider provider = new();
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            string console = await ConsoleCapture.CaptureAsync(async () =>
+            {
+                int exitCode = await CliHarness.InvokeAsync(new InitCommand(provider), "init");
+
+                await Assert.That(exitCode).IsEqualTo(1);
+            });
+
+            await Assert.That(console).Contains("failed validation");
+            await Assert.That(console).Contains("nothing was written");
+            await Assert.That(console).Contains("OutputType 'Library'");
+            await Assert.That(File.Exists(Path.Combine(
+                workspace.Root, ManifestLoader.ManifestFileName))).IsFalse();
+        });
+    }
+
+    [Test]
+    public async Task A_symlinked_directory_cycle_cannot_diverge_detection()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        WriteProject(workspace, Path.Combine("src", "App", "App.csproj"));
+
+        // A directory linking back into itself: without the reparse-point skip the walk
+        // follows the cycle forever and detection never returns.
+        string cycleRoot = workspace.CreateDirectory("cycle");
+        bool linkCreated = false;
+
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(cycleRoot, "loop"), cycleRoot);
+            linkCreated = true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Windows refuses symlink creation without developer mode or admin rights;
+            // machines that cannot create the link skip this test.
+        }
+
+        Skip.Unless(linkCreated, "this machine cannot create the directory link the cycle test needs.");
+
+        StubProjectInfoProvider provider = new(new Dictionary<string, ProjectEvaluation>
+        {
+            ["App.csproj"] = new("Exe", string.Empty, string.Empty),
+        });
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            // Bounded, so a regression that resurrects the divergence fails with a timeout
+            // instead of hanging the suite.
+            int exitCode = 0;
+
+            await ConsoleCapture.CaptureAsync(async () =>
+            {
+                exitCode = await Task.Run(() => CliHarness.InvokeAsync(
+                        new InitCommand(provider), "init"))
+                    .WaitAsync(TimeSpan.FromSeconds(30));
+            });
+
+            await Assert.That(exitCode).IsEqualTo(0);
+
+            // Detection terminated, and still seeded the real project beside the cycle.
+            Manifest manifest = _loader.Parse(
+                await File.ReadAllTextAsync(Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)));
+            await Assert.That(manifest.Targets.Select(target => target.Project))
+                .IsEquivalentTo(["src/App/App.csproj"]);
+        });
+    }
+
     /// <summary>
     /// Writes a placeholder SDK-style project file under the workspace; classification reads
     /// the injected evaluation, never the file's text.
@@ -348,4 +430,28 @@ public class InitCommandTests
 
     private static int CountOccurrences(string text, string value) =>
         text.Split(value, StringSplitOptions.None).Length - 1;
+
+    /// <summary>
+    /// Answers one evaluation per call, flipping from executable to library on the second
+    /// pass: detection classifies the project as an executable, and the loader's kind
+    /// cross-check - the pre-write verification's pass - then disagrees with it.
+    /// </summary>
+    private sealed class DriftingEvaluationProvider : IProjectInfoProvider
+    {
+        private int _evaluations;
+
+        public ProjectEvaluation EvaluateProject(FileInfo projectFile) =>
+            ++_evaluations == 1
+                ? new ProjectEvaluation("Exe", string.Empty, string.Empty)
+                : new ProjectEvaluation("Library", string.Empty, string.Empty);
+
+        public ProjectInfo DetectProjectInfo(FileInfo projectFile) =>
+            throw new NotSupportedException("This stub only answers expanded properties.");
+
+        public bool TryDetectProjectInfo(FileInfo projectFile, out ProjectInfo? projectInfo)
+        {
+            projectInfo = null;
+            return false;
+        }
+    }
 }

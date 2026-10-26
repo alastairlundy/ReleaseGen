@@ -10,7 +10,9 @@ using ReleaseGenLib.Models;
 /// typed answer validated against the same sets the manifest validates against. The prompt
 /// list and their order are a stability constraint, the rid answers default through the
 /// union rule's rid set [<see cref="Helpers.RidDefaults"/>], and an answer that would leave
-/// an executables target without a rid is refused at the prompt rather than at build time.
+/// an executables target without a rid - or that would leave an executables target with
+/// tar.xz as its only archive format against rids tar.xz cannot be produced for - is refused
+/// at the prompt rather than at build time.
 /// Input that ends mid-question aborts the run with an explanatory error, so nothing is ever
 /// written from a half-answered questionnaire.
 /// </summary>
@@ -101,6 +103,13 @@ internal static class InitInteractive
             return null;
         }
 
+        // One condition serves questions 3 and 4: the rid minimum bites for it, and the
+        // archive answer lands only on executables-kind targets, so it is also what decides
+        // whether the tar.xz-only refusal below can matter.
+        bool executablesChosen = chosenTargets
+            .Select(index => detection.Targets[index])
+            .Any(target => target.Kinds.Contains(ArtifactKinds.Executables));
+
         // Question 3 of 5: the runtime identifiers, defaulted through the union rule. The
         // answer must leave every chosen executables target with at least one rid.
         string[] ridDefaults =
@@ -109,9 +118,7 @@ internal static class InitInteractive
         string ridsPrompt =
             $"{PromptPrefix}runtime identifiers (comma-separated, or '{NoneAnswer}') [{ridsDefault}]:";
         string ridsHint = $"  selectable: {string.Join(", ", RidDefaults.Selectable)}";
-        bool needsRid = chosenTargets
-            .Select(index => detection.Targets[index])
-            .Any(target => target.Kinds.Contains(ArtifactKinds.Executables));
+        bool needsRid = executablesChosen;
 
         string[] rids;
 
@@ -152,7 +159,7 @@ internal static class InitInteractive
                 return null;
             }
 
-            if (TryParseArchives(archivesAnswer, out archives, out string archivesError))
+            if (TryParseArchives(archivesAnswer, executablesChosen, rids, out archives, out string archivesError))
             {
                 break;
             }
@@ -421,15 +428,26 @@ internal static class InitInteractive
 
     /// <summary>
     /// Parses the archive-format answer: every token must be a known format, <c>none</c>
-    /// stands alone (it means archive nothing), and at least one format is named - tar.xz
-    /// passes here as anywhere else, because it is valid in a manifest and only its per-rid
-    /// conflict with Windows-class rids is refused at run time.
+    /// stands alone (it means archive nothing), and at least one format is named. A lone
+    /// tar.xz answer is also refused when the chosen executables targets would carry it while
+    /// any chosen rid cannot produce tar.xz (Windows-class and portable <c>any-*</c> rids),
+    /// because that exact manifest shape fails the strict validation on the next run - the
+    /// prompt refuses it instead so the question can be answered again. A tar.xz answer beside
+    /// a usable format passes: its per-rid conflict there is a run-time warning, not a
+    /// validation failure.
     /// </summary>
     /// <param name="answer">The raw answer, already defaulted when Enter was pressed.</param>
+    /// <param name="executablesChosen">Whether the targets question chose an executables target, the only target kind the answer is stamped onto.</param>
+    /// <param name="chosenRids">The rids question 3 chose, which the answer's formats must serve.</param>
     /// <param name="formats">Receives the chosen formats, in answer order, in canonical spelling.</param>
     /// <param name="error">The refusal text when the answer does not parse.</param>
     /// <returns><see langword="true"/> when the answer parsed.</returns>
-    private static bool TryParseArchives(string answer, out string[] formats, out string error)
+    private static bool TryParseArchives(
+        string answer,
+        bool executablesChosen,
+        string[] chosenRids,
+        out string[] formats,
+        out string error)
     {
         formats = [];
         List<string> chosen = [];
@@ -465,6 +483,24 @@ internal static class InitInteractive
                 $"'{ArchiveFormats.None}' cannot be combined with other archive formats; " +
                 $"enter '{ArchiveFormats.None}' on its own to archive nothing.";
             return false;
+        }
+
+        if (executablesChosen &&
+            chosen.Count == 1 &&
+            chosen.Contains(ArchiveFormats.TarXz, StringComparer.Ordinal))
+        {
+            string[] unsupportedRids =
+                [.. chosenRids.Where(rid => !ArchiveFormats.SupportsTarXz(rid))];
+
+            if (unsupportedRids.Length > 0)
+            {
+                error =
+                    $"'{ArchiveFormats.TarXz}' cannot be the only archive format while the chosen rids include " +
+                    $"{string.Join(", ", unsupportedRids)}: tar.xz cannot be produced for those rids, so they would " +
+                    $"produce no archive. Enter another format as well, for example '{ArchiveFormats.Zip}', " +
+                    "or drop the rids tar.xz cannot be produced for.";
+                return false;
+            }
         }
 
         formats = [.. chosen];
