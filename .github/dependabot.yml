@@ -8,4 +8,14 @@ updates:
   - package-ecosystem: "nuget" # See documentation for possible values
     directory: "src" # Location of package manifests
     schedule:
-      interval: "weekly"
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    groups:
+      nuget-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
