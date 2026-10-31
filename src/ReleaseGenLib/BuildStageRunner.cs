@@ -45,6 +45,12 @@ public sealed class BuildStageRunner : IBuildStageRunner
     /// </summary>
     private const long MaxBufferedOutputBytes = 64 * 1024 * 1024;
 
+    /// <summary>
+    /// The archive extensions a previous run's stale archive may carry; the sweep deletes every
+    /// one beside each archive stem so switching archive formats leaves no orphaned file.
+    /// </summary>
+    private static readonly string[] StaleArchiveExtensions = [".zip", ".tar.gz", ".tar.xz"];
+
     private readonly IManifestLoader _manifestLoader;
     private readonly PlannedCommandRunner _plannedCommandRunner;
     private readonly IBuildArchiver _buildArchiver;
@@ -152,7 +158,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
                     // orphaned file beside the new one.
                     string archiveStem = Path.Combine(
                         request.OutputRoot.FullName, $"{projectName}-{rid}");
-                    foreach (string staleExtension in new[] { ".zip", ".tar.gz", ".tar.xz" })
+                    foreach (string staleExtension in StaleArchiveExtensions)
                     {
                         string stalePath = archiveStem + staleExtension;
                         if (File.Exists(stalePath))
