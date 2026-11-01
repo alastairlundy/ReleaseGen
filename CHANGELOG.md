@@ -4,7 +4,7 @@ Notable changes to ReleaseGen, newest first. Package versions come from the stat
 `<Version>` property in each packable `.csproj`, bumped by hand before each release (see
 AGENTS.md) - git tags do not drive them.
 
-## 0.2.0 - 2026-10-26
+## 0.2.0 - 2026-11-01
 
 One adoption-friction batch: two breaking renames, a new archive format, rehearsal and
 diagnostics flags, and a helpful `init`.
