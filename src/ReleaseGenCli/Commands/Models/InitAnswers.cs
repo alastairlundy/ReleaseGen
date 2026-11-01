@@ -1,6 +1,4 @@
-namespace ReleaseGen.Cli.Commands;
-
-using ReleaseGenLib.Models;
+namespace ReleaseGen.Cli.Commands.Models;
 
 /// <summary>
 /// The five answers init's <c>--interactive</c> questionnaire collected, shaped into the

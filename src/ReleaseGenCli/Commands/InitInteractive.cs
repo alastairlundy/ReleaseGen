@@ -1,3 +1,5 @@
+using ReleaseGen.Cli.Commands.Models;
+
 namespace ReleaseGen.Cli.Commands;
 
 using System.Globalization;

@@ -94,19 +94,19 @@ public sealed class RunCommand : Command
 
                     // The test stage is named by a declared test section.
                     new("test",
-                        Included: manifest.Test is not null,
+                        manifest.Test is not null,
                         SkipReason: "the manifest declares no test section",
-                        Arguments: []),
+                        []),
 
                     // Package and publish are named by targets declaring package kinds.
                     new("package",
-                        Included: DeclaresPackageKinds(manifest),
+                        DeclaresPackageKinds(manifest),
                         SkipReason: "no target declares a package kind",
-                        Arguments: []),
+                        []),
                     new("publish",
-                        Included: DeclaresPackageKinds(manifest),
+                        DeclaresPackageKinds(manifest),
                         SkipReason: "no target declares a package kind",
-                        Arguments: []),
+                        []),
                 ];
 
                 CliOutput.Note(
@@ -174,13 +174,13 @@ public sealed class RunCommand : Command
     /// </summary>
     /// <param name="manifest">The loaded manifest.</param>
     private static bool DeclaresPackageKinds(Manifest manifest) =>
-        manifest.Targets.Any(static target =>
+        manifest.Targets.Exists(static target =>
             target.Kinds.Any(static kind =>
                 kind is ArtifactKinds.LibPackage or ArtifactKinds.ToolPackage));
 
     /// <summary>
     /// Runs one stage in-process through its stage command, so the chain and a separate
-    /// invocation of the same stage share one behavior surface. The stage re-resolves the
+    /// invocation of the same stage share one behaviour surface. The stage re-resolves the
     /// manifest itself; <c>--quiet</c>, <c>--dry-run</c>, <c>--verbose</c> (and, for build,
     /// <c>--preset</c>) forward so the stage sees the chain's invocation flags.
     /// </summary>

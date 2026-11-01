@@ -72,7 +72,7 @@ public class InitInteractiveTests
                 .IsEquivalentTo([ArchiveFormats.Zip, ArchiveFormats.TarGz]);
 
             await Assert.That(manifest.Test).IsNotNull();
-            await Assert.That(manifest.Test!.Projects)
+            await Assert.That(manifest.Test.Projects)
                 .IsEquivalentTo(["src/App.Tests/App.Tests.csproj"]);
         });
     }
@@ -493,8 +493,8 @@ public class InitInteractiveTests
         Dictionary<string, ProjectEvaluation> evaluations = [];
 
         foreach ((
-            string relativePath, string outputType, string packAsTool, string isPackable, string tfm)
-            in projects)
+                     string relativePath, string outputType, string packAsTool, string isPackable, string tfm)
+                 in projects)
         {
             workspace.WriteFile(
                 relativePath,

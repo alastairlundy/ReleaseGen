@@ -36,7 +36,8 @@ public sealed class TestCommand : Command
     private readonly IManifestLoader _manifestLoader;
     private readonly PlannedCommandRunner _plannedCommandRunner;
 
-    public TestCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("test", "Runs dotnet test on the manifest's test projects.")
+    public TestCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) :
+        base("test", "Runs dotnet test on the manifest's test projects.")
     {
         _manifestLoader = manifestLoader;
         _plannedCommandRunner = new PlannedCommandRunner(processInvoker);
@@ -53,8 +54,8 @@ public sealed class TestCommand : Command
                 return 1;
             }
 
-            // System.CommandLine swallows exceptions thrown by async action handlers and prints
-            // them with a raw stack trace, so every failure surface - manifest error, unresolved
+            // System.CommandLine swallows exceptions thrown by async action handlers and prints them with a raw stack trace,
+            // so every failure surface - manifest error, unresolved
             // project, failed test run - is caught here and rendered as the one-line error.
             try
             {
@@ -116,6 +117,7 @@ public sealed class TestCommand : Command
     /// </summary>
     /// <param name="projects">The test section's named test projects; empty means the cwd fallback.</param>
     /// <param name="manifestDirectory">The manifest's directory, the working directory for named-project runs.</param>
+    /// <param name="runMode"></param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>The first nonzero exit code, or 0 when every invocation passed.</returns>
     private async Task<int> RunTestsAsync(

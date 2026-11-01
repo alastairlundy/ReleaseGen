@@ -7,6 +7,8 @@
     file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+using ReleaseGen.Cli.Commands.Models;
+
 namespace ReleaseGen.Cli.Commands;
 
 using System.Text;

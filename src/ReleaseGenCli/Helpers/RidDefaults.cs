@@ -77,7 +77,7 @@ public static class RidDefaults
         ArgumentNullException.ThrowIfNull(targetFrameworks);
 
         bool osxX64 = targetFrameworks.Any(PredatesMacOs26) ||
-            (installedSdkSupportsOsxX64 ?? InstalledSdkSupportsOsxX64)();
+                      (installedSdkSupportsOsxX64 ?? InstalledSdkSupportsOsxX64)();
 
         return osxX64 ? [.. Core, "osx-x64"] : [.. Core];
     }
@@ -99,8 +99,8 @@ public static class RidDefaults
     {
         ArgumentNullException.ThrowIfNull(targetFramework);
 
-        return PinnedPlatformVersion(targetFramework) is int requiredVersion &&
-            requiredVersion < MacOsIntelDropVersion;
+        return PinnedPlatformVersion(targetFramework) is { } requiredVersion &&
+               requiredVersion < MacOsIntelDropVersion;
     }
 
     /// <summary>
@@ -147,12 +147,11 @@ public static class RidDefaults
             }
 
             return int.TryParse(
-                       targetFramework.AsSpan(start, digits - start),
-                       NumberStyles.None,
-                       CultureInfo.InvariantCulture,
-                       out int version)
-                ? version
-                : (int?)null;
+                targetFramework.AsSpan(start, digits - start),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int version)
+                ? version : null;
         }
 
         return null;

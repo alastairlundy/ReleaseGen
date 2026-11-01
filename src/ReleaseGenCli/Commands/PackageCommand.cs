@@ -47,9 +47,8 @@ public sealed class PackageCommand : Command
                 return 1;
             }
 
-            // System.CommandLine swallows exceptions thrown by async action handlers and prints
-            // them with a raw stack trace, so every failure surface - manifest error, unknown
-            // kind, failed pack - is caught here and rendered as the one-line error.
+            // System.CommandLine swallows exceptions thrown by async action handlers and prints them with a raw stack trace,
+            // so every failure surface - manifest error, unknown kind, failed pack - is caught here and rendered as the one-line error.
             try
             {
                 // One decision point for the runner: the flag.
