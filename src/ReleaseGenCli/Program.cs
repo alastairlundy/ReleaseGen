@@ -9,6 +9,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using ReleaseGen.Cli.Commands;
+using ReleaseGenLib.Extensions;
 
 // One composition root for the CLI and the test suite: ReleaseGen's stage services plus the
 // CliInvoke pipeline, all registered TryAdd-style so hosts may override any piece.

@@ -1,3 +1,5 @@
+using ReleaseGenLib.Extensions;
+
 namespace ReleaseGen.Tests;
 
 using CliInvoke.Core;
