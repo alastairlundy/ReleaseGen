@@ -6,7 +6,7 @@ using CliInvoke.Core;
 /// by the <see cref="StageRunMode"/> argument, so one plan serves every mode. Printing never
 /// runs the record's process or local side effect, never evaluates its runtime guard, and never
 /// surfaces its diagnosis text - nothing has been verified. Executing prints the same command
-/// line and artifact paths first (the evidence surface), runs the record's process or local side effect, and may
+/// line and artefact paths first (the evidence surface), runs the record's process or local side effect, and may
 /// surface the diagnosis through a sink.
 /// </summary>
 public sealed class PlannedCommandRunner
