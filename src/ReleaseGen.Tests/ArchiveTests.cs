@@ -341,7 +341,7 @@ public class ArchiveTests
             () => _archiver.CreateArchiveAsync(source, archive, ArchiveFormats.TarXz, CancellationToken.None));
 
         await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
-        await Assert.That(Path.GetFileName(_invoker.Invocations[0].TargetFilePath ?? string.Empty))
+        await Assert.That(Path.GetFileName(_invoker.Invocations[0].TargetFilePath))
             .IsEqualTo("xz");
         await Assert.That(_invoker.Invocations[0].ArgumentList[0]).EndsWith(".tar");
         await Assert.That(exception.Message).Contains("reported success but wrote no output");

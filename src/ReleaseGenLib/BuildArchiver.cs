@@ -32,8 +32,6 @@ public class BuildArchiver : IBuildArchiver
     /// </summary>
     private static readonly ProcessExitConfiguration XzExitConfiguration = new(
         ProcessTimeoutPolicy.None,
-        ProcessExitBehaviour.GracefulExit,
-        ProcessExceptionBehaviour.AllowExceptionsIfUnexpected,
         cancellationThrowsException: true);
 
     private readonly IProcessInvoker _processInvoker;

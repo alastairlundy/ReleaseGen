@@ -197,7 +197,7 @@ public class InitCommandTests
             await Assert.That(library.ArchiveFormats).Count().IsEqualTo(0);
 
             await Assert.That(manifest.Test).IsNotNull();
-            await Assert.That(manifest.Test!.Projects)
+            await Assert.That(manifest.Test.Projects)
                 .IsEquivalentTo(["src/App.Tests/App.Tests.csproj"]);
 
             // Every classification here was certain, so detection warned about nothing.
@@ -420,7 +420,7 @@ public class InitCommandTests
             """);
 
     private static int CountOccurrences(string text, string value) =>
-        text.Split(value, StringSplitOptions.None).Length - 1;
+        text.Split(value).Length - 1;
 
     /// <summary>
     /// Answers one evaluation per call, flipping from executable to library on the second

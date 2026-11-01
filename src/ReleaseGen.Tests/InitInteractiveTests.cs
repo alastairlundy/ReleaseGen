@@ -526,7 +526,7 @@ public class InitInteractiveTests
             Path.Combine(workspace.Root, ManifestLoader.ManifestFileName)));
 
     private static int CountOccurrences(string text, string value) =>
-        text.Split(value, StringSplitOptions.None).Length - 1;
+        text.Split(value).Length - 1;
 
     /// <summary>
     /// One interactive invocation: its exit code and the captured CLI console (warnings and
