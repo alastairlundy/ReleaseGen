@@ -4,6 +4,15 @@ Notable changes to ReleaseGen, newest first. Package versions come from the stat
 `<Version>` property in each packable `.csproj`, bumped by hand before each release (see
 AGENTS.md) - git tags do not drive them.
 
+## 0.3.0 - Unreleased
+
+Routine dependency updates so far. No command, manifest, or behavior changes.
+
+### Changed
+
+- Dependencies: System.CommandLine to 2.0.14, Microsoft.Extensions.DependencyInjection
+  (and Abstractions) to 10.0.14, Meziantou.Analyzer to 3.0.318.
+
 ## 0.2.0 - 2026-11-01
 
 One adoption-friction batch: two breaking renames, a new archive format, rehearsal and
