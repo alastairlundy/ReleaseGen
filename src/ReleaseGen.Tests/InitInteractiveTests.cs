@@ -1,4 +1,5 @@
 using ReleaseGen.Cli.Commands;
+using ReleaseGen.Cli.Commands.Models;
 
 namespace ReleaseGen.Tests;
 

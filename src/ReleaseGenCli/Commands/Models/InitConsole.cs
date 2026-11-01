@@ -1,4 +1,4 @@
-namespace ReleaseGen.Cli.Commands;
+namespace ReleaseGen.Cli.Commands.Models;
 
 /// <summary>
 /// The console the init questionnaire works against: the reader answers arrive on, the writer
