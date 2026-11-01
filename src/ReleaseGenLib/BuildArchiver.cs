@@ -239,8 +239,12 @@ public class BuildArchiver : IBuildArchiver
     /// <param name="cancellationToken"></param>
     private async Task CreateTarGz(DirectoryInfo sourceDirectory, FileInfo archiveFile, CancellationToken cancellationToken)
     {
+        // useAsync: true - the archive write path only awaits (TarWriter.WriteEntryAsync), so the
+        // stream must be opened for true async I/O rather than the sync-on-threadpool emulation.
 #pragma warning disable MA0004
-        await using FileStream fileStream = new(archiveFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None);
+        await using FileStream fileStream = new(
+            archiveFile.FullName, FileMode.Create, FileAccess.Write, FileShare.None,
+            bufferSize: 4096, useAsync: true);
         await using GZipStream gzipStream = new(fileStream, CompressionLevel.Optimal, false);
         await using TarWriter writer = new(gzipStream, false);
 #pragma warning restore MA0004
@@ -258,7 +262,9 @@ public class BuildArchiver : IBuildArchiver
     private static async Task WriteTar(string stagedTar, DirectoryInfo sourceDirectory, CancellationToken cancellationToken)
     {
 #pragma warning disable MA0004
-        await using FileStream fileStream = new(stagedTar, FileMode.Create, FileAccess.Write, FileShare.None);
+        await using FileStream fileStream = new(
+            stagedTar, FileMode.Create, FileAccess.Write, FileShare.None,
+            bufferSize: 4096, useAsync: true);
         await using TarWriter writer = new(fileStream, false);
 #pragma warning restore MA0004
 
