@@ -148,22 +148,19 @@ public sealed class ManifestLoader : IManifestLoader
         {
             if (string.IsNullOrWhiteSpace(target.Project))
             {
-                throw new ManifestException(
-                    $"Manifest validation failed: a target entry in {ManifestFileName} has an empty 'project' key.");
+                throw new ManifestException($"Manifest validation failed: a target entry in {ManifestFileName} has an empty 'project' key.");
             }
 
             if (target.Kinds.Length == 0)
             {
-                throw new ManifestException(
-                    $"Manifest validation failed: the target '{target.Project}' declares no artifact kinds.");
+                throw new ManifestException($"Manifest validation failed: the target '{target.Project}' declares no artifact kinds.");
             }
 
             foreach (string kind in target.Kinds)
             {
                 if (!ArtifactKinds.IsKnownKind(kind))
                 {
-                    throw new ManifestException(
-                        $"Manifest validation failed: the target '{target.Project}' declares unknown artifact kind '{kind}'. Known kinds: {string.Join(", ", ArtifactKinds.All)}.");
+                    throw new ManifestException($"Manifest validation failed: the target '{target.Project}' declares unknown artifact kind '{kind}'. Known kinds: {string.Join(", ", ArtifactKinds.All)}.");
                 }
             }
 
@@ -173,8 +170,7 @@ public sealed class ManifestLoader : IManifestLoader
             {
                 if (!ArchiveFormats.IsKnown(archiveFormat))
                 {
-                    throw new ManifestException(
-                        $"Manifest validation failed: the target '{target.Project}' declares unknown archive format '{archiveFormat}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
+                    throw new ManifestException($"Manifest validation failed: the target '{target.Project}' declares unknown archive format '{archiveFormat}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
                 }
 
                 // A repeated entry is a manifest mistake, not information: one entry archives
@@ -244,7 +240,7 @@ public sealed class ManifestLoader : IManifestLoader
     /// One MSBuild evaluation pass answers the declared kinds' project cross-checks: a
     /// declared executables kind must agree with the evaluated OutputType, and a declared
     /// tool-package kind must agree with the expanded PackAsTool property. Both read expanded
-    /// properties - a Directory.Build.props-driven setup stays honored - and neither emits a
+    /// properties - a Directory.Build.props-driven setup stays honoured - and neither emits a
     /// build switch, so the project file stays authoritative.
     /// </summary>
     /// <param name="target">The target declaring the kinds.</param>
@@ -253,10 +249,8 @@ public sealed class ManifestLoader : IManifestLoader
     /// <param name="declaresToolPackage">Whether the target declares the tool-package kind.</param>
     /// <exception cref="ManifestException">The evaluation failed, or a declared kind disagrees with it.</exception>
     private void ValidateProjectEvaluation(
-        ManifestTarget target,
-        string baseDirectory,
-        bool declaresExecutables,
-        bool declaresToolPackage)
+        ManifestTarget target, string baseDirectory,
+        bool declaresExecutables, bool declaresToolPackage)
     {
         FileInfo projectFile = ResolveProjectFile(target.Project, baseDirectory);
 
