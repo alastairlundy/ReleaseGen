@@ -7,10 +7,6 @@ namespace ReleaseGenLib;
 
 public class ProjectInfoProvider : IProjectInfoProvider
 {
-    public ProjectInfoProvider()
-    {
-    }
-
     private static volatile bool _sdkResolverRegistered;
 
     /// <summary>
@@ -42,18 +38,12 @@ public class ProjectInfoProvider : IProjectInfoProvider
     ];
 
     /// <summary>
-    /// Registers the MSBuild SDK resolver once, before any Microsoft.Build assembly loads, so
-    /// that SDK-style projects can be evaluated in-process (the evaluation path).
-    /// This method must not reference Microsoft.Build types: the calling methods JIT-bind those
+    /// Registers the MSBuild SDK resolver once, before any Microsoft.Build assembly loads, so that SDK-style projects can be evaluated
+    /// in-process (the evaluation path). This method must not reference Microsoft.Build types: the calling methods JIT-bind those
     /// assemblies only after registration completes.
     /// </summary>
     private static void EnsureSdkResolverRegistered()
     {
-        if (_sdkResolverRegistered)
-        {
-            return;
-        }
-
         lock (SdkResolverGate)
         {
             if (!_sdkResolverRegistered)
@@ -65,9 +55,8 @@ public class ProjectInfoProvider : IProjectInfoProvider
     }
 
     /// <summary>
-    /// Runs an MSBuild evaluation with the MSBuild-owned environment variables scoped to the
-    /// call: the previous values are restored when the evaluation completes, so processes
-    /// spawned afterwards (the build stage's per-rid publishes) resolve their own SDK
+    /// Runs an MSBuild evaluation with the MSBuild-owned environment variables scoped to the call: the previous values are restored
+    /// when the evaluation completes, so processes spawned afterwards (the build stage's per-rid publishes) resolve their own SDK
     /// rather than inheriting the toolset's paths (an evaluation-path side effect).
     /// </summary>
     /// <typeparam name="T">The evaluation result type.</typeparam>
@@ -95,6 +84,11 @@ public class ProjectInfoProvider : IProjectInfoProvider
         }
     }
 
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="projectFile"></param>
+    /// <returns></returns>
     public ProjectInfo DetectProjectInfo(FileInfo projectFile) =>
         RunWithScopedMsBuildEnvironment(() =>
         {

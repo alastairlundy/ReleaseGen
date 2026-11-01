@@ -84,8 +84,7 @@ public sealed class RunCommand : Command
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
 
                 List<string> presetArguments = string.IsNullOrWhiteSpace(flagPreset)
-                    ? []
-                    : ["--preset", flagPreset];
+                    ? [] : ["--preset", flagPreset];
 
                 List<StagePlan> stages =
                 [

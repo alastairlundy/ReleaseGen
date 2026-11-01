@@ -210,7 +210,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
                         };
 
                         await _plannedCommandRunner.RunAsync(
-                            archiveCommand, request.RunMode, request.WriteLine, cancellationToken)
+                                archiveCommand, request.RunMode, request.WriteLine, cancellationToken)
                             .ConfigureAwait(false);
                     }
                 }
@@ -224,15 +224,15 @@ public sealed class BuildStageRunner : IBuildStageRunner
     }
 
     /// <summary>
-    /// Replays one executed publish's captured output through the request's sinks and fails the
+    /// Replays one executed publish command's captured output through the request's sinks and fails the
     /// stage on a nonzero exit, naming the target, the rid, and the exit code.
     /// </summary>
-    /// <param name="result">The executed publish's process result.</param>
+    /// <param name="result">The executed publish command's process result.</param>
     /// <param name="request">The build-stage request carrying the line sinks.</param>
     /// <param name="target">The target being published, for the wording.</param>
     /// <param name="rid">The runtime identifier being published, for the wording.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
-    /// <exception cref="BuildStageException">The publish invocation exited nonzero.</exception>
+    /// <exception cref="BuildStageException">The publish command invocation exited nonzero.</exception>
     private static async Task ReplayPublishResultAsync(
         BufferedProcessResult result,
         BuildStageRequest request,

@@ -1,11 +1,11 @@
 namespace ReleaseGen.Tests;
 
-using ReleaseGen.Cli.Helpers;
+using Cli.Helpers;
 
 /// <summary>
 /// The rid default set behind the interactive prompt: the five core rids, the union rule's
 /// two clauses for <c>osx-x64</c> (a TFM pinning a required platform version older than
-/// macOS 26 - <c>-macos.N</c> or <c>-maccatalyst.N</c> - or an installed SDK whose RID catalog
+/// macOS 26 - <c>-macOS.N</c> or <c>-maccatalyst.N</c> - or an installed SDK whose RID catalogue
 /// still carries the rid; a TFM that pins nothing defers to the latter), the TFM-version
 /// branch in both directions, and the invariant that the portable <c>any-*</c> rids are
 /// selectable but never default. The SDK probe is injected per case, so no assertion depends
@@ -145,7 +145,7 @@ public class RidDefaultsTests
     [Test]
     public async Task The_installed_sdk_probe_is_stable_and_never_throws()
     {
-        // The real probe reads whatever catalogs this machine has; the contract it must keep
+        // The real probe reads whatever catalogues this machine has; the contract it must keep
         // is that asking twice gives the same answer, so the default set cannot flap within
         // one run.
         bool first = RidDefaults.InstalledSdkSupportsOsxX64();

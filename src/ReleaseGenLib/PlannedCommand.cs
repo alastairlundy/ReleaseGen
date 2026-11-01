@@ -39,7 +39,7 @@ public sealed class PlannedCommand
     public Func<CancellationToken, Task>? ExecuteAsync { get; init; }
 
     /// <summary>
-    /// The artifact paths this work item writes or pushes, named in the plan. The runner
+    /// The artefact paths this work item writes or pushes, named in the plan. The runner
     /// prints one <c>  artifact: &lt;path&gt;</c> line per path under the command line, in both
     /// printed modes.
     /// </summary>

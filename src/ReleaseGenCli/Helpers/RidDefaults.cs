@@ -7,8 +7,8 @@ using System.Globalization;
 /// machine-dependent by design: the five always-on rids (<c>win-x64</c>, <c>win-arm64</c>,
 /// <c>linux-x64</c>, <c>linux-arm64</c>, <c>osx-arm64</c>) join <c>osx-x64</c> when either
 /// clause of the union rule holds - a declared TFM that pins a required platform version
-/// older than macOS 26 (a <c>-macos.N</c> or a <c>-maccatalyst.N</c> pin, read the same way),
-/// or an installed SDK whose RID catalog still lists <c>osx-x64</c>. A TFM that pins nothing
+/// older than macOS 26 (a <c>-macOS.N</c> or a <c>-maccatalyst.N</c> pin, read the same way),
+/// or an installed SDK whose RID catalogue still lists <c>osx-x64</c>. A TFM that pins nothing
 /// leaves the question to the SDK clause. The portable <c>any-x64</c> and <c>any-arm64</c>
 /// rids stay selectable at the prompt but are never part of the default set.
 /// </summary>
@@ -44,7 +44,7 @@ public static class RidDefaults
     /// <summary>
     /// The rids a user may select at the prompt but that never appear in a default set:
     /// portable rids follow the zip-only Windows archive rule, so defaulting them in would
-    /// quietly change archive behavior on Unix hosts.
+    /// quietly change archive behaviour on Unix hosts.
     /// </summary>
     public static readonly string[] NeverDefault = ["any-x64", "any-arm64"];
 
@@ -84,7 +84,7 @@ public static class RidDefaults
 
     /// <summary>
     /// Whether a TFM's required platform version is pinned and predates macOS 26 - the TFM
-    /// clause of the union rule. A <c>-macos.N</c> pin and a <c>-maccatalyst.N</c> pin are
+    /// clause of the union rule. A <c>-macOS.N</c> pin and a <c>-maccatalyst.N</c> pin are
     /// read the same way (see <see cref="MacOsIntelDropVersion"/>). Only an explicit pin
     /// settles it: a TFM that names no such platform (<c>net10.0</c>, <c>net10.0-windows</c>)
     /// or names one without a version (<c>net10.0-macos</c>, <c>net10.0-maccatalyst</c>) states
@@ -158,15 +158,15 @@ public static class RidDefaults
     }
 
     /// <summary>
-    /// Whether any installed SDK's RID catalog still lists <c>osx-x64</c> - the installed-SDK
+    /// Whether any installed SDK's RID catalogue still lists <c>osx-x64</c> - the installed-SDK
     /// clause of the union rule. The probe reads <c>RuntimeIdentifierGraph.json</c> from each
     /// <c>sdk/&lt;version&gt;</c> folder of the dotnet root (declared via
     /// <c>DOTNET_ROOT</c>, otherwise the root the running runtime lives under), so the answer
-    /// can change when the SDK is upgraded or an Intel macOS rid is retired from the catalog.
-    /// A missing or unreadable catalog is not support: the clause then simply does not hold
+    /// can change when the SDK is upgraded or an Intel macOS rid is retired from the catalogue.
+    /// A missing or unreadable catalogue is not support: the clause then simply does not hold
     /// and the TFM clause decides alone.
     /// </summary>
-    /// <returns><see langword="true"/> when at least one installed SDK ships an osx-x64 catalog entry.</returns>
+    /// <returns><see langword="true"/> when at least one installed SDK ships an osx-x64 catalogue entry.</returns>
     public static bool InstalledSdkSupportsOsxX64()
     {
         foreach (string graphFile in RidGraphFiles())
@@ -180,7 +180,7 @@ public static class RidDefaults
             }
             catch (IOException)
             {
-                // One unreadable catalog says nothing about the others; keep looking.
+                // One unreadable catalogue says nothing about the others; keep looking.
             }
             catch (UnauthorizedAccessException)
             {
@@ -191,7 +191,7 @@ public static class RidDefaults
     }
 
     /// <summary>
-    /// The RID catalog files of every installed SDK under the dotnet root: one
+    /// The RID catalogue files of every installed SDK under the dotnet root: one
     /// <c>RuntimeIdentifierGraph.json</c> per <c>sdk/&lt;version&gt;</c> folder. The root
     /// comes from <c>DOTNET_ROOT</c> when the machine declares one, and otherwise from the
     /// layout the running runtime itself lives in (<c>&lt;root&gt;/shared/…</c>), so a plain
@@ -199,7 +199,7 @@ public static class RidDefaults
     /// no sdk folder, no access - answers with nothing, which reads as "the SDK clause does
     /// not hold" rather than as an error.
     /// </summary>
-    /// <returns>The catalog file paths that exist; empty when none can be found.</returns>
+    /// <returns>The catalogue file paths that exist; empty when none can be found.</returns>
     private static string[] RidGraphFiles()
     {
         string dotnetRoot = DotNetRoot();

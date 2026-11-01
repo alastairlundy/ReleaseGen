@@ -129,7 +129,7 @@ public sealed class ManifestLoader : IManifestLoader
     }
 
     /// <summary>
-    /// Validates a parsed manifest: every target names a project and only known artifact kinds,
+    /// Validates a parsed manifest: every target names a project and only known artefact kinds,
     /// every declared archive format is known and appears at most once, a declared tar.xz
     /// format still leaves a usable format for every declared Windows-class or portable rid, a
     /// declared executables kind agrees with the evaluated OutputType, and a declared
@@ -147,14 +147,10 @@ public sealed class ManifestLoader : IManifestLoader
         foreach (ManifestTarget target in manifest.Targets)
         {
             if (string.IsNullOrWhiteSpace(target.Project))
-            {
                 throw new ManifestException($"Manifest validation failed: a target entry in {ManifestFileName} has an empty 'project' key.");
-            }
 
             if (target.Kinds.Length == 0)
-            {
                 throw new ManifestException($"Manifest validation failed: the target '{target.Project}' declares no artifact kinds.");
-            }
 
             foreach (string kind in target.Kinds)
             {
@@ -204,7 +200,7 @@ public sealed class ManifestLoader : IManifestLoader
 
     /// <summary>
     /// A target declaring tar.xz as its only archive format while the manifest declares
-    /// Windows-class or portable <c>any-*</c> runtime identifiers fails validation: those rids
+    /// Windows-class or portable <c>any-*</c> runtime identifiers fails validation: the rids
     /// never produce tar.xz, so the target would ship no archive there. A target declaring
     /// another format alongside tar.xz validates instead: the build stage skips tar.xz, with
     /// one warning per unsupported rid.

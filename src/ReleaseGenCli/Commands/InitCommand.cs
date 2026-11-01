@@ -32,11 +32,6 @@ using ReleaseGenLib.Exceptions;
 /// </summary>
 public sealed class InitCommand : Command
 {
-    private readonly RepoDetector _repoDetector;
-    private readonly ManifestLoader _manifestLoader;
-    private readonly InitConsole _interactiveConsole;
-    private readonly Func<bool> _sdkSupportsOsxX64;
-
     /// <summary>
     /// The init stage: writes a valid <c>releasegen.json</c> manifest to the current directory,
     /// seeded from repo detection where detection succeeds, or shaped by the
@@ -52,26 +47,25 @@ public sealed class InitCommand : Command
     /// console when omitted. Tests inject a scripted reader instead of touching stdin.
     /// </param>
     /// <param name="sdkSupportsOsxX64">
-    /// The installed-SDK clause of the rid default union rule; the real RID-catalog probe when
+    /// The installed-SDK clause of the rid default union rule; the real RID-catalogue probe when
     /// omitted. Tests inject an answer to pin the machine out of the default rid set.
     /// </param>
     public InitCommand(
-        IProjectInfoProvider? projectInfoProvider = null,
-        InitConsole? interactiveConsole = null,
+        IProjectInfoProvider? projectInfoProvider = null, InitConsole? interactiveConsole = null,
         Func<bool>? sdkSupportsOsxX64 = null)
         : base("init", "Writes a minimal valid releasegen.json manifest.")
     {
         IProjectInfoProvider evaluationProvider = projectInfoProvider ?? new ProjectInfoProvider();
 
-        _repoDetector = new RepoDetector(evaluationProvider);
+        RepoDetector repoDetector = new RepoDetector(evaluationProvider);
 
         // The same evaluation path powers the pre-write verification: the composed manifest is
         // checked against the very loader (and provider) the stages run.
-        _manifestLoader = new ManifestLoader(evaluationProvider);
+        ManifestLoader manifestLoader = new ManifestLoader(evaluationProvider);
 
-        _interactiveConsole = interactiveConsole ??
-            new InitConsole(Console.In, Console.Out, !Console.IsInputRedirected);
-        _sdkSupportsOsxX64 = sdkSupportsOsxX64 ?? RidDefaults.InstalledSdkSupportsOsxX64;
+        InitConsole useInteractiveConsole = interactiveConsole ??
+                                            new InitConsole(Console.In, Console.Out, !Console.IsInputRedirected);
+        sdkSupportsOsxX64 ??= RidDefaults.InstalledSdkSupportsOsxX64;
 
         Option<string?> presetOption = new("--preset")
         {
@@ -114,7 +108,7 @@ public sealed class InitCommand : Command
 
                 // Piped or redirected stdin cannot answer prompts, so the questionnaire refuses
                 // before anything is scanned or written and names the flag it came from.
-                if (interactive && !_interactiveConsole.InputIsConsole)
+                if (interactive && !useInteractiveConsole.InputIsConsole)
                 {
                     CliOutput.ErrorWithoutHint(
                         "--interactive needs an interactive console: stdin is not a terminal, so " +
@@ -133,7 +127,7 @@ public sealed class InitCommand : Command
 
                 // Detection runs read-only, after the refusal so a refused init still scans nothing.
                 DirectoryInfo root = new(Environment.CurrentDirectory);
-                RepoDetection detection = _repoDetector.Detect(root);
+                RepoDetection detection = repoDetector.Detect(root);
 
                 // One warning per uncertain classification, printed before the write (and before
                 // the prompts) so the defaults that follow can say what detection left out.
@@ -151,8 +145,7 @@ public sealed class InitCommand : Command
                 {
                     // The questionnaire owns every key it asks about; input ending mid-question
                     // returns null with the error already printed, so nothing is written.
-                    InitAnswers? answers = InitInteractive.Run(
-                        detection, seededPreset, _interactiveConsole, _sdkSupportsOsxX64);
+                    InitAnswers? answers = InitInteractive.Run(detection, seededPreset, useInteractiveConsole, sdkSupportsOsxX64);
 
                     if (answers is null)
                     {
@@ -174,14 +167,14 @@ public sealed class InitCommand : Command
 
                 string manifestContents = ComposeSkeleton(preset, targets, runtimeIdentifiers, testProjects);
 
-                // Belt and braces before the write: the composed content must clear the same
+                // Belt and braces before the write action: the composed content must clear the same
                 // strict parse and validation the stages run, so init can never write a manifest
                 // the next run would refuse - the questionnaire's guards answer to the same sets,
                 // but neither they nor detection are trusted on their own.
                 try
                 {
-                    Manifest composed = _manifestLoader.Parse(manifestContents);
-                    _manifestLoader.Validate(composed, manifestFile);
+                    Manifest composed = manifestLoader.Parse(manifestContents);
+                    manifestLoader.Validate(composed, manifestFile);
                 }
                 catch (ManifestException ex)
                 {
@@ -215,8 +208,8 @@ public sealed class InitCommand : Command
     /// Resolves <c>--preset</c> to the preset the skeleton seeds: a blank flag or the
     /// <c>none</c> preset seeds no key, and an unknown name is rejected here with init's own
     /// next step (the command registers no <c>--verbose</c> hint), reported through the return
-    /// value so the caller can exit 1 without writing - or, inside the questionnaire, ask the
-    /// question again. Shared by both paths so a typed answer and a flag answer are judged
+    /// value so the caller can exit 1 without writing - or, inside the questionnaire, ask
+    ///  again. Shared by both paths so a typed answer and a flag answer are judged
     /// against exactly one known set.
     /// </summary>
     /// <param name="preset">The raw flag value.</param>
@@ -314,58 +307,57 @@ public sealed class InitCommand : Command
         IReadOnlyList<string> runtimeIdentifiers,
         IReadOnlyList<string> testProjects)
     {
-        StringBuilder json = new();
-        json.AppendLine("{");
-        json.AppendLine("  \"targets\": [");
+        StringBuilder jsonBuilder = new();
+        jsonBuilder.AppendLine("{");
+        jsonBuilder.AppendLine("  \"targets\": [");
 
         for (int index = 0; index < targets.Count; index++)
         {
             ManifestTarget target = targets[index];
 
-            json.Append("    { ");
-            json.Append("\"project\": ").Append(Json(target.Project)).Append(", ");
-            json.Append("\"kinds\": [").Append(string.Join(", ", target.Kinds.Select(Json))).Append(']');
+            jsonBuilder.Append("    { ");
+            jsonBuilder.Append("\"project\": ").Append(Json(target.Project)).Append(", ");
+            jsonBuilder.Append("\"kinds\": [").AppendJoin(", ", target.Kinds.Select(Json)).Append(']');
 
             // Only executables-kind targets carry the key: package kinds are never archived,
             // and the explicit list makes the rid-class default visible in the file.
             if (target.ArchiveFormats.Length > 0)
             {
-                json.Append(", \"archiveFormats\": [")
-                    .Append(string.Join(", ", target.ArchiveFormats.Select(Json))).Append(']');
+                jsonBuilder.Append(", \"archiveFormats\": [")
+.AppendJoin(", ", target.ArchiveFormats.Select(Json)).Append(']');
             }
 
-            json.Append(index == targets.Count - 1 ? " }" : " },").AppendLine();
+            jsonBuilder.Append(index == targets.Count - 1 ? " }" : " },").AppendLine();
         }
 
-        json.AppendLine("  ],");
-        json.AppendLine("  \"build\": {");
+        jsonBuilder.AppendLine("  ],");
+        jsonBuilder.AppendLine("  \"build\": {");
 
         if (preset is not null)
         {
-            json.Append("    \"preset\": ").Append(Json(preset)).AppendLine(",");
+            jsonBuilder.Append("    \"preset\": ").Append(Json(preset)).AppendLine(",");
         }
 
-        json.Append("    \"runtimeIdentifiers\": [")
-            .Append(string.Join(", ", runtimeIdentifiers.Select(Json)))
-            .AppendLine("]");
-        json.AppendLine("  },");
+        jsonBuilder.Append("    \"runtimeIdentifiers\": [")
+            .AppendJoin(", ", runtimeIdentifiers.Select(Json)).AppendLine("]");
+        jsonBuilder.AppendLine("  },");
 
         if (testProjects.Count > 0)
         {
-            json.AppendLine("  \"test\": {");
-            json.Append("    \"projects\": [")
-                .Append(string.Join(", ", testProjects.Select(Json))).AppendLine("]");
-            json.AppendLine("  },");
+            jsonBuilder.AppendLine("  \"test\": {");
+            jsonBuilder.Append("    \"projects\": [")
+                .AppendJoin(", ", testProjects.Select(Json)).AppendLine("]");
+            jsonBuilder.AppendLine("  },");
         }
 
-        json.AppendLine("  \"publish\": {");
-        json.AppendLine("    \"sources\": []");
-        json.AppendLine("  }");
-        json.AppendLine("}");
+        jsonBuilder.AppendLine("  \"publish\": {");
+        jsonBuilder.AppendLine("    \"sources\": []");
+        jsonBuilder.AppendLine("  }");
+        jsonBuilder.AppendLine("}");
 
         // Line endings already follow this OS (StringBuilder), and the closing brace line is
         // terminated like every other line.
-        return json.ToString();
+        return jsonBuilder.ToString();
     }
 
     /// <summary>

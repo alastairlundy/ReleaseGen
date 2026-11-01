@@ -51,7 +51,7 @@ internal static class InitInteractive
     /// </param>
     /// <param name="console">The channel answers arrive on and prompts are written to.</param>
     /// <param name="installedSdkSupportsOsxX64">
-    /// The installed-SDK clause of the rid default union rule; the real RID-catalog probe when
+    /// The installed-SDK clause of the rid default union rule; the real RID-catalogue probe when
     /// null, so the default set reflects the machine's SDK.
     /// </param>
     /// <returns>
@@ -59,10 +59,8 @@ internal static class InitInteractive
     /// already printed, and the caller writes nothing).
     /// </returns>
     public static InitAnswers? Run(
-        RepoDetection detection,
-        string? seededPreset,
-        InitConsole console,
-        Func<bool>? installedSdkSupportsOsxX64 = null)
+        RepoDetection detection, string? seededPreset,
+        InitConsole console, Func<bool>? installedSdkSupportsOsxX64 = null)
     {
         ArgumentNullException.ThrowIfNull(detection);
         ArgumentNullException.ThrowIfNull(console);
@@ -70,8 +68,7 @@ internal static class InitInteractive
         // Question 1 of 5: the build preset. --preset seeds the default, and only a known
         // name may pass - the same validation the flag path applies, asked again on a miss.
         string presetDefault = seededPreset ?? BuildPreset.None;
-        string presetPrompt =
-            $"{PromptPrefix}build preset ({string.Join(", ", BuildPreset.All)}) [{presetDefault}]:";
+        string presetPrompt = $"{PromptPrefix}build preset ({string.Join(", ", BuildPreset.All)}) [{presetDefault}]:";
 
         string? preset;
         bool rejected;
@@ -80,10 +77,8 @@ internal static class InitInteractive
         {
             string? presetAnswer = Ask(console, presetPrompt, [], presetDefault);
 
-            if (presetAnswer is null)
-            {
+            if (string.IsNullOrEmpty(presetAnswer))
                 return null;
-            }
 
             (rejected, preset) = InitCommand.ResolveSeededPreset(presetAnswer);
         }
@@ -101,9 +96,7 @@ internal static class InitInteractive
             console, targetsPrompt, TargetListing(detection.Targets), targetsDefault, targetCount);
 
         if (chosenTargets is null)
-        {
             return null;
-        }
 
         // One condition serves questions 3 and 4: the rid minimum bites for it, and the
         // archive answer lands only on executables-kind targets, so it is also what decides
@@ -114,13 +107,10 @@ internal static class InitInteractive
 
         // Question 3 of 5: the runtime identifiers, defaulted through the union rule. The
         // answer must leave every chosen executables target with at least one rid.
-        string[] ridDefaults =
-            RidDefaults.For(detection.TargetFrameworks, installedSdkSupportsOsxX64);
+        string[] ridDefaults = RidDefaults.For(detection.TargetFrameworks, installedSdkSupportsOsxX64);
         string ridsDefault = string.Join(", ", ridDefaults);
-        string ridsPrompt =
-            $"{PromptPrefix}runtime identifiers (comma-separated, or '{NoneAnswer}') [{ridsDefault}]:";
+        string ridsPrompt = $"{PromptPrefix}runtime identifiers (comma-separated, or '{NoneAnswer}') [{ridsDefault}]:";
         string ridsHint = $"  selectable: {string.Join(", ", RidDefaults.Selectable)}";
-        bool needsRid = executablesChosen;
 
         string[] rids;
 
@@ -128,12 +118,10 @@ internal static class InitInteractive
         {
             string? ridsAnswer = Ask(console, ridsPrompt, [ridsHint], ridsDefault);
 
-            if (ridsAnswer is null)
-            {
+            if (string.IsNullOrEmpty(ridsAnswer))
                 return null;
-            }
 
-            if (TryParseRids(ridsAnswer, out rids, out string ridsError, needsRid))
+            if (TryParseRids(ridsAnswer, out rids, out string ridsError, executablesChosen))
             {
                 break;
             }
@@ -144,9 +132,8 @@ internal static class InitInteractive
         // Question 4 of 5: the archive formats. The default mirrors what the non-interactive
         // skeleton seeds: zip and tar.gz are the absent-key defaults, and tar.xz stays an
         // explicit opt-in that is never defaulted to.
-        string archivesDefault = $"{ArchiveFormats.Zip}, {ArchiveFormats.TarGz}";
-        string archivesPrompt =
-            $"{PromptPrefix}archive formats (comma-separated) [{archivesDefault}]:";
+        const string archivesDefault = $"{ArchiveFormats.Zip}, {ArchiveFormats.TarGz}";
+        const string archivesPrompt = $"{PromptPrefix}archive formats (comma-separated) [{archivesDefault}]:";
         string archivesHint =
             $"  selectable: {string.Join(", ", ArchiveFormats.All)} - tar.xz is opt-in and never a default";
 
@@ -156,10 +143,8 @@ internal static class InitInteractive
         {
             string? archivesAnswer = Ask(console, archivesPrompt, [archivesHint], archivesDefault);
 
-            if (archivesAnswer is null)
-            {
+            if (string.IsNullOrEmpty(archivesAnswer))
                 return null;
-            }
 
             if (TryParseArchives(archivesAnswer, executablesChosen, rids, out archives, out string archivesError))
             {
@@ -182,15 +167,11 @@ internal static class InitInteractive
             console, testsPrompt, Listing(detection.TestProjects), testsDefault, testCount);
 
         if (chosenTests is null)
-        {
             return null;
-        }
 
         return new InitAnswers(
-            preset,
-            [.. chosenTargets.Select(index => Copy(detection.Targets[index], archives))],
-            rids,
-            [.. chosenTests.Select(index => detection.TestProjects[index])]);
+            preset, [.. chosenTargets.Select(index => Copy(detection.Targets[index], archives))],
+            rids, [.. chosenTests.Select(index => detection.TestProjects[index])]);
     }
 
     /// <summary>
@@ -208,20 +189,14 @@ internal static class InitInteractive
     /// answer order; null when input ended before an answer arrived.
     /// </returns>
     private static List<int>? AskSelection(
-        InitConsole console,
-        string prompt,
-        string[] listing,
-        string defaultAnswer,
-        int candidateCount)
+        InitConsole console, string prompt, string[] listing, string defaultAnswer, int candidateCount)
     {
         while (true)
         {
             string? answer = Ask(console, prompt, listing, defaultAnswer);
 
-            if (answer is null)
-            {
+            if (string.IsNullOrEmpty(answer))
                 return null;
-            }
 
             if (TryParseSelection(answer, candidateCount, out List<int> selected, out string error))
             {
