@@ -16,11 +16,6 @@ public class ManifestDiscoveryTests
 {
     private readonly IManifestLoader _loader;
 
-    /// <summary>
-    /// The manifest location contract: walk-up discovery from a subdirectory like
-    /// <c>global.json</c> lookup, the explicit-path override that wins when given, and the not-found
-    /// error that names every searched directory. The manifest file name is <c>releasegen.json</c>.
-    /// </summary>
     public ManifestDiscoveryTests(IManifestLoader loader)
     {
         _loader = loader;

@@ -20,15 +20,6 @@ public class ManifestParsingTests
 {
     private readonly IManifestLoader _loader;
 
-    /// <summary>
-    /// The manifest contract: strict System.Text.Json parsing where an unknown field,
-    /// an inline comment, or a trailing comma fails with an error naming the offender, plus the
-    /// validation rules that keep targets, artifact kinds, archives, and the executables-kind
-    /// cross-check honest. The stages' behavior claims rest on this contract. Parsing and the
-    /// provider-independent validation rules run through the shared DI-resolved loader; the kind
-    /// cross-check tests below construct their own loader over a counting stub because
-    /// the stub's configured evaluation and read count are the subject under test.
-    /// </summary>
     public ManifestParsingTests(IManifestLoader loader)
     {
         _loader = loader;

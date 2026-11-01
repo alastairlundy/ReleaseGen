@@ -20,15 +20,6 @@ public class InitCommandTests
 {
     private readonly IManifestLoader _loader;
 
-    /// <summary>
-    /// The init stage: the skeleton it writes is minimal, valid, and parses under the
-    /// same strict contract every other stage reads; an existing manifest is refused unless
-    /// <c>--overwrite</c> is passed; <c>--preset</c> seeds the build section's preset key and only a
-    /// known preset may reach the file; and the default path seeds what repo detection classifies
-    /// with certainty, warning once per uncertain classification and falling back to the minimal
-    /// shape when detection fails. Both the command and the verification parse come from the
-    /// same injected scope, so the skeleton is checked against the very loader the stages use.
-    /// </summary>
     public InitCommandTests(IManifestLoader loader)
     {
         _loader = loader;

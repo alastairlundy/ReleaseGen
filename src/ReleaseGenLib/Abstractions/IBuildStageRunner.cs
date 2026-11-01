@@ -5,8 +5,7 @@ namespace ReleaseGenLib.Abstractions;
 /// <summary>
 /// Runs the build stage: one <c>dotnet publish -c Release -r &lt;rid&gt;</c> invocation
 /// per configured rid, per executables-kind target, into per-rid folders under the local output
-/// root. Supersedes the legacy IProjectBuilder surface, whose publish-only flags on
-/// <c>dotnet build</c> and inverted ReadyToRun check are retired rather than patched.
+/// root.
 /// </summary>
 public interface IBuildStageRunner
 {

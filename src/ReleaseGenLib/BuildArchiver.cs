@@ -12,10 +12,9 @@ using Models;
 /// via System.IO.Compression.ZipFile and System.Formats.Tar plus GZipStream, tar.xz as an
 /// explicit opt-in whose compression is the system <c>xz</c> binary rather than a managed
 /// stream, and none to leave the per-rid folder unarchived. Archives are written beside
-/// the per-rid folder under the local output root and are never uploaded - the only network
-/// destination in v1 is the publish stage's NuGet source. The tar and gzip APIs are in-box for
-/// net10.0, so no package is added; tar.xz adds no package either, only a dependency on the
-/// machine's toolchain.
+/// the per-rid folder under the local output root and are never uploaded. The tar and gzip
+/// APIs are in-box for net10.0, so no package is added; tar.xz adds no package either, only
+/// a dependency on the machine's toolchain.
 /// </summary>
 public class BuildArchiver : IBuildArchiver
 {
@@ -96,8 +95,8 @@ public class BuildArchiver : IBuildArchiver
 
         if (string.Equals(format, ArchiveFormats.Zip, StringComparison.OrdinalIgnoreCase))
         {
-            // includeBaseDirectory: false - the archive is named <project-name>-<rid>.zip, so the
-            // per-rid project folder itself does not need to wrap the entries.
+            // The archive is named <project-name>-<rid>.zip, so the per-rid project folder
+            // itself does not need to wrap the entries.
             await ZipFile.CreateFromDirectoryAsync(
                     sourceDirectory.FullName, archiveFile.FullName, CompressionLevel.Optimal, includeBaseDirectory: false,
                     cancellationToken: cancellationToken)
@@ -137,7 +136,6 @@ public class BuildArchiver : IBuildArchiver
                 return true;
 
             default:
-                // The error style: names the bad value and the allowed set.
                 throw new ManifestException(
                     $"Unknown archive format '{format}'. Known formats: {string.Join(", ", ArchiveFormats.All)}.");
         }
@@ -206,17 +204,14 @@ public class BuildArchiver : IBuildArchiver
         }
         catch (Exception ex) when (ex is FileNotFoundException or Win32Exception)
         {
-            // Launch failure: the message names the binary, carries the OS's own detail so a
-            // permission problem does not read as "not installed", and keeps the install hint
-            // in the archiver's usual error style.
+            // The message carries the OS's own detail so a permission problem does not read
+            // as "not installed".
             throw new BuildStageException(
                 $"build: cannot create archive '{archiveFile.FullName}': the '{_xzBinary}' binary was not found on PATH or could not be launched ({ex.Message}). Install xz (for example 'apt-get install xz-utils', 'brew install xz', or 'pacman -S xz') to produce '{ArchiveFormats.TarXz}' archives, or declare '{ArchiveFormats.Zip}' or '{ArchiveFormats.TarGz}' instead.");
         }
 
         if (result.ExitCode != 0)
         {
-            // The error style: names the archive, the tool, and the exit code, plus the first
-            // line of xz's own diagnostics when it offered one.
             throw new BuildStageException(
                 $"build: cannot create archive '{archiveFile.FullName}': '{_xzBinary}' exited with code {result.ExitCode}{ErrorDetail(result.StandardError)}.");
         }

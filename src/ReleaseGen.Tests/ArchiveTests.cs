@@ -27,15 +27,6 @@ public class ArchiveTests
     private readonly IManifestLoader _manifestLoader;
     private readonly IBuildStageRunner _buildStageRunner;
 
-    /// <summary>
-    /// Archive creation: zip is the executable-kind default, tar.gz and none are the declared
-    /// opt-outs, an absent key resolves per rid class (zip on Windows-class and any-* rids, zip
-    /// plus tar.gz on Unix-based rids), tar.xz skips Windows-class and any-* rids with one
-    /// warning each, package kinds never archive, archives replace any stale file, and an
-    /// unknown format fails naming the known set. Output stays local under <c>release/</c>. The
-    /// command-level tests drive the build stage through the test's own DI container; the pure
-    /// archive tests need neither injected service.
-    /// </summary>
     public ArchiveTests(ServiceProvider services, IBuildArchiver archiver, RecordingProcessInvoker invoker)
     {
         _manifestLoader = services.GetRequiredService<IManifestLoader>();

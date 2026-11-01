@@ -18,12 +18,6 @@ public class PublishIntegrationTests
     private readonly IManifestLoader _manifestLoader;
     private readonly IProcessInvoker _processInvoker;
     
-    /// <summary>
-    /// The publish stage's real-invoker integration leg: a real <c>dotnet nuget push</c> lands a
-    /// package in a local folder source instead of nuget.org. Composed from the production
-    /// container via <see cref="ReleaseGenRealInvokerDiAttribute"/> - the only difference from the
-    /// recording suites is that no invoker is faked.
-    /// </summary>
     public PublishIntegrationTests(ServiceProvider services)
     {
         _manifestLoader = services.GetRequiredService<IManifestLoader>();

@@ -22,12 +22,6 @@ public class DryRunTests
     private readonly IManifestLoader _manifestLoader;
     private readonly IBuildStageRunner _buildStageRunner;
 
-    /// <summary>
-    /// The <c>--dry-run</c> flag on every stage command and the chained run: each stage prints
-    /// its would-be actions through the shared planned record, nothing is written anywhere, the
-    /// publish stage prints the would-be gate consult instead of running tests, and the exit
-    /// code reflects manifest validation errors only.
-    /// </summary>
     public DryRunTests(ServiceProvider services, RecordingProcessInvoker invoker)
     {
         _invoker = invoker;

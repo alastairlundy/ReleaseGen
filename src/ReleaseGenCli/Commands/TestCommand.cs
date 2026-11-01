@@ -23,7 +23,7 @@ namespace ReleaseGen.Cli.Commands;
 /// cause line; <c>--quiet</c> together with <c>--verbose</c> fails with the conflict error
 /// before the stage starts.
 /// The stage records its gate outcome for the publish stage to consume;
-/// there is no runner-override key or gate-forcing flag in v1.
+/// there is no runner-override key or gate-forcing flag.
 /// </summary>
 /// <remarks>
 /// Output reaches the console only through the conventions layer: stdout lines become
@@ -203,7 +203,6 @@ public sealed class TestCommand : Command
 
         if (result.ExitCode != 0)
         {
-            // The error style: names the project (or the cwd fallback) and the exit code.
             CliOutput.Error(project is null
                 ? $"test: dotnet test from the current directory failed (exit code {result.ExitCode})."
                 : $"test: dotnet test failed for project '{project}' (exit code {result.ExitCode}).");

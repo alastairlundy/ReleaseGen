@@ -17,12 +17,6 @@ public sealed class ManifestLoader : IManifestLoader
 {
     private readonly IProjectInfoProvider _projectInfoProvider;
 
-    /// <summary>
-    /// Loads and validates <c>releasegen.json</c> manifests: strict System.Text.Json parsing,
-    /// walk-up discovery with an explicit-path override, and the kind cross-checks against one
-    /// expanded MSBuild evaluation (OutputType for <c>executables</c>, PackAsTool for
-    /// <c>tool-package</c>).
-    /// </summary>
     /// <param name="projectInfoProvider">
     /// The Microsoft.Build evaluation path behind the kind cross-checks. When null, only
     /// manifest-internal validation runs.
@@ -242,7 +236,6 @@ public sealed class ManifestLoader : IManifestLoader
             return;
         }
 
-        // The error style: names the target, the conflicting rids, and the fix.
         throw new ManifestException(
             $"Manifest validation failed: the target '{target.Project}' declares 'tar.xz' as its only archive format, but tar.xz cannot be produced for the runtime identifier(s) {string.Join(", ", unsupportedRids)}, so those rids would produce no archive. Fix: declare another archive format (for example '{ArchiveFormats.Zip}') in 'archiveFormats', or remove those runtime identifiers from build.runtimeIdentifiers.");
     }

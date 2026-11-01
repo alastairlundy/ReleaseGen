@@ -18,13 +18,6 @@ public class PackAsToolValidationTests
     private readonly ProjectInfoProvider _provider = new();
     private readonly ManifestLoader _loader;
 
-    /// <summary>
-    /// The tool-package kind cross-check against the real Microsoft.Build evaluation path: the
-    /// expanded <c>PackAsTool</c> property is what validates a <c>tool-package</c> target, never
-    /// raw project text, so a declaration in the project file and one in a
-    /// <c>Directory.Build.props</c> both validate while a project declaring neither fails naming
-    /// the fix.
-    /// </summary>
     public PackAsToolValidationTests() => _loader = new ManifestLoader(_provider);
 
     [Test]

@@ -9,15 +9,12 @@ using Models;
 
 /// <summary>
 /// The build stage runner: runs <c>dotnet publish -c Release -r &lt;rid&gt;</c> once per
-/// (target project x configured rid) through CliInvoke 3.1.0, fail-fast on the first failing
+/// (target project x configured rid) through CliInvoke, fail-fast on the first failing
 /// target/rid with an error naming both plus the exit code, and attaches per-target
-/// archives for executables-kind outputs. This type supersedes the legacy
-/// <c>ProjectBuilder</c> - the publish-only flags on <c>dotnet build</c> and the inverted
-/// ReadyToRun check are retired, not patched.
+/// archives for executables-kind outputs.
 ///
 /// <para>
-/// Output layout, all under the invocation directory (local-only - nothing here uploads;
-/// the only network destination in v1 is the publish stage's NuGet source):
+/// Output layout, all under the invocation directory:
 /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> holds one target's publish binaries for that
 /// rid, and <c>release/&lt;project-name&gt;-&lt;rid&gt;.zip|.tar.gz|.tar.xz</c> sits beside the per-rid
 /// folders as that folder's archive. The archive formats are the target's declared
@@ -30,10 +27,9 @@ using Models;
 /// <para>
 /// Publish output reaches the caller only through the request's line sinks - this type never
 /// writes to the console - and no publish line is filtered or suppressed, so the SDK's
-/// IL3000-family analyzer warnings pass through intact. CliInvoke 3.1.0 exposes no
-/// line-level process events, so each publish command's captured output is replayed to the sinks as
-/// soon as that publish completes rather than interleaved live; fail-fast still stops the
-/// stage at the first failing rid.
+/// IL3000-family analyzer warnings pass through intact. Each publish command's captured
+/// output is replayed to the sinks as soon as that publish completes rather than interleaved
+/// live; fail-fast still stops the stage at the first failing rid.
 /// </para>
 /// </summary>
 public sealed class BuildStageRunner : IBuildStageRunner
@@ -55,33 +51,6 @@ public sealed class BuildStageRunner : IBuildStageRunner
     private readonly PlannedCommandRunner _plannedCommandRunner;
     private readonly IBuildArchiver _buildArchiver;
 
-    /// <summary>
-    /// The build stage runner: runs <c>dotnet publish -c Release -r &lt;rid&gt;</c> once per
-    /// (target project x configured rid) through CliInvoke 3.1.0, fail-fast on the first failing
-    /// target/rid with an error naming both plus the exit code, and attaches per-target
-    /// archives for executables-kind outputs. This type supersedes the legacy
-    /// <c>ProjectBuilder</c> - the publish-only flags on <c>dotnet build</c> and the inverted
-    /// ReadyToRun check are retired, not patched.
-    ///
-    /// <para>
-    /// Output layout, all under the invocation directory (local-only - nothing here uploads;
-    /// the only network destination in v1 is the publish stage's NuGet source):
-    /// <c>release/&lt;rid&gt;/&lt;project-name&gt;/</c> holds one target's publish binaries for that
-    /// rid, and <c>release/&lt;project-name&gt;-&lt;rid&gt;.zip|.tar.gz|.tar.xz</c> sits beside the per-rid
-    /// folders as that folder's archive. The archive formats are the target's declared
-    /// <c>archiveFormats</c> key - one archive per declared format per (target, rid), defaulting
-    /// to the rid-class set when the key is absent; package-kind-only targets are never archived.
-    /// </para>
-    ///
-    /// <para>
-    /// Publish output reaches the caller only through the request's line sinks - this type never
-    /// writes to the console - and no publish line is filtered or suppressed, so the SDK's
-    /// IL3000-family analyzer warnings pass through intact. CliInvoke 3.1.0 exposes no
-    /// line-level process events, so each publish command invocation's captured output is replayed to the sinks as
-    /// soon as that publish completes rather than interleaved live; fail-fast still stops the
-    /// stage at the first failing rid.
-    /// </para>
-    /// </summary>
     public BuildStageRunner(IManifestLoader manifestLoader, IProcessInvoker processInvoker, IBuildArchiver buildArchiver)
     {
         _manifestLoader = manifestLoader;
@@ -126,16 +95,14 @@ public sealed class BuildStageRunner : IBuildStageRunner
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Absent key resolves per rid class (archiving stays opt-out): zip alone for
-                // Windows-class and portable any-* rids, zip plus tar.gz for Unix-based rids -
-                // tar.xz is never a default. A declared key overrides the defaults entirely,
-                // and every resolved format produces one archive per (target, rid).
+                // Absent key resolves per rid class: zip alone for Windows-class and portable
+                // any-* rids, zip plus tar.gz for Unix-based rids.
                 string[] archiveFormats =
                     target.ArchiveFormats.Length > 0 ? target.ArchiveFormats : ArchiveFormats.DefaultsFor(rid);
 
-                // Resolved per (target, rid) as pinned; the inputs (preset, build section,
-                // resolved archive formats, host OS) agree for every rid of a target with a
-                // declared key, and the rid-dependent default only ever adds zip or tar.gz.
+                // Resolved per (target, rid); with a declared key every rid of a target gets
+                // the same switch set, and the rid-dependent default only ever adds zip or
+                // tar.gz.
                 PublishSwitchSet switches = BuildSwitchResolver.Resolve(
                     request.Preset, manifest.Build, SwitchBasisFormat(archiveFormats));
 
@@ -181,9 +148,8 @@ public sealed class BuildStageRunner : IBuildStageRunner
                     .. switches.ToArguments(),
                 ];
 
-                // The planned record is the whole story of this publish: the streamed-args line
-                // (the evidence surface) both printed modes show, and the process the runner
-                // executes only in a real run.
+                // The whole story of this publish: one line both printed modes show, and the
+                // process the runner executes only in a real run.
                 PlannedCommand publishCommand = new()
                 {
                     CommandLine = $"build: dotnet {string.Join(' ', argumentList)}",
@@ -207,11 +173,9 @@ public sealed class BuildStageRunner : IBuildStageRunner
                         .ConfigureAwait(false);
                 }
 
-                // Only executables-kind outputs get archives; package kinds never do,
-                // and 'none' leaves the per-rid folder unarchived. Each resolved format
-                // writes its own archive beside the per-rid folder, except tar.xz on a
-                // Windows-class or portable any-* rid: one warning per skipped (target, rid)
-                // pair, naming the target, the rid, the format, and the reason.
+                // Only executables-kind outputs get archives; package kinds and 'none' never
+                // do. tar.xz on a Windows-class or any-* rid is skipped with one warning per
+                // (target, rid) pair.
                 if (target.Kinds.Contains(ArtifactKinds.Executables, StringComparer.OrdinalIgnoreCase))
                 {
                     foreach (string archiveFormat in archiveFormats)
@@ -234,8 +198,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
                             $"{projectName}-{rid}{ArchiveExtension(archiveFormat)}"));
 
                         // The archiver re-checks at run time that the publish output folder
-                        // exists; the plan reports that guard as conditional instead of running
-                        // it, so the dry-run print describes work a real run could skip.
+                        // exists; the plan reports that guard as conditional.
                         PlannedCommand archiveCommand = new()
                         {
                             CommandLine =
@@ -289,7 +252,6 @@ public sealed class BuildStageRunner : IBuildStageRunner
 
         if (result.ExitCode != 0)
         {
-            // The error style: names the target, the rid, and the exit code.
             throw new BuildStageException(
                 $"build: dotnet publish failed for target '{target.Project}' with runtime identifier '{rid}' (exit code {result.ExitCode}).");
         }

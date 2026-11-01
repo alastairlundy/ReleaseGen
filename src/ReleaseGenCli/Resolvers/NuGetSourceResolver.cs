@@ -4,11 +4,10 @@ namespace ReleaseGen.Cli.Resolvers;
 
 /// <summary>
 /// Resolves the publish stage's push sources: the manifest's listed sources win in
-/// manifest order, and a manifest listing none resolves to the nuget.org default. Sources are
-/// the only publish-section data in v1 - credentials never live on disk; the API key
-/// travels through the environment or a CLI option only. A resolved source is handed to
-/// <c>dotnet nuget push</c> verbatim, so a URL feed and a local folder source (the
-/// integration-test destination) resolve the same way.
+/// manifest order, and a manifest listing none resolves to the nuget.org default. Credentials
+/// never live on disk; the API key travels through the environment or a CLI option only. A
+/// resolved source is handed to <c>dotnet nuget push</c> verbatim, so a URL feed and a local
+/// folder source (the integration-test destination) resolve the same way.
 /// </summary>
 public static class NuGetSourceResolver
 {
@@ -38,7 +37,6 @@ public static class NuGetSourceResolver
         {
             if (string.IsNullOrWhiteSpace(manifestSources[i]))
             {
-                // The error style: names the offending entry by its position.
                 throw new ArgumentException(
                     string.Format(Resources.Exceptions_Publishing_ManifestPublishSource_IsEmpty, i),
                     nameof(manifestSources));

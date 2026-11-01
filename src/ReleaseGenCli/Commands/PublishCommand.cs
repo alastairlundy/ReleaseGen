@@ -21,7 +21,7 @@ namespace ReleaseGen.Cli.Commands;
 /// strict parse rejects any key-bearing field outright. Before the first push the
 /// stage consults the test gate: a blocked outcome stops the stage with an error before
 /// any network call, and an absent test section proceeds with a warning. Failure detail is
-/// textual, not structured, in v1: the first failing push aborts the stage with a
+/// textual, not structured: the first failing push aborts the stage with a
 /// one-line error naming the package, the source, and the exit code. Under <c>--dry-run</c> the
 /// stage plans instead: it prints the would-be gate consult (the test projects the gate would
 /// run) and the would-be pushes, runs no tests, writes no <c>TestResults/</c>, and exits on
@@ -93,7 +93,6 @@ public sealed class PublishCommand : Command
                 // stray one, so nothing on disk can carry a key or key reference.
                 string? apiKey = ResolveApiKey(parseResult.GetValue(apiKeyOption));
 
-                // One decision point for the runner: the flag.
                 bool dryRun = parseResult.GetValue(dryRunOption);
 
                 if (manifestFile.Directory is null || !Directory.Exists(manifestFile.Directory.FullName))
@@ -548,8 +547,6 @@ public sealed class PublishCommand : Command
 
         if (result.ExitCode != 0)
         {
-            // Textual failure posture in the error style: names the package, the
-            // source, and the exit code.
             throw new PublishStageException(
                 $"publish: dotnet nuget push failed for package '{push.PackageFile.Name}' (kind '{push.Kind}', target '{push.TargetProject}') to source '{source}' (exit code {result.ExitCode}).");
         }
