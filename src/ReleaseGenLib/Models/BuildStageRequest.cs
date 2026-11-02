@@ -26,6 +26,15 @@ public sealed class BuildStageRequest
     public required string Preset { get; init; }
 
     /// <summary>
+    /// The invocation's rid subset, already validated and de-duplicated by the caller
+    /// case-insensitively against the manifest's own set and spelled as it is spelled there:
+    /// null means the full <c>manifest.Build.RuntimeIdentifiers</c> set, a non-empty array
+    /// means the stage plans and runs only those rids. The subset can only narrow what the
+    /// manifest declares - it never adds a rid the manifest does not name.
+    /// </summary>
+    public string[]? RuntimeIdentifierSubset { get; init; }
+
+    /// <summary>
     /// The local root the stage writes under: per-rid folders and archives. The default
     /// is a <c>release</c> directory under the invocation directory; the layout is documented on
     /// <see cref="BuildStageRunner"/>.

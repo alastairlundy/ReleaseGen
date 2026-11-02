@@ -70,7 +70,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
         ArgumentNullException.ThrowIfNull(request);
 
         Manifest manifest = request.Manifest;
-        string[] runtimeIdentifiers = manifest.Build.RuntimeIdentifiers;
+        string[] runtimeIdentifiers = request.RuntimeIdentifierSubset ?? manifest.Build.RuntimeIdentifiers;
 
         if (manifest.Targets.Count == 0)
         {
@@ -220,8 +220,7 @@ public sealed class BuildStageRunner : IBuildStageRunner
         request.WriteLine?.Invoke(
             request.RunMode == StageRunMode.Execute
                 ? $"build: published {manifest.Targets.Count} target(s) x {runtimeIdentifiers.Length} runtime identifier(s) under '{request.OutputRoot.FullName}'."
-                : $"build: planned {manifest.Targets.Count} target(s) x {runtimeIdentifiers.Length} runtime identifier(s); the dry run wrote nothing.");
-    }
+                : $"build: planned {manifest.Targets.Count} target(s) x {runtimeIdentifiers.Length} runtime identifier(s); the dry run wrote nothing.");    }
 
     /// <summary>
     /// Replays one executed publish command's captured output through the request's sinks and fails the

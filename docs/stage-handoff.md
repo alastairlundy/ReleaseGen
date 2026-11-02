@@ -77,6 +77,17 @@ release tool; ReleaseGen performs no OIDC token acquisition. The safe pattern is
 Trusted publishing is preferred in CI; the API key path documented above remains the local and
 manual route.
 
+**Per-OS build matrices.** NativeAOT compiles release binaries only for the runner's own OS
+family, so a manifest whose `runtimeIdentifiers` span `win-*`, `linux-*`, and `osx-*` with
+the `aot` preset needs one build job per OS family. Each job runs the build stage once with
+`--rids` carrying its own subset (Windows runner for `win-*`, Linux runner for `linux-*`,
+macOS runner for `osx-*`) and uploads its `release/` tree as its own pipeline artifact; the
+publish job downloads the legs into the same layout, merges them into one `release/` tree
+(archive and artifact paths are (target, rid)-unique, so legs cannot collide), and continues
+as above. The `test` and `package` stages are rid-independent - run each once, on one leg's
+job. The gate and artifact-location story above are unchanged: only the build stage splits,
+and it stays the only stage that cannot cross OS families.
+
 ## What is not part of the contract
 
 - In-process state (`StageContext`) is never shared across processes; only the `release/` tree

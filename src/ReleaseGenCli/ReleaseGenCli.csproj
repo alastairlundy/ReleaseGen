@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -21,7 +21,7 @@
         <Description>Opinionated .NET CLI for building, packaging, and publishing .NET projects, with cross-platform packaging targets and project-file-prioritized build settings.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <!-- Package version; bump manually before each release. -->
-        <Version>0.2.0</Version>
+        <Version>0.3.0</Version>
         <Title>ReleaseGen</Title>
         <Authors>Alastair Lundy</Authors>
         <Copyright>Copyright (c) Alastair Lundy 2026</Copyright>

@@ -26,6 +26,9 @@ The safe pattern under ReleaseGen is two CI jobs. The
 The credential exchange itself - GitHub's or GitLab's trusted-publishing setup - stays on the
 CI platform's side and outside ReleaseGen's scope.
 
+NativeAOT manifests spanning several OS families split the build stage across one job per OS
+family with `--rids`; see [Stage handoff contract](stage-handoff.md) for the merge story.
+
 ## The local and manual path
 
 Outside CI, publishing uses a standard long-lived NuGet API key delivered through the same

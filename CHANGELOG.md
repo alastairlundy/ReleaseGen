@@ -6,7 +6,21 @@ AGENTS.md) - git tags do not drive them.
 
 ## 0.3.0 - Unreleased
 
-Routine dependency updates so far. No command, manifest, or behavior changes.
+A per-invocation build rid subset for per-OS build matrices - NativeAOT compiles only for
+its own OS, so a multi-OS rid list needs one build job per OS family.
+
+### Added
+
+- **`releasegen build --rids <rids>`**: a comma-separated subset of the Manifest's
+  `runtimeIdentifiers` for this invocation only (for example
+  `--rids win-x64,win-arm64`), the same escape posture as `--preset` - the flag never
+  writes the Manifest, and it can only narrow what the Manifest declares, never add a rid
+  the Manifest does not name. Entries match case-insensitively, de-duplicate, and output
+  paths use the Manifest's spelling. An empty value, a blank entry (naming its position),
+  or a value outside the Manifest's set is refused with an error naming the value and the
+  Manifest's set, exit 1, before any publish is planned. Combined with a per-OS CI matrix
+  (Windows for `win-*`, Linux for `linux-*`, macOS for `osx-*`) it builds a self-contained
+  NativeAOT rid matrix that one runner cannot.
 
 ### Changed
 
