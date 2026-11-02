@@ -117,6 +117,28 @@ public class ManifestParsingTests
     }
 
     [Test]
+    public async Task SkipDuplicates_key_parses_to_an_explicit_value()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [], "publish": { "sources": [], "skipDuplicates": true } }""");
+
+        // Boolean-with-default-false contract: the key is tri-state, and an explicit
+        // value must survive the strict parse (ledger #T007, #T016).
+        await Assert.That(manifest.Publish.SkipDuplicates).IsTrue();
+    }
+
+    [Test]
+    public async Task Absent_skipDuplicates_key_parses_to_null()
+    {
+        Manifest manifest = _loader.Parse("""{ "targets": [] }""");
+
+        // Absent must stay distinguishable from an explicit false so the merge rules
+        // in SkipDuplicatesDecision can tell "never declared" from "declared off"
+        // (ledger #D003, #I002).
+        await Assert.That(manifest.Publish.SkipDuplicates).IsNull();
+    }
+
+    [Test]
     public async Task Target_with_an_unknown_artifact_kind_fails_validation_naming_it()
     {
         Manifest manifest = _loader.Parse(

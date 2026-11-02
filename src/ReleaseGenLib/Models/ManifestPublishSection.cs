@@ -12,4 +12,15 @@ public sealed class ManifestPublishSection
     /// </summary>
     [JsonPropertyName("sources")]
     public string[] Sources { get; set; } = [];
+
+    /// <summary>
+    /// Standing answer for duplicate pushes, boolean with default false. The C# type is
+    /// nullable so an absent key (null) stays distinguishable from an explicit false:
+    /// absent behaves downstream exactly as today's fail-fast, while an explicit value
+    /// feeds the manifest side of the skip-duplicates merge (ledger #T007, #T016, #I002).
+    /// Null never serializes, so a generated manifest never emits "skipDuplicates": null.
+    /// </summary>
+    [JsonPropertyName("skipDuplicates")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? SkipDuplicates { get; set; }
 }
