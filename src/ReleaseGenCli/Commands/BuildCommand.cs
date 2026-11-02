@@ -9,6 +9,8 @@
 
 namespace ReleaseGen.Cli.Commands;
 
+using System.Diagnostics.CodeAnalysis;
+
 /// <summary>
 /// The build stage: per-rid <c>dotnet publish -c Release -r &lt;rid&gt;</c> through the
 /// <see cref="IBuildStageRunner"/>, driven by the manifest's build section. The
@@ -153,13 +155,13 @@ public sealed class BuildCommand : Command
     /// <param name="flagValue">The raw <c>--rids</c> option value; null means no subset, and an empty or whitespace value is a refusal.</param>
     /// <param name="manifest">The loaded manifest whose build section declares the full set.</param>
     /// <param name="subset">The normalized subset in the manifest's spelling, or null for the full set.</param>
-    /// <param name="refusal">The one-line refusal message when the flag is refused; otherwise null.</param>
+    /// <param name="refusal">The one-line refusal message when the flag is refused; otherwise null. Not null when the method returns false.</param>
     /// <returns>True when <paramref name="subset"/> carries the invocation's rid set; false when the caller must refuse.</returns>
     private static bool TryResolveRidSubset(
         string? flagValue,
         Manifest manifest,
         out string[]? subset,
-        out string? refusal)
+        [NotNullWhen(false)] out string? refusal)
     {
         if (flagValue is null)
         {
