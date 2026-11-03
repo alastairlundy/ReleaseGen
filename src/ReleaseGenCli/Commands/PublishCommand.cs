@@ -293,6 +293,24 @@ public sealed class PublishCommand : Command
             CliOutput.Note($"publish: dry run: would push to {sources.Length} sources: {string.Join(", ", sources)}.");
         }
 
+        // The plan states the resolved mode per source once for the whole plan, not once per
+        // target - the mode is source-specific and target-independent - and only when some
+        // target declares a package kind: with nothing to push, the mode a push would run
+        // under is noise beside the "nothing to publish" note below.
+        bool declaresPackageKind = manifest.Targets.Any(static target =>
+            target.Kinds.Contains(ArtifactKinds.LibPackage, StringComparer.Ordinal) ||
+            target.Kinds.Contains(ArtifactKinds.ToolPackage, StringComparer.Ordinal));
+
+        if (declaresPackageKind)
+        {
+            foreach (string source in sources)
+            {
+                CliOutput.Note(skipDecision.SkipEnabled
+                    ? $"publish: dry run: source '{source}': resolved skip mode: duplicates skipped; the push would pass --skip-duplicate."
+                    : $"publish: dry run: source '{source}': resolved skip mode: duplicates fail the stage; no --skip-duplicate would be passed.");
+            }
+        }
+
         int plannedCount = 0;
 
         foreach (ManifestTarget target in manifest.Targets)
@@ -313,9 +331,9 @@ public sealed class PublishCommand : Command
 
     /// <summary>
     /// Prints one target's would-be pushes - one planned record per declared package kind per
-    /// resolved source, in the same manifest order a real run pushes in - and, before them,
-    /// the resolved skip mode each source would push under, so a plan rehearses the same
-    /// decision a real run consumes.
+    /// resolved source, in the same manifest order a real run pushes in. The resolved skip
+    /// mode each source would push under prints once per source in <see cref="PlanAsync"/>,
+    /// before any target's pushes, so a plan rehearses the same decision a real run consumes.
     /// </summary>
     /// <param name="target">The manifest target whose kinds are planned.</param>
     /// <param name="manifestDirectory">The manifest's directory, for resolving relative project paths.</param>
@@ -333,17 +351,6 @@ public sealed class PublishCommand : Command
         FileInfo projectFile = _manifestLoader.ResolveProjectFile(target.Project, manifestDirectory);
         string projectName = Path.GetFileNameWithoutExtension(projectFile.Name);
         int plannedCount = 0;
-
-        // The plan states the resolved mode per source rather than only the pushes it
-        // would make, so a reader sees whether duplicates are tolerated before any line
-        // that would fail on one.
-        foreach (string source in sources)
-        {
-            CliOutput.Note(skipDecision.SkipEnabled
-                ? $"publish: dry run: source '{source}': resolved skip mode: duplicates skipped; the push would pass --skip-duplicate."
-                : $"publish: dry run: source '{source}': resolved skip mode: duplicates fail the stage; no --skip-duplicate would be passed.");
-        }
-
         string skipFlag = skipDecision.SkipEnabled ? " --skip-duplicate" : string.Empty;
 
         foreach (string kind in target.Kinds)

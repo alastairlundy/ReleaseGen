@@ -210,6 +210,78 @@ public class DryRunTests
     }
 
     [Test]
+    public async Task A_dry_run_publish_prints_the_resolved_skip_mode_once_per_source_across_targets()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+
+        // Two targets, one source: the mode is source-specific and target-independent, so
+        // the plan states it once for the source rather than once per target.
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Alpha/Alpha.csproj", "kinds": ["lib-package"] }, { "project": "src/Beta/Beta.csproj", "kinds": ["lib-package"] } ], "publish": { "sources": ["local-feed"] } }""");
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            StageContext.Reset();
+
+            try
+            {
+                string console = await ConsoleCapture.CaptureAsync(async () =>
+                {
+                    int exitCode = await CliHarness.InvokeAsync(
+                        new PublishCommand(_manifestLoader, _invoker), "publish", "--dry-run");
+
+                    await Assert.That(exitCode).IsEqualTo(0);
+                });
+
+                // Both targets planned a push to the same source, but the mode line is not
+                // per-target: exactly one occurrence.
+                await Assert.That(CountOccurrences(console, "resolved skip mode:")).IsEqualTo(1);
+                await Assert.That(console).Contains("dotnet nuget push");
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+            }
+            finally
+            {
+                StageContext.Reset();
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_dry_run_publish_omits_the_resolved_skip_mode_when_no_target_declares_a_package_kind()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+
+        // An executables-only manifest pushes nothing, so the mode a push would run under
+        // is omitted and the nothing-to-publish note stands alone.
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/App/App.csproj", "kinds": ["executables"] } ], "publish": { "sources": ["local-feed"] } }""");
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            StageContext.Reset();
+
+            try
+            {
+                string console = await ConsoleCapture.CaptureAsync(async () =>
+                {
+                    int exitCode = await CliHarness.InvokeAsync(
+                        new PublishCommand(_manifestLoader, _invoker), "publish", "--dry-run");
+
+                    await Assert.That(exitCode).IsEqualTo(0);
+                });
+
+                await Assert.That(CountOccurrences(console, "resolved skip mode:")).IsEqualTo(0);
+                await Assert.That(console).Contains("nothing to publish");
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+            }
+            finally
+            {
+                StageContext.Reset();
+            }
+        });
+    }
+
+    [Test]
     public async Task A_dry_run_publish_prints_one_conflict_line_when_the_channels_differ_and_exits_0()
     {
         using TestWorkspace workspace = TestWorkspace.Create();

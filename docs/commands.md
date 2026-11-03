@@ -345,7 +345,8 @@ The skip decision resolves once per invocation, from the Manifest's
   ```
 
 Under `--dry-run` the plan mirrors the resolved decision instead of pushing: each source
-prints the mode a real run would push under, the planned command line carries
+prints the mode a real run would push under - once per source, and only when some target
+declares a package kind - the planned command line carries
 `--skip-duplicate` exactly when the decision enables it, and a conflicting pair prints the
 same conflict line a real run would. The plan's exit code stays manifest-validation-only.
 
