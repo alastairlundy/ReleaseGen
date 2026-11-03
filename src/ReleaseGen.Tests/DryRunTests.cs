@@ -131,6 +131,132 @@ public class DryRunTests
     }
 
     [Test]
+    public async Task A_dry_run_publish_prints_the_resolved_skip_mode_when_the_manifest_enables_skipping()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Lib/Lib.csproj", "kinds": ["lib-package"] } ], "publish": { "sources": ["local-feed"], "skipDuplicates": true } }""");
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            StageContext.Reset();
+
+            try
+            {
+                string console = await ConsoleCapture.CaptureAsync(async () =>
+                {
+                    // No API key: a plan pushes nothing, so the missing key is reported
+                    // rather than failed, and the exit code stays manifest-validation only.
+                    int exitCode = await CliHarness.InvokeAsync(
+                        new PublishCommand(_manifestLoader, _invoker), "publish", "--dry-run");
+
+                    await Assert.That(exitCode).IsEqualTo(0);
+                });
+
+                // The plan states the resolved skip mode a real run would push under, and
+                // the would-be push carries the switch that decision implies; an absent CLI
+                // channel is never a conflict (ledger #T017, #D003).
+                await Assert.That(console).Contains(
+                    "resolved skip mode: duplicates skipped; the push would pass --skip-duplicate.");
+                await Assert.That(console).Contains("--api-key **** --skip-duplicate");
+                await Assert.That(console.Contains("skipDuplicates conflict")).IsFalse();
+
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
+                await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "TestResults"))).IsFalse();
+            }
+            finally
+            {
+                StageContext.Reset();
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_dry_run_publish_prints_the_fail_fast_mode_when_no_channel_declares_skipping()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Lib/Lib.csproj", "kinds": ["lib-package"] } ], "publish": { "sources": ["local-feed"] } }""");
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            StageContext.Reset();
+
+            try
+            {
+                string console = await ConsoleCapture.CaptureAsync(async () =>
+                {
+                    int exitCode = await CliHarness.InvokeAsync(
+                        new PublishCommand(_manifestLoader, _invoker), "publish", "--dry-run");
+
+                    await Assert.That(exitCode).IsEqualTo(0);
+                });
+
+                // No channel declared skipping, so the plan rehearses today's fail-fast
+                // default: the mode line tracks the resolved decision rather than carrying
+                // fixed wording (ledger #T017, #T007 default false).
+                await Assert.That(console).Contains(
+                    "resolved skip mode: duplicates fail the stage; no --skip-duplicate would be passed.");
+
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
+            }
+            finally
+            {
+                StageContext.Reset();
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_dry_run_publish_prints_one_conflict_line_when_the_channels_differ_and_exits_0()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+
+        // Both channels explicit and differing (manifest false, switch true): the CLI value
+        // wins, and the plan prints the same conflict line a real run would (ledger #T017,
+        // #D003, #T008 at-most-once).
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Lib/Lib.csproj", "kinds": ["lib-package"] } ], "publish": { "sources": ["local-feed"], "skipDuplicates": false } }""");
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            StageContext.Reset();
+
+            try
+            {
+                string console = await ConsoleCapture.CaptureAsync(async () =>
+                {
+                    int exitCode = await CliHarness.InvokeAsync(
+                        new PublishCommand(_manifestLoader, _invoker),
+                        "publish",
+                        "--dry-run",
+                        "--skip-duplicate");
+
+                    // The conflict is a report, not a failure: the plan's exit code stays
+                    // manifest-validation only (ledger #T017).
+                    await Assert.That(exitCode).IsEqualTo(0);
+                });
+
+                // Exactly one conflict line through the error channel - the standard-error
+                // surface a real run prints it on - and the mode line shows the CLI winner
+                // the plan resolved to (ledger #T017, #D003).
+                await Assert.That(CountOccurrences(console, SkipConflictLine)).IsEqualTo(1);
+                await Assert.That(console).Contains(
+                    "resolved skip mode: duplicates skipped; the push would pass --skip-duplicate.");
+
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
+            }
+            finally
+            {
+                StageContext.Reset();
+            }
+        });
+    }
+
+    [Test]
     public async Task A_dry_run_chained_run_plans_every_named_stage_and_writes_nothing()
     {
         using TestWorkspace workspace = TestWorkspace.Create();
@@ -198,5 +324,36 @@ public class DryRunTests
             await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
             await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
         });
+    }
+
+    /// <summary>
+    /// The exact conflict line the publish stage prints through the error channel when both
+    /// skip channels carry explicit differing values - the wording the dry-run plan mirrors
+    /// from the real run, so the tests pin the whole line rather than a fragment of it
+    /// (ledger #T017, #D003).
+    /// </summary>
+    private const string SkipConflictLine =
+        "error: skipDuplicates conflict: --skip-duplicate (command line) wins over publish.skipDuplicates";
+
+    /// <summary>
+    /// Counts non-overlapping occurrences of <paramref name="value"/>, so a test can assert a
+    /// message printed exactly once rather than at least once (the at-most-once conflict cap
+    /// of ledger #T008, #T017).
+    /// </summary>
+    /// <param name="text">The captured console output.</param>
+    /// <param name="value">The substring to count.</param>
+    /// <returns>How many times <paramref name="value"/> occurs in <paramref name="text"/>.</returns>
+    private static int CountOccurrences(string text, string value)
+    {
+        int count = 0;
+        int index = text.IndexOf(value, StringComparison.Ordinal);
+
+        while (index >= 0)
+        {
+            count++;
+            index = text.IndexOf(value, index + value.Length, StringComparison.Ordinal);
+        }
+
+        return count;
     }
 }
