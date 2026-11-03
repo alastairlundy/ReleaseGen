@@ -24,7 +24,9 @@ namespace ReleaseGen.Cli.Commands;
 /// <c>--dry-run</c> forwards to every stage, so the chain prints each stage's plan stage by
 /// stage and writes nothing anywhere; <c>--verbose</c> forwards for the same reason, so each
 /// named stage prints its command lines, raw output, and cause lines, and passing it together
-/// with <c>--quiet</c> fails the chain before the first stage starts. Retry logic stays out of v1.
+/// with <c>--quiet</c> fails the chain before the first stage starts; <c>--skip-duplicate</c>
+/// forwards to the publish stage in the exact shape it was passed, so the chain and a
+/// separate <c>releasegen publish</c> invocation resolve one skip decision. Retry logic stays out of v1.
 /// </summary>
 /// <remarks>
 /// Stage selection follows the manifest: build always runs; test is named by a declared test
@@ -49,10 +51,20 @@ public sealed class RunCommand : Command
             Description = "Override the manifest's build.preset for this invocation only. Does not write the manifest.",
         };
 
+        // Tri-state like the publish command's switch: absent forwards nothing, so an
+        // ordinary chain run never becomes an explicit channel and can never conflict
+        // with the manifest (ledger D003).
+        Option<bool?> skipDuplicateOption = new("--skip-duplicate")
+        {
+            Description =
+                "Forwarded to the publish stage: skip a push the source declares a duplicate instead of failing the stage. Overrides publish.skipDuplicates for this invocation; a conflict with the manifest prints one line to standard error and this switch wins.",
+        };
+
         Option<bool> dryRunOption = CliOptions.CreateDryRun();
         Option<bool> verboseOption = CliOptions.CreateVerbose();
 
         Add(presetOption);
+        Add(skipDuplicateOption);
         Add(dryRunOption);
         Add(verboseOption);
 
@@ -70,6 +82,7 @@ public sealed class RunCommand : Command
             {
                 // Preset precedence: --preset beats the manifest key for this invocation only.
                 string? flagPreset = parseResult.GetValue(presetOption);
+                bool? flagSkipDuplicate = parseResult.GetValue(skipDuplicateOption);
                 bool dryRun = parseResult.GetValue(dryRunOption);
                 bool verbose = parseResult.GetValue(verboseOption);
 
@@ -85,6 +98,17 @@ public sealed class RunCommand : Command
 
                 List<string> presetArguments = string.IsNullOrWhiteSpace(flagPreset)
                     ? [] : ["--preset", flagPreset];
+
+                // Forward the switch in the exact shape the user passed it: absent means
+                // no argument at all (the publish stage then reads its own tri-state as
+                // "never asked"), bare or true forwards the flag, and an explicit false
+                // forwards its value so "declared off" survives the hop (ledger D003).
+                List<string> skipDuplicateArguments = flagSkipDuplicate switch
+                {
+                    null => [],
+                    true => ["--skip-duplicate"],
+                    false => ["--skip-duplicate", "false"],
+                };
 
                 List<StagePlan> stages =
                 [
@@ -105,7 +129,7 @@ public sealed class RunCommand : Command
                     new("publish",
                         DeclaresPackageKinds(manifest),
                         SkipReason: "no target declares a package kind",
-                        []),
+                        skipDuplicateArguments),
                 ];
 
                 CliOutput.Note(
@@ -181,10 +205,11 @@ public sealed class RunCommand : Command
     /// Runs one stage in-process through its stage command, so the chain and a separate
     /// invocation of the same stage share one behaviour surface. The stage re-resolves the
     /// manifest itself; <c>--quiet</c>, <c>--dry-run</c>, <c>--verbose</c> (and, for build,
-    /// <c>--preset</c>) forward so the stage sees the chain's invocation flags.
+    /// <c>--preset</c>; for publish, <c>--skip-duplicate</c>) forward so the stage sees the
+    /// chain's invocation flags.
     /// </summary>
     /// <param name="stageName">The stage command to invoke: build, test, package, or publish.</param>
-    /// <param name="extraArguments">Extra stage flags for this invocation, such as the preset override.</param>
+    /// <param name="extraArguments">Extra stage flags for this invocation, such as the preset override or the forwarded skip-duplicate switch.</param>
     /// <param name="quiet">Whether the chain runs under <c>--quiet</c>; forwarded to the stage.</param>
     /// <param name="dryRun">Whether the chain runs under <c>--dry-run</c>; forwarded to the stage.</param>
     /// <param name="verbose">Whether the chain runs under <c>--verbose</c>; forwarded to the stage.</param>

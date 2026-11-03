@@ -257,6 +257,98 @@ public class DryRunTests
     }
 
     [Test]
+    public async Task A_chained_dry_run_forwards_skip_duplicate_to_the_publish_stage()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+
+        // The manifest never declares the key, so the plan can only show skipping if the
+        // chain forwarded the bare switch to the publish stage (ledger #D003).
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Lib/Lib.csproj", "kinds": ["lib-package"] } ], "publish": { "sources": ["local-feed"] } }""");
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            StageContext.Reset();
+
+            try
+            {
+                string console = await ConsoleCapture.CaptureAsync(async () =>
+                {
+                    int exitCode = await CliHarness.InvokeAsync(
+                        new RunCommand(_manifestLoader, _invoker, _buildStageRunner),
+                        "run",
+                        "--dry-run",
+                        "--skip-duplicate");
+
+                    await Assert.That(exitCode).IsEqualTo(0);
+                });
+
+                // The forwarded switch resolved the publish stage's decision exactly as a
+                // separate publish invocation would: skip-enabled mode, the switch in the
+                // planned push, and no conflict from the absent manifest channel.
+                await Assert.That(console).Contains(
+                    "resolved skip mode: duplicates skipped; the push would pass --skip-duplicate.");
+                await Assert.That(console).Contains("--api-key **** --skip-duplicate");
+                await Assert.That(console.Contains("skipDuplicates conflict")).IsFalse();
+
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
+            }
+            finally
+            {
+                StageContext.Reset();
+            }
+        });
+    }
+
+    [Test]
+    public async Task A_chained_dry_run_forwards_an_explicit_false_skip_value_as_a_conflict()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+
+        // Both channels explicit and differing (manifest true, forwarded false): if the
+        // chain had dropped the value, the manifest would win silently instead - so the
+        // conflict line plus the fail-fast mode line together prove "false" survived the
+        // hop as its own channel (ledger #D003).
+        workspace.WriteManifest(
+            """{ "targets": [ { "project": "src/Lib/Lib.csproj", "kinds": ["lib-package"] } ], "publish": { "sources": ["local-feed"], "skipDuplicates": true } }""");
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            StageContext.Reset();
+
+            try
+            {
+                string console = await ConsoleCapture.CaptureAsync(async () =>
+                {
+                    int exitCode = await CliHarness.InvokeAsync(
+                        new RunCommand(_manifestLoader, _invoker, _buildStageRunner),
+                        "run",
+                        "--dry-run",
+                        "--skip-duplicate",
+                        "false");
+
+                    // The conflict is a report, not a failure: the chain's exit code stays
+                    // manifest-validation only (ledger #T017).
+                    await Assert.That(exitCode).IsEqualTo(0);
+                });
+
+                await Assert.That(CountOccurrences(console, SkipConflictLine)).IsEqualTo(1);
+                await Assert.That(console).Contains(
+                    "resolved skip mode: duplicates fail the stage; no --skip-duplicate would be passed.");
+                await Assert.That(console.Contains("--api-key **** --skip-duplicate")).IsFalse();
+
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
+            }
+            finally
+            {
+                StageContext.Reset();
+            }
+        });
+    }
+
+    [Test]
     public async Task A_dry_run_chained_run_plans_every_named_stage_and_writes_nothing()
     {
         using TestWorkspace workspace = TestWorkspace.Create();

@@ -363,15 +363,18 @@ runs; test is named by a declared test section; package and publish are named by
 declaring package kinds. The test stage's gate outcome is carried to publish within the chain,
 so tests never run twice. Under `--dry-run` the chain forwards the flag to every named stage,
 so the report walks the whole pipeline stage by stage and writes nothing. Under `--verbose`
-the chain forwards that flag the same way, so every named stage runs in full detail.
+the chain forwards that flag the same way, so every named stage runs in full detail. Stage-specific
+flags forward the same way: `--preset` reaches build, and `--skip-duplicate` reaches publish,
+so a chained run and a separate `releasegen publish` resolve one skip decision.
 
 ```
-releasegen run [--preset <name>] [--dry-run] [--verbose]
+releasegen run [--preset <name>] [--skip-duplicate] [--dry-run] [--verbose]
 ```
 
 | Flag | Effect |
 |------|--------|
 | `--preset <name>` | Overrides the Manifest's `build.preset` for this invocation only, forwarded to the build stage. Never writes the Manifest. |
+| `--skip-duplicate` | Forwarded to the publish stage: skip a push the source declares a duplicate instead of failing the stage. Overrides `publish.skipDuplicates` for this invocation; a conflict with the Manifest prints one line to standard error and this switch wins. Reaches only the publish stage, and only when the chain names it. |
 | `--dry-run` | Forwards to every named stage: the chain prints each stage's would-be actions and writes nothing anywhere, exiting on Manifest validation alone. See [Dry run](#dry-run). |
 | `--verbose` | Forwards to every named stage: each stage prints its command lines, raw output, and cause lines as it runs. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
