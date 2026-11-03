@@ -6,8 +6,8 @@ using ReleaseGenLib.Models;
 /// <summary>
 /// The skip-duplicates adapter truth table: the CLI-side resolver folds the manifest's
 /// publish section and the parsed <c>--skip-duplicate</c> switch through the library's pure
-/// merge (ledger #T004, #T005). The resolver is a thin pass-through with no parsing and no
-/// console, so these tests stay parallel-safe like the other unit suites (#T013).
+/// merge. The resolver is a thin pass-through with no parsing and no
+/// console, so these tests stay parallel-safe like the other unit suites.
 /// </summary>
 public class NuGetSkipResolverTests
 {
@@ -19,7 +19,7 @@ public class NuGetSkipResolverTests
     {
         SkipDuplicatesDecision decision = NuGetSkipResolver.Resolve(null, null);
 
-        // Absent on both sides is the fail-fast default, exactly as today (#D003).
+        // Absent on both sides is the fail-fast default, exactly as today.
         await Assert.That(decision.SkipEnabled).IsFalse();
         await Assert.That(decision.ConflictMessage).IsNull();
     }
@@ -43,7 +43,7 @@ public class NuGetSkipResolverTests
         SkipDuplicatesDecision enabled = NuGetSkipResolver.Resolve(null, true);
         SkipDuplicatesDecision disabled = NuGetSkipResolver.Resolve(null, false);
 
-        // An absent manifest channel is never a conflict (#D003).
+        // An absent manifest channel is never a conflict.
         await Assert.That(enabled.SkipEnabled).IsTrue();
         await Assert.That(enabled.ConflictMessage).IsNull();
         await Assert.That(disabled.SkipEnabled).IsFalse();
@@ -56,7 +56,7 @@ public class NuGetSkipResolverTests
         SkipDuplicatesDecision bothTrue = NuGetSkipResolver.Resolve(Section(true), true);
         SkipDuplicatesDecision bothFalse = NuGetSkipResolver.Resolve(Section(false), false);
 
-        // Agreement is not a conflict: only explicit differences are (#T014).
+        // Agreement is not a conflict: only explicit differences are.
         await Assert.That(bothTrue.SkipEnabled).IsTrue();
         await Assert.That(bothTrue.ConflictMessage).IsNull();
         await Assert.That(bothFalse.SkipEnabled).IsFalse();
@@ -70,7 +70,7 @@ public class NuGetSkipResolverTests
         SkipDuplicatesDecision cliOff = NuGetSkipResolver.Resolve(Section(true), false);
 
         // Both channels explicit and differing: the CLI value wins and the message names
-        // it, in both directions (#D003, #T016).
+        // it, in both directions.
         await Assert.That(cliOn.SkipEnabled).IsTrue();
         await Assert.That(cliOn.ConflictMessage).IsEqualTo(CliWins);
         await Assert.That(cliOff.SkipEnabled).IsFalse();
@@ -84,7 +84,7 @@ public class NuGetSkipResolverTests
         bool?[] cliValues = [null, true, false];
 
         // The adapter is a thin consumer: its decision is SkipDuplicatesDecision.Merge's
-        // output for both channels, mapping an absent switch to null (#T004, #T016).
+        // output for both channels, mapping an absent switch to null.
         foreach (ManifestPublishSection? section in manifestSections)
         {
             foreach (bool? cliValue in cliValues)

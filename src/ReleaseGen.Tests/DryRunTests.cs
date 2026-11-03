@@ -155,7 +155,7 @@ public class DryRunTests
 
                 // The plan states the resolved skip mode a real run would push under, and
                 // the would-be push carries the switch that decision implies; an absent CLI
-                // channel is never a conflict (ledger #T017, #D003).
+                // channel is never a conflict.
                 await Assert.That(console).Contains(
                     "resolved skip mode: duplicates skipped; the push would pass --skip-duplicate.");
                 await Assert.That(console).Contains("--api-key **** --skip-duplicate");
@@ -195,7 +195,7 @@ public class DryRunTests
 
                 // No channel declared skipping, so the plan rehearses today's fail-fast
                 // default: the mode line tracks the resolved decision rather than carrying
-                // fixed wording (ledger #T017, #T007 default false).
+                // fixed wording; the default is false.
                 await Assert.That(console).Contains(
                     "resolved skip mode: duplicates fail the stage; no --skip-duplicate would be passed.");
 
@@ -215,8 +215,8 @@ public class DryRunTests
         using TestWorkspace workspace = TestWorkspace.Create();
 
         // Both channels explicit and differing (manifest false, switch true): the CLI value
-        // wins, and the plan prints the same conflict line a real run would (ledger #T017,
-        // #D003, #T008 at-most-once).
+        // wins, and the plan prints the same conflict line a real run would, at most
+        // once.
         workspace.WriteManifest(
             """{ "targets": [ { "project": "src/Lib/Lib.csproj", "kinds": ["lib-package"] } ], "publish": { "sources": ["local-feed"], "skipDuplicates": false } }""");
 
@@ -235,13 +235,13 @@ public class DryRunTests
                         "--skip-duplicate");
 
                     // The conflict is a report, not a failure: the plan's exit code stays
-                    // manifest-validation only (ledger #T017).
+                    // manifest-validation only.
                     await Assert.That(exitCode).IsEqualTo(0);
                 });
 
                 // Exactly one conflict line through the error channel - the standard-error
                 // surface a real run prints it on - and the mode line shows the CLI winner
-                // the plan resolved to (ledger #T017, #D003).
+                // the plan resolved to.
                 await Assert.That(CountOccurrences(console, SkipConflictLine)).IsEqualTo(1);
                 await Assert.That(console).Contains(
                     "resolved skip mode: duplicates skipped; the push would pass --skip-duplicate.");
@@ -262,7 +262,7 @@ public class DryRunTests
         using TestWorkspace workspace = TestWorkspace.Create();
 
         // The manifest never declares the key, so the plan can only show skipping if the
-        // chain forwarded the bare switch to the publish stage (ledger #D003).
+        // chain forwarded the bare switch to the publish stage.
         workspace.WriteManifest(
             """{ "targets": [ { "project": "src/Lib/Lib.csproj", "kinds": ["lib-package"] } ], "publish": { "sources": ["local-feed"] } }""");
 
@@ -309,7 +309,7 @@ public class DryRunTests
         // Both channels explicit and differing (manifest true, forwarded false): if the
         // chain had dropped the value, the manifest would win silently instead - so the
         // conflict line plus the fail-fast mode line together prove "false" survived the
-        // hop as its own channel (ledger #D003).
+        // hop as its own channel.
         workspace.WriteManifest(
             """{ "targets": [ { "project": "src/Lib/Lib.csproj", "kinds": ["lib-package"] } ], "publish": { "sources": ["local-feed"], "skipDuplicates": true } }""");
 
@@ -329,7 +329,7 @@ public class DryRunTests
                         "false");
 
                     // The conflict is a report, not a failure: the chain's exit code stays
-                    // manifest-validation only (ledger #T017).
+                    // manifest-validation only.
                     await Assert.That(exitCode).IsEqualTo(0);
                 });
 
@@ -421,16 +421,15 @@ public class DryRunTests
     /// <summary>
     /// The exact conflict line the publish stage prints through the error channel when both
     /// skip channels carry explicit differing values - the wording the dry-run plan mirrors
-    /// from the real run, so the tests pin the whole line rather than a fragment of it
-    /// (ledger #T017, #D003).
+    /// from the real run, so the tests pin the whole line rather than a fragment of it.
     /// </summary>
     private const string SkipConflictLine =
         "error: skipDuplicates conflict: --skip-duplicate (command line) wins over publish.skipDuplicates";
 
     /// <summary>
     /// Counts non-overlapping occurrences of <paramref name="value"/>, so a test can assert a
-    /// message printed exactly once rather than at least once (the at-most-once conflict cap
-    /// of ledger #T008, #T017).
+    /// message printed exactly once rather than at least once (the at-most-once conflict
+    /// cap).
     /// </summary>
     /// <param name="text">The captured console output.</param>
     /// <param name="value">The substring to count.</param>

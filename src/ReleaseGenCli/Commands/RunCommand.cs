@@ -53,7 +53,7 @@ public sealed class RunCommand : Command
 
         // Tri-state like the publish command's switch: absent forwards nothing, so an
         // ordinary chain run never becomes an explicit channel and can never conflict
-        // with the manifest (ledger D003).
+        // with the manifest.
         Option<bool?> skipDuplicateOption = new("--skip-duplicate")
         {
             Description =
@@ -102,7 +102,7 @@ public sealed class RunCommand : Command
                 // Forward the switch in the exact shape the user passed it: absent means
                 // no argument at all (the publish stage then reads its own tri-state as
                 // "never asked"), bare or true forwards the flag, and an explicit false
-                // forwards its value so "declared off" survives the hop (ledger D003).
+                // forwards its value so "declared off" survives the hop.
                 List<string> skipDuplicateArguments = flagSkipDuplicate switch
                 {
                     null => [],

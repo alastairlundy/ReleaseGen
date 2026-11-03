@@ -5,9 +5,9 @@ using ReleaseGenLib.Models;
 /// <summary>
 /// The skip-duplicates merge truth table: the Lib-owned value object that folds the
 /// manifest's publish.skipDuplicates default with the CLI's --skip-duplicate switch
-/// into one decision (ledger #T016, #D003). The type is pure - no parsing, no console,
-/// no working-directory access (#T005) - so these tests are parallel-safe like the
-/// other unit suites (#T013).
+/// into one decision. The type is pure - no parsing, no console,
+/// no working-directory access - so these tests are parallel-safe like the
+/// other unit suites.
 /// </summary>
 public class SkipDuplicatesMergeTests
 {
@@ -19,7 +19,7 @@ public class SkipDuplicatesMergeTests
     {
         SkipDuplicatesDecision decision = SkipDuplicatesDecision.Merge(null, null);
 
-        // Absent on both sides is the fail-fast default, exactly as today (#D003).
+        // Absent on both sides is the fail-fast default, exactly as today.
         await Assert.That(decision.SkipEnabled).IsFalse();
         await Assert.That(decision.ConflictMessage).IsNull();
     }
@@ -43,7 +43,7 @@ public class SkipDuplicatesMergeTests
         SkipDuplicatesDecision enabled = SkipDuplicatesDecision.Merge(null, true);
         SkipDuplicatesDecision disabled = SkipDuplicatesDecision.Merge(null, false);
 
-        // An absent CLI switch is never a conflict (#D003).
+        // An absent CLI switch is never a conflict.
         await Assert.That(enabled.SkipEnabled).IsTrue();
         await Assert.That(enabled.ConflictMessage).IsNull();
         await Assert.That(disabled.SkipEnabled).IsFalse();
@@ -56,7 +56,7 @@ public class SkipDuplicatesMergeTests
         SkipDuplicatesDecision bothTrue = SkipDuplicatesDecision.Merge(true, true);
         SkipDuplicatesDecision bothFalse = SkipDuplicatesDecision.Merge(false, false);
 
-        // Agreement is not a conflict: only explicit differences are (#T014).
+        // Agreement is not a conflict: only explicit differences are.
         await Assert.That(bothTrue.SkipEnabled).IsTrue();
         await Assert.That(bothTrue.ConflictMessage).IsNull();
         await Assert.That(bothFalse.SkipEnabled).IsFalse();
@@ -70,7 +70,7 @@ public class SkipDuplicatesMergeTests
         SkipDuplicatesDecision cliOn = SkipDuplicatesDecision.Merge(false, true);
 
         // Both channels explicit and differing: the CLI value wins and the message
-        // names it, in both directions (#D003, #T016).
+        // names it, in both directions.
         await Assert.That(cliOff.SkipEnabled).IsFalse();
         await Assert.That(cliOff.ConflictMessage).IsEqualTo(CliWins);
         await Assert.That(cliOn.SkipEnabled).IsTrue();

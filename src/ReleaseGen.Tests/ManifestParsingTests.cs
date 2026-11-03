@@ -123,7 +123,7 @@ public class ManifestParsingTests
             """{ "targets": [], "publish": { "sources": [], "skipDuplicates": true } }""");
 
         // Boolean-with-default-false contract: the key is tri-state, and an explicit
-        // value must survive the strict parse (ledger #T007, #T016).
+        // value must survive the strict parse.
         await Assert.That(manifest.Publish.SkipDuplicates).IsTrue();
     }
 
@@ -133,8 +133,7 @@ public class ManifestParsingTests
         Manifest manifest = _loader.Parse("""{ "targets": [] }""");
 
         // Absent must stay distinguishable from an explicit false so the merge rules
-        // in SkipDuplicatesDecision can tell "never declared" from "declared off"
-        // (ledger #D003, #I002).
+        // in SkipDuplicatesDecision can tell "never declared" from "declared off".
         await Assert.That(manifest.Publish.SkipDuplicates).IsNull();
     }
 
@@ -143,8 +142,7 @@ public class ManifestParsingTests
     {
         // Casing is part of the contract: a misspelled key is an unknown member rather
         // than an alias of the real one, so strict parse rejects it naming the offender -
-        // the accepting side of exact casing is the explicit-value test above
-        // (ledger #T007, #D003).
+        // the accepting side of exact casing is the explicit-value test above.
         ManifestException exception = Capture.Exception<ManifestException>(
             () => _loader.Parse(
                 """{ "targets": [], "publish": { "sources": [], "SkipDuplicates": true } }"""));
@@ -158,8 +156,8 @@ public class ManifestParsingTests
     {
         // Regression for the field's addition: declaring skipDuplicates does not open the
         // publish section - a typo'd sibling still fails parse naming the typo, and the
-        // message never mistakes it for the valid key (ledger #T007, #D003: no validation
-        // weakening around the new field).
+        // message never mistakes it for the valid key (no validation weakening around
+        // the new field).
         ManifestException exception = Capture.Exception<ManifestException>(
             () => _loader.Parse(
                 """{ "targets": [], "publish": { "sources": [], "skipDuplicates": true, "skipDuplicate": true } }"""));

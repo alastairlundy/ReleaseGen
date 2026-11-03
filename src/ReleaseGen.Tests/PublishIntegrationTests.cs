@@ -14,7 +14,7 @@ namespace ReleaseGen.Tests;
 /// double-push case documents that a local source judges re-pushes its own way. The
 /// fixture-driven scanner legs hand the stage recorded push output - clearly labeled
 /// synthetic duplicate-marker lines - to pin the strict both-stream marker scan and the
-/// stderr-side note reclassification with no network and no nuget.org run (ledger #T013).
+/// stderr-side note reclassification with no network and no nuget.org run.
 /// Composed from the production container via <see cref="ReleaseGenRealInvokerDiAttribute"/>,
 /// so the real-invoker leg runs the unmodified production composition.
 /// </summary>
@@ -65,10 +65,9 @@ public class PublishIntegrationTests
         // One invocation declares the same local-folder source twice, so the staged package
         // is pushed to it twice: a re-push a local source judges its own way. No skip marker
         // ever appears on this path - dotnet reports duplicates only for server-backed feeds -
-        // so both pushes count as pushed and none as skipped, at exit 0 (ledger #T009: an
-        // exit-0 push without the marker counts as pushed; #D002: sources judge duplicates
-        // themselves, so no cross-source guarantee exists - a nuget.org duplicate would have
-        // skipped instead).
+        // so both pushes count as pushed and none as skipped, at exit 0 (an exit-0 push
+        // without the marker counts as pushed; sources judge duplicates themselves, so no
+        // cross-source guarantee exists - a nuget.org duplicate would have skipped instead).
         workspace.WriteManifest(DoubleDeclaredSourceManifest(source));
         TestPackage.WriteNupkg(
             Path.Combine(workspace.Root, "release", "packages", "lib", "Local", "ReleaseGen.LocalPush.1.0.0.nupkg"),
@@ -82,7 +81,7 @@ public class PublishIntegrationTests
             string console = await ConsoleCapture.CaptureAsync(async () =>
             {
                 // The switch rides the real push; nothing queries the source first - it
-                // alone judges the re-push (ledger #D002, #T003).
+                // alone judges the re-push.
                 int exitCode = await CliHarness.InvokeAsync(
                     new PublishCommand(_manifestLoader, _processInvoker),
                     "publish",
@@ -126,9 +125,9 @@ public class PublishIntegrationTests
                 await Assert.That(exitCode).IsEqualTo(0);
             });
 
-            // The strict scan counts a marker-carrying push as skipped and never as pushed
-            // (ledger #T009), the summary reports the two totals separately (#D004), and the
-            // manifest channel appended --skip-duplicate to the argument list (#T003).
+            // The strict scan counts a marker-carrying push as skipped and never as pushed,
+            // the summary reports the two totals separately, and the manifest channel
+            // appended --skip-duplicate to the argument list.
             await Assert.That(console).Contains("pushed 0 package(s)");
             await Assert.That(console).Contains("skipped 1 package(s)");
             await Assert.That(Compact(console)).Contains("note:" + Compact(SyntheticSkipMarkerLine));
@@ -151,7 +150,7 @@ public class PublishIntegrationTests
             StageContext.Reset();
 
             // The fixture set's stderr-side marker line: counting must not depend on which
-            // stream dotnet chose for the notice (ledger #T015).
+            // stream dotnet chose for the notice.
             RecordingProcessInvoker invoker = new()
             {
                 OutputFactory = _ => (string.Empty, SyntheticStderrSkipFixture),
@@ -167,8 +166,7 @@ public class PublishIntegrationTests
 
             // Reclassification is exact, not blanket: the stderr marker line leaves the
             // warning path and re-emits as a stage note, while a non-marker stderr line
-            // keeps its warning tone; the skipped push names its package and source
-            // (ledger #T015, #T009, #D004).
+            // keeps its warning tone; the skipped push names its package and source.
             string compact = Compact(console);
             await Assert.That(console).Contains("pushed 0 package(s)");
             await Assert.That(console).Contains("skipped 1 package(s)");
@@ -207,7 +205,7 @@ public class PublishIntegrationTests
             });
 
             // Strict means strict: wording drift undercounts the skipped total rather than
-            // inventing a skip (ledger #T009), so an exit-0 push whose output lacks the
+            // inventing a skip, so an exit-0 push whose output lacks the
             // exact marker still counts as pushed.
             await Assert.That(console).Contains("pushed 1 package(s)");
             await Assert.That(console).Contains("skipped 0 package(s)");
@@ -217,10 +215,10 @@ public class PublishIntegrationTests
     /// <summary>
     /// SYNTHETIC fixture text, clearly labeled as such: these lines are NOT captured
     /// <c>dotnet nuget push</c> output. They stand in for the duplicate notice so the marker
-    /// scan is pinned in CI, which runs no nuget.org pushes (ledger #T013). Ticket 009
+    /// scan is pinned in CI, which runs no nuget.org pushes. A follow-up fixture capture
     /// replaces them with real captured output - including which stream the notice arrived
     /// on - and reconciles <see cref="PublishCommand.SkipDuplicateMarker"/> against it if
-    /// the live wording has drifted (ledger #T009, #T015).
+    /// the live wording has drifted.
     /// </summary>
     private const string SyntheticSkipMarkerLine =
         "Package 'release/packages/lib/Local/ReleaseGen.LocalPush.1.0.0.nupkg' already exists at feed 'local-source'.";
@@ -242,7 +240,7 @@ public class PublishIntegrationTests
 
     /// <summary>
     /// A drifted-wording lookalike: "in feed" is not the pinned "at feed" marker, so the
-    /// strict scan must not count it (ledger #T009).
+    /// strict scan must not count it.
     /// </summary>
     private const string SyntheticLookalikeStdoutFixture =
         "Package 'release/packages/lib/Local/ReleaseGen.LocalPush.1.0.0.nupkg' already exists in feed 'local-source'.";
@@ -273,7 +271,7 @@ public class PublishIntegrationTests
 
     /// <summary>
     /// A manifest whose publish section declares skipping, so the resolved decision appends
-    /// <c>--skip-duplicate</c> to the recorded push without a CLI switch (ledger #T007).
+    /// <c>--skip-duplicate</c> to the recorded push without a CLI switch.
     /// </summary>
     private static string SkipEnabledPackageManifest(string source) =>
         $$"""

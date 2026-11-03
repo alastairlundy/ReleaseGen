@@ -6,7 +6,7 @@ namespace ReleaseGen.Cli.Resolvers;
 /// pure <see cref="SkipDuplicatesDecision.Merge(bool?, bool?)"/>. The adapter carries no rules
 /// of its own and writes nothing to the console: the stage prints the decision's conflict
 /// message at its single resolution call site, which is what makes the once-per-run cap
-/// mechanical (ledger #T004, #T005, #T008).
+/// mechanical.
 /// </summary>
 public static class NuGetSkipResolver
 {

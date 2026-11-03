@@ -63,7 +63,7 @@ public sealed class PublishCommand : Command
     /// The fixture-pinned skip marker: the exact text <c>dotnet nuget push --skip-duplicate</c>
     /// prints when the source declares a package already published. Both output streams are
     /// scanned for it with a strict ordinal match, so a matched push counts as skipped and
-    /// never as a failed or warned one (ledger #T009, #T015). The wording is pinned from
+    /// never as a failed or warned one. The wording is pinned from
     /// NuGet's own duplicate message - "Package '&lt;path&gt;' already exists at feed
     /// '&lt;source&gt;'" - and the fixture capture reconciles this constant against a real
     /// nuget.org duplicate push if the live wording has drifted.
@@ -117,7 +117,7 @@ public sealed class PublishCommand : Command
                 // Resolved exactly once, immediately after the load, and consumed by both
                 // the plan path and the run path below: one decision, and the conflict line
                 // printed here at this single call site is what caps it at once per
-                // invocation (ledger #T008).
+                // invocation.
                 SkipDuplicatesDecision skipDecision = NuGetSkipResolver.Resolve(
                     manifest.Publish, parseResult.GetValue(skipDuplicateOption));
 
@@ -213,7 +213,7 @@ public sealed class PublishCommand : Command
                         if (skipped)
                         {
                             // A source-declared duplicate is not a push: it joins the
-                            // skipped total and never the pushed one (ledger #D004).
+                            // skipped total and never the pushed one.
                             skippedCount++;
                             continue;
                         }
@@ -229,7 +229,7 @@ public sealed class PublishCommand : Command
 
                 // Pushed and skipped are reported as two totals so a re-run states exactly
                 // what it re-pushed and what the source judged a duplicate; skips leave the
-                // exit at 0 (ledger #D004).
+                // exit at 0.
                 string kindsClause = pushedKinds.Count > 0
                     ? $" of kind(s) {string.Join(", ", pushedKinds)}"
                     : string.Empty;
@@ -336,7 +336,7 @@ public sealed class PublishCommand : Command
 
         // The plan states the resolved mode per source rather than only the pushes it
         // would make, so a reader sees whether duplicates are tolerated before any line
-        // that would fail on one (ledger #T017).
+        // that would fail on one.
         foreach (string source in sources)
         {
             CliOutput.Note(skipDecision.SkipEnabled
@@ -563,13 +563,13 @@ public sealed class PublishCommand : Command
     /// with the key redacted is the record's command line, so both printed modes show the same
     /// line without leaking the credential, and only a real run spawns the push. When the
     /// resolved decision enables skipping, <c>--skip-duplicate</c> joins the argument list and
-    /// the printed line - the source alone judges duplicates, so nothing queries it first
-    /// (ledger #D002, #T003). A nonzero exit fails fast with
+    /// the printed line - the source alone judges duplicates, so nothing queries it first.
+    /// A nonzero exit fails fast with
     /// <see cref="PublishStageException"/> naming the package, the source, and the exit code;
     /// failure detail stays textual. An exit-zero push whose merged streams carry
     /// <see cref="SkipDuplicateMarker"/> counts as skipped instead of pushed: the marker line
     /// re-emits as a note rather than a warning, and a stage note names the package and the
-    /// source (ledger #T009, #T015, #D004).
+    /// source.
     /// </summary>
     /// <param name="push">The package to push.</param>
     /// <param name="source">The resolved push source.</param>
@@ -601,7 +601,7 @@ public sealed class PublishCommand : Command
         if (result.ExitCode != 0)
         {
             // Unchanged fail-fast: only an exit-zero duplicate is a skip; a real nonzero
-            // push exit still aborts the stage (ledger #D004).
+            // push exit still aborts the stage.
             throw new PublishStageException(
                 $"publish: dotnet nuget push failed for package '{push.PackageFile.Name}' (kind '{push.Kind}', target '{push.TargetProject}') to source '{source}' (exit code {result.ExitCode}).");
         }
@@ -620,8 +620,7 @@ public sealed class PublishCommand : Command
     /// Builds the executed record for one <c>dotnet nuget push</c>: the argument list the
     /// process runs with, and the same command line with the key redacted for the console.
     /// <c>--skip-duplicate</c> joins both exactly when the decision enables it - the switch
-    /// rides the existing push path with no pre-check and no source query of any kind
-    /// (ledger #D002, #T003).
+    /// rides the existing push path with no pre-check and no source query of any kind.
     /// </summary>
     /// <param name="push">The package to push.</param>
     /// <param name="source">The resolved push source.</param>
@@ -677,7 +676,7 @@ public sealed class PublishCommand : Command
     /// with a strict ordinal match, so counting never depends on which stream the notice
     /// arrived on, and an exit-zero push without the marker still counts as pushed. A matched
     /// stderr line leaves the warning path and re-emits as a note, so a skip never renders as
-    /// a warning (ledger #T009, #T015).
+    /// a warning.
     /// </summary>
     /// <param name="result">The captured push result.</param>
     /// <param name="push">The package that was pushed, for the truncation wording.</param>
@@ -699,7 +698,7 @@ public sealed class PublishCommand : Command
         bool skipped = ContainsSkipMarker(result.StandardOutput) || ContainsSkipMarker(result.StandardError);
 
         // stdout lines are stage notes already; a stderr marker line leaves the warning path
-        // and re-emits as a note, so a skip never renders as a warning (ledger #T015).
+        // and re-emits as a note, so a skip never renders as a warning.
         await ReplayLines(result.StandardOutput, static line => CliOutput.Note(line), cancellationToken).ConfigureAwait(true);
         await ReplayLines(
             result.StandardError,
@@ -723,7 +722,7 @@ public sealed class PublishCommand : Command
     /// Whether the captured output carries the fixture-pinned skip marker. The match is strict
     /// and ordinal - the exact marker text and nothing looser - so wording drift in
     /// <c>dotnet nuget push</c> undercounts skipped pushes rather than inventing them, and no
-    /// source query ever substitutes for the marker (ledger #T009, #D002).
+    /// source query ever substitutes for the marker.
     /// </summary>
     /// <param name="text">The captured stdout or stderr text, or a single line of it; null reads as no match.</param>
     /// <returns>True when <paramref name="text"/> carries <see cref="SkipDuplicateMarker"/>.</returns>
