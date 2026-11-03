@@ -73,9 +73,14 @@ names its completion signal.
    kinds, publish flag, renamer), each `[test]`, `[coverage]`, `[github]`, `[nuget]`,
    `[brew]`, `[scoop]`, `[changelog]`, `[service]`, and `[[deb.depends]]`/`[[rpm.depends]]`
    section, plus every other top-level key, marking keys absent from the mapping
-   table as `unknown`. On the config-absent path, run `releasegen init` and use its
-   seeded skeleton plus the user's description as the inventory. Completion: an
-   inventory covering every source section at least once.
+   table as `unknown`. On the config-absent path, check for an existing
+   `releasegen.json` at the repository root before running `releasegen init`: init
+   refuses an existing manifest and exits 1 unless `--overwrite` is passed. When
+   one exists, load it and merge its contents into the inventory (its keys are
+   already Manifest keys, so carry them through instead of marking them `unknown`)
+   and ask the user before Step 4 replaces it; when none exists, run
+   `releasegen init` and use its seeded skeleton plus the user's description as the
+   inventory. Completion: an inventory covering every source section at least once.
 
 4. **Translate.** Map each inventory item through the mapping table and write
    `releasegen.json` at the repository root. Follow the Manifest's rules inline:
