@@ -61,7 +61,15 @@ conflict (SKILL.md Gotchas); record any conflict in the migration report.
   its line unchanged, gains the
   `# MIGRATION: manual action pending (see releasegen-migration-report.md)`
   comment, and is logged under the report's `Manual action required` heading.
-- dotnet-releaser's tag-push/branch-conditional publish behavior is CI-level
-  workflow logic (`on: push: tags:` filters), not a tool invocation: keep the
-  workflow's event filters as-is and note in the report that ReleaseGen accepts
-  the resulting command whenever CI decides to run it.
+- `dotnet-releaser run` (GitHub-Action auto mode) decides publish vs
+  build-only from the GitHub event inside the tool; `releasegen run` publishes
+  whenever CI invokes it. Before rewriting such a line, require CI conditions
+  (workflow event filters or step/job conditions) that keep package and publish
+  off ordinary branch pushes and on version-tag pushes, or split the
+  invocations so branch pushes run `releasegen build` and version-tag pushes
+  run `releasegen run` (or `releasegen package` plus `releasegen publish`).
+  When neither can be applied without restructuring the workflow beyond its
+  invocation lines, leave the invocation unchanged, add the
+  `# MIGRATION: manual action pending (see releasegen-migration-report.md)`
+  comment, and record the required tag-only publish condition under the
+  report's `Manual action required` heading.
