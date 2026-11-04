@@ -6,8 +6,6 @@ AGENTS.md) - git tags do not drive them.
 
 ## 0.3.0 - 2026-11-04
 
-Duplicate-push control for the publish stage, plus routine dependency updates.
-
 ### Added
 
 - **`--skip-duplicate` on `publish`**: when skipping is enabled, the flag is passed to
