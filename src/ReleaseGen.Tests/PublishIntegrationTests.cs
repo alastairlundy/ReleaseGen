@@ -12,9 +12,11 @@ namespace ReleaseGen.Tests;
 /// from the current directory. The real-invoker leg runs a real <c>dotnet nuget push</c> into
 /// a local folder source instead of nuget.org: a normal push lands the package, and the
 /// double-push case documents that a local source judges re-pushes its own way. The
-/// fixture-driven scanner legs hand the stage recorded push output - clearly labeled
-/// synthetic duplicate-marker lines - to pin the strict both-stream marker scan and the
-/// stderr-side note reclassification with no network and no nuget.org run.
+/// fixture-driven scanner legs hand the stage recorded push output - the checked-in
+/// capture of a real nuget.org duplicate push (Fixtures/nuget-push-duplicate.txt, whose
+/// notice arrived on stdout) with the stderr-side stream placement clearly labeled as
+/// constructed - to pin the strict both-stream marker scan and the stderr-side note
+/// reclassification with no network and no nuget.org run.
 /// Composed from the production container via <see cref="ReleaseGenRealInvokerDiAttribute"/>,
 /// so the real-invoker leg runs the unmodified production composition.
 /// </summary>
@@ -112,9 +114,12 @@ public class PublishIntegrationTests
         {
             StageContext.Reset();
 
+            // The real captured stdout of a nuget.org duplicate push (409 Conflict, exit 0):
+            // the strict scan must count it as skipped on the evidence itself, not on
+            // restated synthetic text.
             RecordingProcessInvoker invoker = new()
             {
-                OutputFactory = _ => (SyntheticStdoutSkipFixture, string.Empty),
+                OutputFactory = _ => (CapturedStdout(), string.Empty),
             };
 
             string console = await ConsoleCapture.CaptureAsync(async () =>
@@ -126,11 +131,16 @@ public class PublishIntegrationTests
             });
 
             // The strict scan counts a marker-carrying push as skipped and never as pushed,
-            // the summary reports the two totals separately, and the manifest channel
-            // appended --skip-duplicate to the argument list.
+            // the summary reports the two totals separately, the captured notice re-emits
+            // as a note, and the manifest channel appended --skip-duplicate to the argument
+            // list. The capture names ReleaseGen 0.3.0 while the staged package differs:
+            // the scan keys on the marker text, never on the package name.
             await Assert.That(console).Contains("pushed 0 package(s)");
             await Assert.That(console).Contains("skipped 1 package(s)");
-            await Assert.That(Compact(console)).Contains("note:" + Compact(SyntheticSkipMarkerLine));
+            await Assert.That(console).Contains("skipped package 'ReleaseGen.LocalPush.1.0.0.nupkg'");
+            await Assert.That(console).Contains("the source declared it a duplicate");
+            await Assert.That(Compact(console)).Contains(JsonPath(source));
+            await Assert.That(Compact(console)).Contains("note:" + Compact(CapturedMarkerLine()));
             await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
             await Assert.That(string.Join(' ', invoker.Invocations[0].ArgumentList))
                 .Contains("--skip-duplicate");
@@ -149,11 +159,13 @@ public class PublishIntegrationTests
         {
             StageContext.Reset();
 
-            // The fixture set's stderr-side marker line: counting must not depend on which
-            // stream dotnet chose for the notice.
+            // T015's stderr-side match: the entire captured stdout re-delivered on stderr.
+            // The real capture observed the notice on stdout with stderr empty, so this
+            // stream placement is constructed - counting must not depend on which stream
+            // dotnet chose for the notice.
             RecordingProcessInvoker invoker = new()
             {
-                OutputFactory = _ => (string.Empty, SyntheticStderrSkipFixture),
+                OutputFactory = _ => (string.Empty, CapturedStdout()),
             };
 
             string console = await ConsoleCapture.CaptureAsync(async () =>
@@ -165,14 +177,14 @@ public class PublishIntegrationTests
             });
 
             // Reclassification is exact, not blanket: the stderr marker line leaves the
-            // warning path and re-emits as a stage note, while a non-marker stderr line
+            // warning path and re-emits as a stage note, while a captured non-marker line
             // keeps its warning tone; the skipped push names its package and source.
             string compact = Compact(console);
             await Assert.That(console).Contains("pushed 0 package(s)");
             await Assert.That(console).Contains("skipped 1 package(s)");
-            await Assert.That(compact).Contains("note:" + Compact(SyntheticSkipMarkerLine));
-            await Assert.That(compact.Contains("warning:" + Compact(SyntheticSkipMarkerLine))).IsFalse();
-            await Assert.That(compact).Contains("warning:" + Compact(SyntheticNonMarkerStderrLine));
+            await Assert.That(compact).Contains("note:" + Compact(CapturedMarkerLine()));
+            await Assert.That(compact.Contains("warning:" + Compact(CapturedMarkerLine()))).IsFalse();
+            await Assert.That(compact).Contains("warning:" + Compact(CapturedNonMarkerLine()));
             await Assert.That(console).Contains("skipped package 'ReleaseGen.LocalPush.1.0.0.nupkg'");
             await Assert.That(console).Contains("the source declared it a duplicate");
             await Assert.That(compact).Contains(JsonPath(source));
@@ -191,9 +203,12 @@ public class PublishIntegrationTests
         {
             StageContext.Reset();
 
+            // The lookalike is derived from the captured notice with the marker's decisive
+            // word drifted ("in feed" for "at feed"), so the strict scan's refusal is
+            // pinned against evidence-adjacent text, not an invented string.
             RecordingProcessInvoker invoker = new()
             {
-                OutputFactory = _ => (SyntheticLookalikeStdoutFixture, string.Empty),
+                OutputFactory = _ => (CapturedMarkerLine().Replace("at feed", "in feed", StringComparison.Ordinal), string.Empty),
             };
 
             string console = await ConsoleCapture.CaptureAsync(async () =>
@@ -213,37 +228,60 @@ public class PublishIntegrationTests
     }
 
     /// <summary>
-    /// SYNTHETIC fixture text, clearly labeled as such: these lines are NOT captured
-    /// <c>dotnet nuget push</c> output. They stand in for the duplicate notice so the marker
-    /// scan is pinned in CI, which runs no nuget.org pushes. A follow-up fixture capture
-    /// replaces them with real captured output - including which stream the notice arrived
-    /// on - and reconciles <see cref="PublishCommand.SkipDuplicateMarker"/> against it if
-    /// the live wording has drifted.
+    /// The evidence pin for the constant and its stream (#T009, #T015): the captured
+    /// payload must carry <see cref="PublishCommand.SkipDuplicateMarker"/> verbatim, and
+    /// the fixture must record which stream the notice arrived on - stdout for this
+    /// capture. Wording drift fails here instead of hiding behind a loose match.
     /// </summary>
-    private const string SyntheticSkipMarkerLine =
-        "Package 'release/packages/lib/Local/ReleaseGen.LocalPush.1.0.0.nupkg' already exists at feed 'local-source'.";
-
-    /// <summary>The stdout-side fixture: a pushing header line plus the marker line.</summary>
-    private const string SyntheticStdoutSkipFixture =
-        "Pushing ReleaseGen.LocalPush.1.0.0.nupkg to 'local-source'...\n" + SyntheticSkipMarkerLine;
+    [Test]
+    public async Task The_capture_fixture_pins_the_marker_constant_and_records_its_stream()
+    {
+        await Assert.That(CapturedStdout()).Contains(PublishCommand.SkipDuplicateMarker);
+        await Assert.That(FixtureText()).Contains("# stream: stdout");
+    }
 
     /// <summary>
-    /// A non-marker stderr line dotnet really prints for this push shape: it keeps the
-    /// warning path, which is what makes the marker line's reclassification selective.
+    /// The checked-in capture of a real duplicate push (Fixtures/nuget-push-duplicate.txt):
+    /// the push step's stdout payload with the provenance header's comment and blank lines
+    /// stripped. The header records the capture's stream evidence - the notice arrived on
+    /// stdout with stderr empty.
     /// </summary>
-    private const string SyntheticNonMarkerStderrLine =
-        "warn : The option to skip duplicates is not currently supported for this type of push.";
-
-    /// <summary>The stderr-side fixture: the non-marker warning line plus the marker line.</summary>
-    private const string SyntheticStderrSkipFixture =
-        SyntheticNonMarkerStderrLine + "\n" + SyntheticSkipMarkerLine;
+    private static string CapturedStdout() =>
+        string.Join('\n', File.ReadAllLines(FixturePath)
+            .Where(static line => line.Length > 0 && !line.StartsWith('#')));
 
     /// <summary>
-    /// A drifted-wording lookalike: "in feed" is not the pinned "at feed" marker, so the
-    /// strict scan must not count it.
+    /// The captured notice line itself - the evidence <see cref="PublishCommand.SkipDuplicateMarker"/>
+    /// must match. Fails with a reconciliation pointer when the constant has drifted off
+    /// the capture (#T009).
     /// </summary>
-    private const string SyntheticLookalikeStdoutFixture =
-        "Package 'release/packages/lib/Local/ReleaseGen.LocalPush.1.0.0.nupkg' already exists in feed 'local-source'.";
+    private static string CapturedMarkerLine()
+    {
+        string? markerLine = CapturedStdout().Split('\n').FirstOrDefault(
+            static line => line.Contains(PublishCommand.SkipDuplicateMarker, StringComparison.Ordinal));
+
+        return markerLine ?? throw new InvalidOperationException(
+            $"The captured fixture carries no line matching '{PublishCommand.SkipDuplicateMarker}'; " +
+            "reconcile the constant with src/ReleaseGen.Tests/Fixtures/nuget-push-duplicate.txt.");
+    }
+
+    /// <summary>
+    /// A captured progress line that is not the notice, for proving a non-marker line
+    /// keeps the warning tone when the capture is replayed from stderr.
+    /// </summary>
+    private static string CapturedNonMarkerLine() =>
+        CapturedStdout().Split('\n').First(
+            static line => !line.Contains(PublishCommand.SkipDuplicateMarker, StringComparison.Ordinal));
+
+    /// <summary>The full fixture text, provenance header included, for the stream-record pin.</summary>
+    private static string FixtureText() => File.ReadAllText(FixturePath);
+
+    /// <summary>
+    /// Absolute path to the checked-in capture: absolute so the stage-mutating tests find
+    /// it even while <see cref="TestWorkspace.InDirectoryAsync"/> holds a different cwd.
+    /// </summary>
+    private static readonly string FixturePath =
+        Path.Combine(AppContext.BaseDirectory, "Fixtures", "nuget-push-duplicate.txt");
 
     /// <summary>
     /// The captured console with all whitespace removed, so an assertion on a line survives

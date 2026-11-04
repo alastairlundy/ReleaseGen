@@ -65,8 +65,9 @@ public sealed class PublishCommand : Command
     /// scanned for it with a strict ordinal match, so a matched push counts as skipped and
     /// never as a failed or warned one. The wording is pinned from
     /// NuGet's own duplicate message - "Package '&lt;path&gt;' already exists at feed
-    /// '&lt;source&gt;'" - and the fixture capture reconciles this constant against a real
-    /// nuget.org duplicate push if the live wording has drifted.
+    /// '&lt;source&gt;'" - and the checked-in capture in
+    /// src/ReleaseGen.Tests/Fixtures/nuget-push-duplicate.txt (a real nuget.org duplicate
+    /// push, run 41900746380) matches this constant verbatim, with the notice on stdout.
     /// </summary>
     public const string SkipDuplicateMarker = "already exists at feed";
 
