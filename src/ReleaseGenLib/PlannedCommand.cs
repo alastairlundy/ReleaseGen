@@ -28,6 +28,13 @@ public sealed class PlannedCommand
     public IReadOnlyList<string> ArgumentList { get; init; } = [];
 
     /// <summary>
+    /// Environment variables to set on the spawned process, merged onto the environment it
+    /// inherits - the channel a secret such as the NuGet API key travels through when it must
+    /// stay off the argument list. Null sets none.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? EnvironmentVariables { get; init; }
+
+    /// <summary>
     /// The spawned process's working directory; null inherits the runner's current directory.
     /// </summary>
     public string? WorkingDirectory { get; init; }

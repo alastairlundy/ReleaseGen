@@ -97,8 +97,14 @@ public class PublishIntegrationTests
             await Assert.That(console).Contains("pushed 2 package(s)");
             await Assert.That(console).Contains("skipped 0 package(s)");
 
-            // The redacted pushed command line shows the switch joined the real argument list.
-            await Assert.That(console).Contains("--api-key **** --skip-duplicate");
+            // The redacted pushed command line shows the switch joined the real argument
+            // list; the credential fragment names whichever key channel this machine's SDK
+            // resolved to - the environment on 10.0.300+, the argument on older SDKs.
+            await Assert.That(
+                console.Contains("--api-key **** --skip-duplicate") ||
+                console.Contains(
+                    "(api key via the NUGET_API_KEY environment variable) --skip-duplicate"))
+                .IsTrue();
         });
     }
 
@@ -141,8 +147,9 @@ public class PublishIntegrationTests
             await Assert.That(console).Contains("the source declared it a duplicate");
             await Assert.That(Compact(console)).Contains(JsonPath(source));
             await Assert.That(Compact(console)).Contains("note:" + Compact(CapturedMarkerLine()));
-            await Assert.That(invoker.Invocations.Count).IsEqualTo(1);
-            await Assert.That(string.Join(' ', invoker.Invocations[0].ArgumentList))
+            // The SDK probe runs before the first push; the push itself carries the switch.
+            await Assert.That(invoker.Invocations.Count).IsEqualTo(2);
+            await Assert.That(string.Join(' ', invoker.Invocations[1].ArgumentList))
                 .Contains("--skip-duplicate");
         });
     }
