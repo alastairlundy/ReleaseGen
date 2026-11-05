@@ -78,9 +78,13 @@ names its completion signal.
    refuses an existing manifest and exits 1 unless `--overwrite` is passed. When
    one exists, load it and merge its contents into the inventory (its keys are
    already Manifest keys, so carry them through instead of marking them `unknown`)
-   and ask the user before Step 4 replaces it; when none exists, run
-   `releasegen init` and use its seeded skeleton plus the user's description as the
-   inventory. Completion: an inventory covering every source section at least once.
+   and ask the user before Step 4 replaces it; when none exists, check that the
+   `releasegen` CLI is available (`releasegen --version`) before running
+   `releasegen init`. If it is missing, stop and give the Step 6 installation
+   guidance: point the user at `dotnet tool install -g ReleaseGen` (long form
+   `--global`) and continue only after they run it. Otherwise run `releasegen init`
+   and use its seeded skeleton plus the user's description as the inventory.
+   Completion: an inventory covering every source section at least once.
 
 4. **Translate.** Map each inventory item through the mapping table and write
    `releasegen.json` at the repository root. Follow the Manifest's rules inline:
@@ -140,9 +144,12 @@ names its completion signal.
   Manifest validation; `tool-package` requires the expanded `PackAsTool=true`, and
   ReleaseGen reads expanded MSBuild properties, so the project files stay authoritative.
 - Unknown Manifest fields fail the strict parse by name; the Manifest has no
-  secret-bearing field. Pass the API key through the `NUGET_API_KEY` environment
-  variable by default; pass it via `--api-key` only in CI, where a short-lived
-  API key generated from an OIDC token exchange is acceptable.
+  secret-bearing field. `releasegen run` accepts no `--api-key`, and ReleaseGen
+  performs no OIDC exchange itself: its in-process publish stage reads the
+  `NUGET_API_KEY` environment variable. In CI, obtain the short-lived key through
+  the CI platform's identity exchange and export it as `NUGET_API_KEY` before
+  invoking `releasegen run`. Reserve `--api-key` for a separate
+  `releasegen publish` invocation.
 - Declaring a `test` section arms the test gate: publishing blocks when that stage
   fails; omitting it passes by default with a warning.
 - A zero-exit dry run proves manifest validity only; it is a plan, not certification.
