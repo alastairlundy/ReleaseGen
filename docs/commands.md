@@ -46,6 +46,10 @@ while every write and outward side effect is suppressed. It composes with `--qui
 - **Publish prints the gate consult** - instead of running tests, publish prints the would-be
   gate consult (`tests would run for: …`) naming the test projects a real run's gate would
   execute, then the would-be pushes with the API key redacted. A dry run needs no API key.
+- **Publish mirrors the skip decision** - each source prints the resolved skip mode a real run
+  would push under (with `--skip-duplicate` shown in the planned command line when skipping is
+  enabled), and conflicting skip channels print the same conflict line a real run would. See
+  [Duplicate pushes](#publish).
 - **Exit code = manifest validation only** - a valid manifest exits `0`; a manifest that fails
   validation (or an unknown preset) exits `1`. No other condition can fail a dry run.
 - **A plan, not a certification** - a zero-exit dry run proves the manifest is valid and the
@@ -294,17 +298,67 @@ gate cannot be bypassed by separate invocations. The full push list is collected
 first push, so a missing package fails the stage with no partial upload.
 
 ```
-releasegen publish [--api-key <key>] [--dry-run] [--verbose]
+releasegen publish [--api-key <key>] [--skip-duplicate] [--dry-run] [--verbose]
 ```
 
 | Flag | Effect |
 |------|--------|
 | `--api-key <key>` | The NuGet API key. Falls back to the `NUGET_API_KEY` environment variable. The Manifest is never consulted for keys - no key ever lives on disk. |
+| `--skip-duplicate` | Skip a push the source declares a duplicate instead of failing the stage. Overrides `publish.skipDuplicates` for this invocation; a conflict with the Manifest prints one line to standard error and this switch wins. |
 | `--dry-run` | Prints the would-be gate consult (the test projects the gate would run) and the would-be pushes, runs no tests, writes no `TestResults/`, pushes nothing, and needs no API key. See [Dry run](#dry-run). |
 | `--verbose` | Shows each `dotnet nuget push` command line (key redacted), its raw output, and its cause line during a real run, and forwards to the test gate consult. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
-The key is redacted from console output. In CI, prefer trusted publishing; see
+The key is redacted from console output. It reaches the spawned `dotnet nuget push` in
+the child process's `NUGET_API_KEY` environment variable on SDKs from 10.0.300 (NuGet 7.6
+reads it there, so it stays off the command line), and as a `--api-key` argument on older
+SDKs - visible in the process listing while the push runs, which the environment channel
+exists to avoid. In CI, prefer trusted publishing; see
 [trusted publishing](trusted-publishing.md).
+
+**Duplicate pushes**
+
+The skip decision resolves once per invocation, from the Manifest's
+[`publish.skipDuplicates`](manifest-schema.md#publish-section) key merged with
+`--skip-duplicate`, and both the dry-run plan and the real run consume that one result:
+
+- **The switch rides the push** - when the decision enables skipping, every
+  `dotnet nuget push` gains `--skip-duplicate`. ReleaseGen performs no pre-check and never
+  queries a source about an existing package id and version: the source alone judges
+  duplicates, so a local-folder source and nuget.org may judge re-pushes differently.
+- **Skipped is not failed, and not pushed** - a push the source declares a duplicate counts
+  as skipped instead of pushed, reports as a stage note naming the package and the source,
+  and never fails the stage:
+
+  ```
+  note: publish: skipped package 'MyLib.1.0.0.nupkg' to source 'https://api.nuget.org/v3/index.json'; the source declared it a duplicate.
+  ```
+
+- **Two totals, exit 0** - the closing summary reports pushed and skipped separately, and
+  the stage exits `0` when skips were the only outcome. A real nonzero push exit still fails
+  the stage as before:
+
+  ```
+  note: publish: pushed 1 package(s) of kind(s) lib-package across 1 target(s) to 1 source(s) in manifest target order; skipped 1 package(s).
+  ```
+
+- **A conflict prints once and the switch wins** - when both channels carry explicit,
+  differing values, one line goes to standard error before any push, in a real run and in a
+  dry-run plan alike:
+
+  ```
+  error: skipDuplicates conflict: --skip-duplicate (command line) wins over publish.skipDuplicates
+  ```
+
+Under `--dry-run` the plan mirrors the resolved decision instead of pushing: each source
+prints the mode a real run would push under - once per source, and only when some target
+declares a package kind - the planned command line carries
+`--skip-duplicate` exactly when the decision enables it, and a conflicting pair prints the
+same conflict line a real run would. The plan's exit code stays manifest-validation-only.
+
+```
+note: publish: dry run: source 'https://api.nuget.org/v3/index.json': resolved skip mode: duplicates skipped; the push would pass --skip-duplicate.
+note: publish: dry run: source 'https://api.nuget.org/v3/index.json': resolved skip mode: duplicates fail the stage; no --skip-duplicate would be passed.
+```
 
 ## `run`
 
@@ -315,15 +369,18 @@ runs; test is named by a declared test section; package and publish are named by
 declaring package kinds. The test stage's gate outcome is carried to publish within the chain,
 so tests never run twice. Under `--dry-run` the chain forwards the flag to every named stage,
 so the report walks the whole pipeline stage by stage and writes nothing. Under `--verbose`
-the chain forwards that flag the same way, so every named stage runs in full detail.
+the chain forwards that flag the same way, so every named stage runs in full detail. Stage-specific
+flags forward the same way: `--preset` reaches build, and `--skip-duplicate` reaches publish,
+so a chained run and a separate `releasegen publish` resolve one skip decision.
 
 ```
-releasegen run [--preset <name>] [--dry-run] [--verbose]
+releasegen run [--preset <name>] [--skip-duplicate] [--dry-run] [--verbose]
 ```
 
 | Flag | Effect |
 |------|--------|
 | `--preset <name>` | Overrides the Manifest's `build.preset` for this invocation only, forwarded to the build stage. Never writes the Manifest. |
+| `--skip-duplicate` | Forwarded to the publish stage: skip a push the source declares a duplicate instead of failing the stage. Overrides `publish.skipDuplicates` for this invocation; a conflict with the Manifest prints one line to standard error and this switch wins. Reaches only the publish stage, and only when the chain names it. |
 | `--dry-run` | Forwards to every named stage: the chain prints each stage's would-be actions and writes nothing anywhere, exiting on Manifest validation alone. See [Dry run](#dry-run). |
 | `--verbose` | Forwards to every named stage: each stage prints its command lines, raw output, and cause lines as it runs. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 

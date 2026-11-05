@@ -78,10 +78,18 @@ public sealed class PlannedCommandRunner
 
         if (command.TargetFilePath is not null)
         {
-            ProcessConfiguration configuration =
-                new(command.TargetFilePath, command.ArgumentList)
+            // Init-only and non-nullable, so the record's environment is applied in the
+            // initializer only when it carries one: null leaves the child on the environment
+            // it inherits, and CliInvoke merges any supplied variables onto that.
+            ProcessConfiguration configuration = command.EnvironmentVariables is null
+                ? new(command.TargetFilePath, command.ArgumentList)
                 {
                     WorkingDirectoryPath = command.WorkingDirectory ?? Environment.CurrentDirectory,
+                }
+                : new(command.TargetFilePath, command.ArgumentList)
+                {
+                    WorkingDirectoryPath = command.WorkingDirectory ?? Environment.CurrentDirectory,
+                    EnvironmentVariables = command.EnvironmentVariables,
                 };
 
             processResult = await _processInvoker.ExecuteBufferedAsync(

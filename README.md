@@ -12,7 +12,7 @@ ReleaseGen is an opinionated .NET CLI for building, packaging, and publishing .N
 ## Install
 
 ```bash
-dotnet tool install -g ReleaseGen
+dotnet tool install ReleaseGen -g
 ```
 
 Requires the .NET 10 SDK. The tool command is `releasegen`. Running bare `releasegen` prints command help; no stage executes without an explicit verb.

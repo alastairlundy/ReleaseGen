@@ -26,7 +26,7 @@ Keys are organized one section per stage: `targets`, `build`, `test`, `publish`.
 | `targets` | array | Yes (may be empty) | The Manifest's targets: projects and their declared artifact kinds. |
 | `build` | object | Yes | The build section: preset, runtime identifiers, per-key flag overrides. |
 | `test` | object | No | The test section. Absent means the test gate passes with a warning. |
-| `publish` | object | Yes | The publish section: NuGet source URLs. |
+| `publish` | object | Yes | The publish section: NuGet source URLs and the standing answer for duplicate pushes. |
 
 ### `targets` entries
 
@@ -144,8 +144,34 @@ stage exits nonzero. Omitting it makes the gate pass by default with a warning.
 | Key | Type | Required | Meaning |
 |-----|------|----------|---------|
 | `sources` | string[] | Yes | The NuGet source URLs to publish to. Empty means the nuget.org default. A blank entry fails with an error naming its position. |
+| `skipDuplicates` | bool | No (default `false`) | The standing answer for duplicate pushes: `true` skips a push the source declares a duplicate instead of failing the stage. |
 
 Sources only - credentials never live on disk.
+
+**`skipDuplicates`**
+
+- **Name and casing** - the key is `skipDuplicates` in exactly that spelling, matching the
+  publish command's `--skip-duplicate` switch. Casing is part of the contract: the strict
+  parse rejects `SkipDuplicates` or `skipDuplicate` with an error naming the offending
+  property, and the key joins the strict parse like every other field - declaring it opens no
+  exception for unknown members beside it.
+- **Boolean, default false** - the value is a JSON boolean and the default is `false`. A
+  manifest without the key behaves exactly as before the key existed: a duplicate push fails
+  the stage, and no `--skip-duplicate` is passed.
+- **Absent key** - an absent key is not an explicit `false`. It reads as "the Manifest never
+  declared an answer", so the publish command's switch alone decides for that invocation and
+  an ordinary `--skip-duplicate` run against a keyless manifest reports no conflict.
+- **Conflict semantics** - the Manifest key and the `--skip-duplicate` switch are two
+  channels for one decision. When both channels carry explicit, differing values the switch
+  wins for that invocation and one line is written to standard error, at most once per run -
+  a dry-run plan prints the same line a real run would:
+
+  ```
+  error: skipDuplicates conflict: --skip-duplicate (command line) wins over publish.skipDuplicates
+  ```
+
+  Equal explicit values never conflict, and an absent channel on either side is never a
+  conflict. See the [command reference](commands.md#publish).
 
 ## Example
 

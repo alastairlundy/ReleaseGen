@@ -44,3 +44,7 @@ A mode in which every Stage runs its planning and read-only steps and reports wh
 ## Package kind
 
 What a target's package output is: a `nupkg` library package or a dotnet tool package. The kind drives the package stage's switches.
+
+## Duplicate push
+
+A push that the package source declares as an already-present package id and version; the source is the judge of duplicates and ReleaseGen performs no pre-check.
