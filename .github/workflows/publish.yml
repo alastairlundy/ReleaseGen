@@ -25,13 +25,22 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      # Build
-      - name: Build
-        run: dotnet build src/ReleaseGenCli -c Release
+      # Install the released tool from nuget.org (no CI-local pack) and put its shim on PATH
+      - name: Install ReleaseGen from nuget.org
+        run: |
+          dotnet tool install -g ReleaseGen
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
-      # Pack
-      - name: Pack
-        run: dotnet pack src/ReleaseGenCli -c Release   
+      # Stage stack - run at the repository root, where releasegen.json sits; the stages hand
+      # off to each other through the release/ tree (docs/stage-handoff.md)
+      - name: Build
+        run: releasegen build
+
+      - name: Test
+        run: releasegen test
+
+      - name: Package
+        run: releasegen package
 
       # Authenticate to NuGet (OIDC)
       - name: NuGet login (OIDC → temp API key)
@@ -40,6 +49,10 @@ jobs:
         with:
           user: ${{ secrets.NUGET_USER }}
 
-      # Push all nupkgs (no sleeps needed)
-      - name: Push all nupkgs to NuGet.org
-        run: dotnet nuget push src/ReleaseGenCli/bin/Release/*.nupkg --api-key ${{steps.login.outputs.NUGET_API_KEY}}  -s https://api.nuget.org/v3/index.json --skip-duplicate
+      # Publish - no switch: CI skip intent lives in the committed manifest (skipDuplicates),
+      # and the key arrives via NUGET_API_KEY - never on releasegen's own argv, but forwarded
+      # as --api-key to the spawned dotnet nuget push (redacted from ReleaseGen output only)
+      - name: Publish
+        run: releasegen publish
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
