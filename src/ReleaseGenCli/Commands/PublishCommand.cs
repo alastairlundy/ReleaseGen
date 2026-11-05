@@ -18,7 +18,9 @@ namespace ReleaseGen.Cli.Commands;
 /// <c>dotnet nuget push</c> through CliInvoke, in manifest target order, to the
 /// resolved sources. The API key arrives only through the <c>--api-key</c> option or the
 /// <see cref="ApiKeyEnvironmentVariable"/> environment variable - never the manifest, whose
-/// strict parse rejects any key-bearing field outright. Before the first push the
+/// strict parse rejects any key-bearing field outright - and reaches the spawned push in
+/// the environment on SDKs from 10.0.300 (NuGet 7.6 reads <c>NUGET_API_KEY</c>) or as
+/// <c>--api-key</c> on older ones. Before the first push the
 /// stage consults the test gate: a blocked outcome stops the stage with an error before
 /// any network call, and an absent test section proceeds with a warning. Failure detail is
 /// textual, not structured: the first failing push aborts the stage with a
@@ -113,7 +115,13 @@ public sealed class PublishCommand : Command
                             $"publish: dry run: no API key resolved from --api-key or {ApiKeyEnvironmentVariable}; a real run needs one before it can push.");
                     }
 
-                    await PlanAsync(manifest, directoryPath, cancellationToken).ConfigureAwait(true);
+                    // The plan names the channel a real run would deliver the key through, so
+                    // it probes the SDK the push would run - read-only, and writes nothing.
+                    bool planEnvironmentKey = await DotnetSdk
+                        .SupportsEnvironmentApiKeyAsync(_processInvoker, cancellationToken)
+                        .ConfigureAwait(true);
+
+                    await PlanAsync(manifest, directoryPath, planEnvironmentKey, cancellationToken).ConfigureAwait(true);
                     return 0;
                 }
 
@@ -162,13 +170,20 @@ public sealed class PublishCommand : Command
                 int pushedCount = 0;
                 List<string> pushedKinds = [];
 
+                // The key channel follows the installed SDK: the environment when NuGet reads
+                // NUGET_API_KEY (10.0.300+), --api-key otherwise. The probe runs after every
+                // refused condition above, so a stage that stops early never spawns it.
+                bool pushEnvironmentKey = await DotnetSdk
+                    .SupportsEnvironmentApiKeyAsync(_processInvoker, cancellationToken)
+                    .ConfigureAwait(true);
+
                 foreach (PushEntry push in pushes)
                 {
                     foreach (string source in sources)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        await PushAsync(push, source, apiKey, cancellationToken).ConfigureAwait(true);
+                        await PushAsync(push, source, apiKey, pushEnvironmentKey, cancellationToken).ConfigureAwait(true);
                         pushedCount++;
 
                         if (!pushedKinds.Contains(push.Kind))
@@ -211,6 +226,18 @@ public sealed class PublishCommand : Command
     }
 
     /// <summary>
+    /// The credential fragment of a printed push line, redacted in both channels: the
+    /// argument channel shows <c>--api-key ****</c>, and the environment channel names the
+    /// variable instead of any value, so no key ever reaches the console either way.
+    /// </summary>
+    /// <param name="environmentApiKey">Whether the installed SDK takes the key from the environment.</param>
+    /// <returns>The redacted credential fragment for the printed line.</returns>
+    private static string CredentialText(bool environmentApiKey) =>
+        environmentApiKey
+            ? $"(api key via the {ApiKeyEnvironmentVariable} environment variable)"
+            : "--api-key ****";
+
+    /// <summary>
     /// Prints the whole publish plan under <c>--dry-run</c>: the would-be gate consult, the
     /// would-be pushes as shared planned records the runner prints without spawning, and the
     /// closing plan-not-certification note. Nothing here runs tests, writes
@@ -220,8 +247,13 @@ public sealed class PublishCommand : Command
     /// </summary>
     /// <param name="manifest">The loaded manifest.</param>
     /// <param name="manifestDirectory">The manifest's directory, for resolving relative project paths.</param>
+    /// <param name="environmentApiKey">Whether the installed SDK takes the key from the environment.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
-    private async Task PlanAsync(Manifest manifest, string manifestDirectory, CancellationToken cancellationToken)
+    private async Task PlanAsync(
+        Manifest manifest,
+        string manifestDirectory,
+        bool environmentApiKey,
+        CancellationToken cancellationToken)
     {
         PrintGateConsult(manifest);
 
@@ -237,7 +269,7 @@ public sealed class PublishCommand : Command
         foreach (ManifestTarget target in manifest.Targets)
         {
             plannedCount += await PlanTargetPushesAsync(
-                target, manifestDirectory, sources, cancellationToken).ConfigureAwait(true);
+                target, manifestDirectory, sources, environmentApiKey, cancellationToken).ConfigureAwait(true);
         }
 
         if (plannedCount == 0)
@@ -257,12 +289,14 @@ public sealed class PublishCommand : Command
     /// <param name="target">The manifest target whose kinds are planned.</param>
     /// <param name="manifestDirectory">The manifest's directory, for resolving relative project paths.</param>
     /// <param name="sources">The resolved push sources.</param>
+    /// <param name="environmentApiKey">Whether the installed SDK takes the key from the environment.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>How many planned pushes printed for this target.</returns>
     private async Task<int> PlanTargetPushesAsync(
         ManifestTarget target,
         string manifestDirectory,
         string[] sources,
+        bool environmentApiKey,
         CancellationToken cancellationToken)
     {
         FileInfo projectFile = _manifestLoader.ResolveProjectFile(target.Project, manifestDirectory);
@@ -292,12 +326,12 @@ public sealed class PublishCommand : Command
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // The printed line is the real push's shape with the key redacted, so the
-                // plan and the run read as one command set.
+                // The printed line is the real push's shape with the credential redacted, so
+                // the plan and the run read as one command set.
                 PlannedCommand command = new()
                 {
                     CommandLine =
-                        $"publish: dotnet nuget push {packagesPath} --source {source} --api-key **** (kind '{kind}' for target '{projectName}').",
+                        $"publish: dotnet nuget push {packagesPath} --source {source} {CredentialText(environmentApiKey)} (kind '{kind}' for target '{projectName}').",
                     ArtifactPaths = [packagesPath],
                 };
 
@@ -483,43 +517,34 @@ public sealed class PublishCommand : Command
 
     /// <summary>
     /// Plans one <c>dotnet nuget push</c> and hands it to the runner: the streamed-args note
-    /// with the key redacted is the record's command line, so both printed modes show the same
-    /// line without leaking the credential, and only a real run spawns the push. A nonzero
-    /// exit fails fast with <see cref="PublishStageException"/> naming the package, the source,
-    /// and the exit code; failure detail stays textual.
+    /// with the credential redacted is the record's command line, so both printed modes show
+    /// the same line without leaking it, and only a real run spawns the push. The key itself
+    /// rides in the child's environment when the installed SDK reads <c>NUGET_API_KEY</c>
+    /// (10.0.300+) and on the argument list only for older SDKs. A nonzero exit fails fast
+    /// with <see cref="PublishStageException"/> naming the package, the source, and the exit
+    /// code; failure detail stays textual.
     /// </summary>
     /// <param name="push">The package to push.</param>
     /// <param name="source">The resolved push source.</param>
-    /// <param name="apiKey">The API key from the API-key channels; redacted from the console.</param>
+    /// <param name="apiKey">The API key from the API-key channels; never printed.</param>
+    /// <param name="environmentApiKey">Whether the installed SDK takes the key from NUGET_API_KEY.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     private async Task PushAsync(
         PushEntry push,
         string source,
         string apiKey,
+        bool environmentApiKey,
         CancellationToken cancellationToken)
     {
-        // No --non-interactive: the API key is always supplied through the API-key channels, so
-        // no auth prompt can occur, and the flag makes NuGet's local-folder symbols probe fail
-        // the push with 'File does not exist' after the package landed (the local-source
-        // integration destination would never exit 0 with it).
-        List<string> argumentList =
-        [
-            "nuget",
-            "push",
-            push.PackageFile.FullName,
-            "--source",
-            source,
-            "--api-key",
-            apiKey,
-        ];
+        PushInvocation invocation = BuildPushInvocation(push, source, apiKey, environmentApiKey);
 
-        // The printed command line redacts the key; the executed argument list carries it.
         PlannedCommand command = new()
         {
             CommandLine =
-                $"publish: dotnet nuget push {push.PackageFile.FullName} --source {source} --api-key **** (kind '{push.Kind}' for target '{push.TargetProject}').",
+                $"publish: dotnet nuget push {push.PackageFile.FullName} --source {source} {CredentialText(environmentApiKey)} (kind '{push.Kind}' for target '{push.TargetProject}').",
             TargetFilePath = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet",
-            ArgumentList = argumentList,
+            ArgumentList = invocation.ArgumentList,
+            EnvironmentVariables = invocation.EnvironmentVariables,
             WorkingDirectory = Environment.CurrentDirectory,
             ArtifactPaths = [push.PackageFile.FullName],
             Diagnosis = () =>
@@ -551,6 +576,66 @@ public sealed class PublishCommand : Command
                 $"publish: dotnet nuget push failed for package '{push.PackageFile.Name}' (kind '{push.Kind}', target '{push.TargetProject}') to source '{source}' (exit code {result.ExitCode}).");
         }
     }
+
+    /// <summary>
+    /// Builds one push's spawn shape: the child's argument list plus the environment
+    /// variables it runs with. The key travels in the environment when the installed SDK
+    /// reads <c>NUGET_API_KEY</c> (10.0.300+), so it never reaches the argument list there;
+    /// older SDKs accept it only as <c>--api-key</c>, the fallback this channel exists to
+    /// avoid.
+    /// </summary>
+    /// <param name="push">The package to push.</param>
+    /// <param name="source">The resolved push source.</param>
+    /// <param name="apiKey">The API key from the API-key channels.</param>
+    /// <param name="environmentApiKey">Whether the installed SDK takes the key from NUGET_API_KEY.</param>
+    /// <returns>The child's arguments and environment variables.</returns>
+    private static PushInvocation BuildPushInvocation(
+        PushEntry push,
+        string source,
+        string apiKey,
+        bool environmentApiKey)
+    {
+        // No --non-interactive: the API key is always supplied through the API-key channels, so
+        // no auth prompt can occur, and the flag makes NuGet's local-folder symbols probe fail
+        // the push with 'File does not exist' after the package landed (the local-source
+        // integration destination would never exit 0 with it).
+        List<string> argumentList =
+        [
+            "nuget",
+            "push",
+            push.PackageFile.FullName,
+            "--source",
+            source,
+        ];
+
+        if (environmentApiKey)
+        {
+            // NuGet 7.6+ (SDK 10.0.300+) reads NUGET_API_KEY, so the key stays off the
+            // child's command line entirely: the push consumes it from the environment
+            // instead of an argument, where the OS would expose it in the process listing.
+            return new(argumentList, new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [ApiKeyEnvironmentVariable] = apiKey,
+            });
+        }
+
+        // Older SDKs accept the key only as --api-key: the argument list carries it -
+        // redacted from every printed line, but visible to the OS while the push runs.
+        argumentList.Add("--api-key");
+        argumentList.Add(apiKey);
+
+        return new(argumentList, null);
+    }
+
+    /// <summary>
+    /// One push's spawn shape: the child's argument list and the environment variables it
+    /// runs with - null when nothing beyond the inherited environment is set.
+    /// </summary>
+    /// <param name="ArgumentList">The child's argument list.</param>
+    /// <param name="EnvironmentVariables">The environment variables to set on the child.</param>
+    private sealed record PushInvocation(
+        List<string> ArgumentList,
+        IReadOnlyDictionary<string, string>? EnvironmentVariables);
 
     /// <summary>
     /// Replays captured process output to the sink one line at a time, dropping only empty

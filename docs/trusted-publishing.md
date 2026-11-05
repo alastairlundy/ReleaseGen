@@ -36,7 +36,9 @@ export NUGET_API_KEY=<your-key>   # or pass --api-key <key>
 releasegen publish
 ```
 
-The key is never read from the Manifest, and it is redacted from console output.
+The key is never read from the Manifest, and it is redacted from console output; it
+reaches the spawned push through the `NUGET_API_KEY` environment variable on SDKs from
+10.0.300 (NuGet 7.6) and as a `--api-key` argument on older ones.
 
 ## See also
 
