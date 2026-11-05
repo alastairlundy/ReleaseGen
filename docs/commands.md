@@ -307,7 +307,11 @@ releasegen publish [--api-key <key>] [--skip-duplicate] [--dry-run] [--verbose]
 | `--dry-run` | Prints the would-be gate consult (the test projects the gate would run) and the would-be pushes, runs no tests, writes no `TestResults/`, pushes nothing, and needs no API key. See [Dry run](#dry-run). |
 | `--verbose` | Shows each `dotnet nuget push` command line (key redacted), its raw output, and its cause line during a real run, and forwards to the test gate consult. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
-The key is redacted from console output. In CI, prefer trusted publishing; see
+The key is redacted from console output. It reaches the spawned `dotnet nuget push` in
+the child process's `NUGET_API_KEY` environment variable on SDKs from 10.0.300 (NuGet 7.6
+reads it there, so it stays off the command line), and as a `--api-key` argument on older
+SDKs - visible in the process listing while the push runs, which the environment channel
+exists to avoid. In CI, prefer trusted publishing; see
 [trusted publishing](trusted-publishing.md).
 
 **Duplicate pushes**

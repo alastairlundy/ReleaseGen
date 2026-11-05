@@ -118,8 +118,10 @@ public class DryRunTests
                 await Assert.That(console).Contains("--api-key ****");
                 await Assert.That(console).Contains("plan, not a certification");
 
-                // Nothing ran: no test-stage consult, no push, and no results tree.
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                // Nothing ran but the read-only SDK probe behind the plan's key channel: no
+                // test-stage consult, no push, and no results tree.
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
+                await Assert.That(_invoker.Invocations[0].ArgumentList[0]).IsEqualTo("--version");
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "TestResults"))).IsFalse();
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
             }
@@ -161,7 +163,8 @@ public class DryRunTests
                 await Assert.That(console).Contains("--api-key **** --skip-duplicate");
                 await Assert.That(console.Contains("skipDuplicates conflict")).IsFalse();
 
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
+                await Assert.That(_invoker.Invocations[0].ArgumentList[0]).IsEqualTo("--version");
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "TestResults"))).IsFalse();
             }
@@ -199,7 +202,7 @@ public class DryRunTests
                 await Assert.That(console).Contains(
                     "resolved skip mode: duplicates fail the stage; no --skip-duplicate would be passed.");
 
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
             }
             finally
@@ -237,7 +240,7 @@ public class DryRunTests
                 // per-target: exactly one occurrence.
                 await Assert.That(CountOccurrences(console, "resolved skip mode:")).IsEqualTo(1);
                 await Assert.That(console).Contains("dotnet nuget push");
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
             }
             finally
             {
@@ -272,7 +275,7 @@ public class DryRunTests
 
                 await Assert.That(CountOccurrences(console, "resolved skip mode:")).IsEqualTo(0);
                 await Assert.That(console).Contains("nothing to publish");
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
             }
             finally
             {
@@ -318,7 +321,7 @@ public class DryRunTests
                 await Assert.That(console).Contains(
                     "resolved skip mode: duplicates skipped; the push would pass --skip-duplicate.");
 
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
             }
             finally
@@ -363,7 +366,7 @@ public class DryRunTests
                 await Assert.That(console).Contains("--api-key **** --skip-duplicate");
                 await Assert.That(console.Contains("skipDuplicates conflict")).IsFalse();
 
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
             }
             finally
@@ -410,7 +413,7 @@ public class DryRunTests
                     "resolved skip mode: duplicates fail the stage; no --skip-duplicate would be passed.");
                 await Assert.That(console.Contains("--api-key **** --skip-duplicate")).IsFalse();
 
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
             }
             finally
@@ -453,7 +456,8 @@ public class DryRunTests
                 await Assert.That(console).Contains("publish: dotnet nuget push");
                 await Assert.That(console).Contains("nothing was written anywhere");
 
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(0);
+                // The only spawn is the publish stage's read-only SDK probe behind its plan.
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "release"))).IsFalse();
                 await Assert.That(Directory.Exists(Path.Combine(workspace.Root, "TestResults"))).IsFalse();
             }

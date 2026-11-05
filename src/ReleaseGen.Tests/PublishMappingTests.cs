@@ -76,11 +76,15 @@ public class PublishMappingTests
                 new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
 
             await Assert.That(exitCode).IsEqualTo(0);
-            await Assert.That(_invoker.Invocations.Count).IsEqualTo(2);
 
-            await Assert.That(Arguments(_invoker.Invocations[0])).IsEqualTo(
-                $"nuget push {alphaPackage} --source {JsonPath(source)} --api-key local-key");
+            // The read-only SDK probe runs before the first push; both pushes follow it on
+            // the argument channel, since the fake probe answers with no version.
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(3);
+            await Assert.That(Arguments(_invoker.Invocations[0])).IsEqualTo("--version");
+
             await Assert.That(Arguments(_invoker.Invocations[1])).IsEqualTo(
+                $"nuget push {alphaPackage} --source {JsonPath(source)} --api-key local-key");
+            await Assert.That(Arguments(_invoker.Invocations[2])).IsEqualTo(
                 $"nuget push {betaPackage} --source {JsonPath(source)} --api-key local-key");
         });
     }
@@ -108,9 +112,10 @@ public class PublishMappingTests
 
             await Assert.That(exitCode).IsEqualTo(0);
 
-            // Release binaries are the build stage's product, not a NuGet package.
-            await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
-            await Assert.That(Arguments(_invoker.Invocations[0])).Contains(package);
+            // Release binaries are the build stage's product, not a NuGet package: one
+            // probe, one push.
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(2);
+            await Assert.That(Arguments(_invoker.Invocations[1])).Contains(package);
         });
     }
 
@@ -158,14 +163,58 @@ public class PublishMappingTests
                 int exitCode = await CliHarness.InvokeAsync(new PublishCommand(_manifestLoader, _invoker), "publish");
 
                 await Assert.That(exitCode).IsEqualTo(0);
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
-                await Assert.That(Arguments(_invoker.Invocations[0]))
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(2);
+                await Assert.That(Arguments(_invoker.Invocations[1]))
                     .Contains("--api-key environment-key");
             }
             finally
             {
                 Environment.SetEnvironmentVariable("NUGET_API_KEY", previous);
             }
+        });
+    }
+
+    [Test]
+    public async Task An_sdk_reading_nuget_api_key_gets_the_key_in_the_environment_not_on_argv()
+    {
+        using TestWorkspace workspace = TestWorkspace.Create();
+        string source = workspace.CreateDirectory("local-source");
+        workspace.WriteManifest(PackageManifest(source));
+        string package = StagePackage(workspace, "lib", "Lib", "Lib.1.0.0.nupkg");
+
+        // The probe replays an SDK at the NuGet 7.6 floor (10.0.300); every other spawned
+        // command returns the default empty output.
+        _invoker.OutputFactory = configuration =>
+            configuration.ArgumentList.Contains("--version")
+                ? ("10.0.300", string.Empty)
+                : (string.Empty, string.Empty);
+
+        await TestWorkspace.InDirectoryAsync(workspace.Root, async () =>
+        {
+            StageContext.Reset();
+
+            string console = await ConsoleCapture.CaptureAsync(async () =>
+            {
+                int exitCode = await CliHarness.InvokeAsync(
+                    new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
+
+                await Assert.That(exitCode).IsEqualTo(0);
+            });
+
+            await Assert.That(_invoker.Invocations.Count).IsEqualTo(2);
+            ProcessConfiguration push = _invoker.Invocations[1];
+
+            // The key rides in the child's environment: the argument list carries neither
+            // --api-key nor the key value itself.
+            await Assert.That(Arguments(push)).IsEqualTo(
+                $"nuget push {package} --source {JsonPath(source)}");
+            await Assert.That(push.EnvironmentVariables!["NUGET_API_KEY"]).IsEqualTo("local-key");
+
+            // The printed line names the channel instead of an argument, and no key value
+            // reaches the console at all.
+            await Assert.That(console).Contains(
+                "(api key via the NUGET_API_KEY environment variable)");
+            await Assert.That(console.Contains("local-key")).IsFalse();
         });
     }
 

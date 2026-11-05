@@ -113,10 +113,12 @@ public class TestGateTests
                     await Assert.That(exitCode).IsEqualTo(0);
                 });
 
-                // An absent section is the opt-in default - a warning, never a failure.
+                // An absent section is the opt-in default - a warning, never a failure - and
+                // the push still runs, after the read-only SDK probe.
                 await Assert.That(console).Contains("warning:");
                 await Assert.That(console).Contains("no test section in the manifest");
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(1);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(2);
+                await Assert.That(_invoker.Invocations[1].ArgumentList[0]).IsEqualTo("nuget");
             }
             finally
             {
@@ -180,9 +182,10 @@ public class TestGateTests
                     new PublishCommand(_manifestLoader, _invoker), "publish", "--api-key", "local-key");
 
                 await Assert.That(exitCode).IsEqualTo(0);
-                await Assert.That(_invoker.Invocations.Count).IsEqualTo(2);
+                await Assert.That(_invoker.Invocations.Count).IsEqualTo(3);
                 await Assert.That(_invoker.Invocations[0].ArgumentList[0]).IsEqualTo("test");
-                await Assert.That(_invoker.Invocations[1].ArgumentList[0]).IsEqualTo("nuget");
+                await Assert.That(_invoker.Invocations[1].ArgumentList[0]).IsEqualTo("--version");
+                await Assert.That(_invoker.Invocations[2].ArgumentList[0]).IsEqualTo("nuget");
             }
             finally
             {
