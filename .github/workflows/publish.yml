@@ -50,7 +50,8 @@ jobs:
           user: ${{ secrets.NUGET_USER }}
 
       # Publish - no switch: CI skip intent lives in the committed manifest (skipDuplicates),
-      # and the key arrives via NUGET_API_KEY, never on argv
+      # and the key arrives via NUGET_API_KEY - never on releasegen's own argv, but forwarded
+      # as --api-key to the spawned dotnet nuget push (redacted from ReleaseGen output only)
       - name: Publish
         run: releasegen publish
         env:
