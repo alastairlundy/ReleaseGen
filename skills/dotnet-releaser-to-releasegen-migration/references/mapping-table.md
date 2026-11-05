@@ -22,13 +22,13 @@ conflict (SKILL.md Gotchas); record any conflict in the migration report.
 | `[test].run_tests_for_debug`, `[[test.runs]]` (custom configurations/settings/envs) | One Release-config test pass exists; multi-config or filtered runs belong in the repo's own `dotnet test` tooling, not the Manifest. | No ReleaseGen equivalent |
 | `[coverage]` (all keys, badge-to-gist) | Nothing: ReleaseGen has no coverage stage. Keep coverage in the repo's `dotnet test` setup (e.g. coverlet.collector) if wanted. | No ReleaseGen equivalent |
 | `[github]` `user`, `repo`, `base`, `version_prefix`, `branches` | Nothing: ReleaseGen does not create releases, changelogs, or tags, and git tags do not drive versions — the `<Version>` property in each packable `.csproj` is authoritative. | No ReleaseGen equivalent |
-| `[[pack]]` `rid` values (union across packs, ignoring `publish = false` packs) | `build.runtimeIdentifiers` (keep every declared RID; a `rhel-x64` RID commonly maps to `linux-x64` — preserve as declared and let Manifest validation arbitrate). | Mapped |
-| `[[pack]]` `kinds = ["zip"]` | The target's `archiveFormats` includes `zip`. | Mapped |
-| `[[pack]]` `kinds = ["tar"]` | The target's `archiveFormats` includes `tar.gz` (dotnet-releaser's `tar` means tar.gz; `tar.xz` is not dotnet-releaser-offered — do not introduce it). | Mapped |
+| `[[pack]]` `rid` values (union across packs, ignoring `publish = false` packs) | `build.runtimeIdentifiers` (keep every declared RID; a `rhel-x64` RID commonly maps to `linux-x64` — preserve as declared and let Manifest validation arbitrate). The list is global: the build stage publishes every target once per RID in it, so a RID cannot be scoped to one target. | Mapped |
+| `[[pack]]` `kinds = ["zip"]` / `["tar"]` identical across every pack | The target's `archiveFormats` includes `zip` / `tar.gz` (dotnet-releaser's `tar` means tar.gz; `tar.xz` is not dotnet-releaser-offered — do not introduce it). Declare `archiveFormats` only when one format set covers every RID of the build. | Mapped |
+| `[[pack]]` `kinds` that differ per RID (e.g. `win-x64` → zip, `linux-x64` → tar) | Do not union them into one target-wide `archiveFormats`: there is no per-RID representation — a declared key applies to every RID of the build, and splitting targets does not isolate RIDs (`build.runtimeIdentifiers` is global, so targets × RIDs is a fixed cross product). Prefer omitting `archiveFormats`: the absent-key RID-class defaults (`win-*`/`any-*` → zip; Unix-based → zip + `tar.gz`) keep each RID's usual formats (`tar` ≡ `tar.gz`) and add only a zip on Unix-based RIDs. A format outside its RID's default set (e.g. `tar` for `win-*`) cannot be preserved either way — record any archive added or lost by this in the migration report. | Manual action required |
 | `[[pack]]` `kinds = ["deb"]`, `["rpm"]` | Nothing: no deb/rpm packaging. Suggested next action: distribute via NuGet (`tool-package`) and/or zip/tar.gz archives, or keep deb/rpm production out-of-band. | No ReleaseGen equivalent |
 | `[[pack]]` `renamer` | Nothing: ReleaseGen's archive naming is not configurable. | No ReleaseGen equivalent |
 | `[[pack]]` `publish = false` | Contributes nothing to the Manifest (no RIDs, no formats). | Mapped |
-| Global `profile = "default"` | Expand dotnet-releaser's documented default packs first, then apply the rows above: `win-x64`+`win-arm64` → zip; `linux-x64`+`linux-arm64` → tar (+ deb = no equivalent); `rhel-x64` → tar (+ rpm = no equivalent); `osx-x64`+`osx-arm64` → tar. | Mapped |
+| Global `profile = "default"` | Expand dotnet-releaser's documented default packs first, then apply the rows above: `win-x64`+`win-arm64` → zip; `linux-x64`+`linux-arm64` → tar (+ deb = no equivalent); `rhel-x64` → tar (+ rpm = no equivalent); `osx-x64`+`osx-arm64` → tar. The formats differ per RID class, so omit `archiveFormats` and let the RID-class defaults apply (per the per-RID row above) instead of declaring the union. | Manual action required |
 | Global `profile = "custom"` | No default expansion; map only the explicitly declared `[[pack]]` entries. | Mapped |
 | Global `artifacts_folder` | Fixed: stages read/write only under `<cwd>/release/`. | Mapped (fixed) |
 | `[nuget].source` | `publish.sources` (the source URL; omit/empty → nuget.org default). | Mapped |
@@ -68,7 +68,9 @@ conflict (SKILL.md Gotchas); record any conflict in the migration report.
   (workflow event filters or step/job conditions) that keep package and publish
   off ordinary branch pushes and on version-tag pushes, or split the
   invocations so branch pushes run `releasegen build` and version-tag pushes
-  run `releasegen run` (or `releasegen package` plus `releasegen publish`).
+  run `releasegen run` (or, in stage order, `releasegen build` then
+  `releasegen package` plus `releasegen publish` — the build stage is what
+  produces the release archives that package and publish do not).
   When neither can be applied without restructuring the workflow beyond its
   invocation lines, leave the invocation unchanged, add the
   `# MIGRATION: manual action pending (see releasegen-migration-report.md)`
