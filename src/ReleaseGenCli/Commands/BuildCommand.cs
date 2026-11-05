@@ -170,15 +170,15 @@ public sealed class BuildCommand : Command
             return true;
         }
 
+        string configuredSet = string.Join(", ", manifest.Build.RuntimeIdentifiers);
+
         if (string.IsNullOrWhiteSpace(flagValue))
         {
             subset = null;
             refusal =
-                "--rids names no runtime identifier; provide a comma-separated subset of the manifest's runtimeIdentifiers.";
+                $"--rids names no runtime identifier; provide a comma-separated subset of the manifest's runtimeIdentifiers ({configuredSet}).";
             return false;
         }
-
-        string configuredSet = string.Join(", ", manifest.Build.RuntimeIdentifiers);
 
         // Trim but do not drop: a blank entry is a refusal naming its position, matching the
         // manifest's publish.sources strictness - silently dropping one would alias the
@@ -191,7 +191,7 @@ public sealed class BuildCommand : Command
             {
                 subset = null;
                 refusal =
-                    $"--rids entry {i + 1} is blank; provide a comma-separated subset of the manifest's runtimeIdentifiers.";
+                    $"--rids entry {i + 1} is blank; provide a comma-separated subset of the manifest's runtimeIdentifiers ({configuredSet}).";
                 return false;
             }
         }
