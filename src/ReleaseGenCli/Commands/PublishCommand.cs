@@ -24,7 +24,13 @@ namespace ReleaseGen.Cli.Commands;
 /// stage consults the test gate: a blocked outcome stops the stage with an error before
 /// any network call, and an absent test section proceeds with a warning. Failure detail is
 /// textual, not structured: the first failing push aborts the stage with a
-/// one-line error naming the package, the source, and the exit code. Under <c>--dry-run</c> the
+/// one-line error naming the package, the source, and the exit code. Duplicate handling
+/// resolves once per invocation from the manifest's <c>publish.skipDuplicates</c> key and the
+/// <c>--skip-duplicate</c> switch: an enabled decision appends the switch to every push and
+/// leaves duplicate judgment to the source - no pre-check of any kind - while a push whose
+/// output carries the skip marker counts as skipped rather than failed, and the closing
+/// summary reports pushed and skipped separately with the stage still exiting 0. Under
+/// <c>--dry-run</c> the
 /// stage plans instead: it prints the would-be gate consult (the test projects the gate would
 /// run) and the would-be pushes, runs no tests, writes no <c>TestResults/</c>, and exits on
 /// manifest validation alone. A real run under <c>--verbose</c> shows each push's command line
@@ -55,6 +61,17 @@ public sealed class PublishCommand : Command
     /// </summary>
     private const string ApiKeyEnvironmentVariable = "NUGET_API_KEY";
 
+    /// <summary>
+    /// The fixture-pinned skip marker: the exact text <c>dotnet nuget push --skip-duplicate</c>
+    /// prints when the source declares a package already published. Both output streams are
+    /// scanned for it with a strict ordinal match, so a matched push counts as skipped and
+    /// never as a failed or warned one. The wording is pinned from
+    /// NuGet's own duplicate message - "Package '&lt;path&gt;' already exists at feed
+    /// '&lt;source&gt;'" - and the fixture capture reconciles this constant against a real
+    /// nuget.org duplicate push if the live wording has drifted.
+    /// </summary>
+    public const string SkipDuplicateMarker = "already exists at feed";
+
     public PublishCommand(IManifestLoader manifestLoader, IProcessInvoker processInvoker) : base("publish",
         "Publishes each target's declared package kinds to the configured NuGet sources.")
     {
@@ -67,10 +84,19 @@ public sealed class PublishCommand : Command
                 $"The NuGet API key. Falls back to the {ApiKeyEnvironmentVariable} environment variable. Never read from the manifest.",
         };
 
+        // Absent parses to null, so the merge can tell "never asked" from an explicit
+        // false; the switch alone can only ever enable skipping for one invocation.
+        Option<bool?> skipDuplicateOption = new("--skip-duplicate")
+        {
+            Description =
+                "Skip a push the source declares a duplicate instead of failing the stage. Overrides publish.skipDuplicates for this invocation; a conflict with the manifest prints one line to standard error and this switch wins.",
+        };
+
         Option<bool> dryRunOption = CliOptions.CreateDryRun();
         Option<bool> verboseOption = CliOptions.CreateVerbose();
 
         Add(apiKeyOption);
+        Add(skipDuplicateOption);
         Add(dryRunOption);
         Add(verboseOption);
 
@@ -89,6 +115,18 @@ public sealed class PublishCommand : Command
             {
                 FileInfo manifestFile = manifestLoader.FindManifestFile(new DirectoryInfo(Environment.CurrentDirectory));
                 Manifest manifest = manifestLoader.LoadFromFile(manifestFile);
+
+                // Resolved exactly once, immediately after the load, and consumed by both
+                // the plan path and the run path below: one decision, and the conflict line
+                // printed here at this single call site is what caps it at once per
+                // invocation.
+                SkipDuplicatesDecision skipDecision = NuGetSkipResolver.Resolve(
+                    manifest.Publish, parseResult.GetValue(skipDuplicateOption));
+
+                if (skipDecision.ConflictMessage is { } conflictMessage)
+                {
+                    CliOutput.Error(conflictMessage);
+                }
 
                 // The key travels only through the CLI option or the environment. The
                 // manifest model has no key-bearing field and strict parse rejects any
@@ -121,7 +159,7 @@ public sealed class PublishCommand : Command
                         .SupportsEnvironmentApiKeyAsync(_processInvoker, cancellationToken)
                         .ConfigureAwait(true);
 
-                    await PlanAsync(manifest, directoryPath, planEnvironmentKey, cancellationToken).ConfigureAwait(true);
+                    await PlanAsync(manifest, directoryPath, planEnvironmentKey, skipDecision, cancellationToken).ConfigureAwait(true);
                     return 0;
                 }
 
@@ -168,6 +206,7 @@ public sealed class PublishCommand : Command
                 }
 
                 int pushedCount = 0;
+                int skippedCount = 0;
                 List<string> pushedKinds = [];
 
                 // The key channel follows the installed SDK: the environment when NuGet reads
@@ -183,7 +222,17 @@ public sealed class PublishCommand : Command
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        await PushAsync(push, source, apiKey, pushEnvironmentKey, cancellationToken).ConfigureAwait(true);
+                        bool skipped = await PushAsync(
+                            push, source, apiKey, pushEnvironmentKey, skipDecision, cancellationToken).ConfigureAwait(true);
+
+                        if (skipped)
+                        {
+                            // A source-declared duplicate is not a push: it joins the
+                            // skipped total and never the pushed one.
+                            skippedCount++;
+                            continue;
+                        }
+
                         pushedCount++;
 
                         if (!pushedKinds.Contains(push.Kind))
@@ -193,8 +242,15 @@ public sealed class PublishCommand : Command
                     }
                 }
 
+                // Pushed and skipped are reported as two totals so a re-run states exactly
+                // what it re-pushed and what the source judged a duplicate; skips leave the
+                // exit at 0.
+                string kindsClause = pushedKinds.Count > 0
+                    ? $" of kind(s) {string.Join(", ", pushedKinds)}"
+                    : string.Empty;
+
                 CliOutput.Note(
-                    $"publish: pushed {pushedCount} package(s) of kind(s) {string.Join(", ", pushedKinds)} across {manifest.Targets.Count} target(s) to {sources.Length} source(s) in manifest target order.");
+                    $"publish: pushed {pushedCount} package(s){kindsClause} across {manifest.Targets.Count} target(s) to {sources.Length} source(s) in manifest target order; skipped {skippedCount} package(s).");
 
                 return 0;
             }
@@ -239,20 +295,22 @@ public sealed class PublishCommand : Command
 
     /// <summary>
     /// Prints the whole publish plan under <c>--dry-run</c>: the would-be gate consult, the
-    /// would-be pushes as shared planned records the runner prints without spawning, and the
-    /// closing plan-not-certification note. Nothing here runs tests, writes
-    /// <c>TestResults/</c>, reads the package tree, or pushes - a plan must fail on manifest
-    /// validation alone, so it names each kind's package directory rather than the concrete
-    /// packages a real run enumerates.
+    /// would-be pushes as shared planned records the runner prints without spawning, the
+    /// resolved skip mode each source would push under, and the closing plan-not-certification
+    /// note. Nothing here runs tests, writes <c>TestResults/</c>, reads the package tree, or
+    /// pushes - a plan must fail on manifest validation alone, so it names each kind's package
+    /// directory rather than the concrete packages a real run enumerates.
     /// </summary>
     /// <param name="manifest">The loaded manifest.</param>
     /// <param name="manifestDirectory">The manifest's directory, for resolving relative project paths.</param>
     /// <param name="environmentApiKey">Whether the installed SDK takes the key from the environment.</param>
+    /// <param name="skipDecision">The once-resolved skip decision this plan mirrors.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     private async Task PlanAsync(
         Manifest manifest,
         string manifestDirectory,
         bool environmentApiKey,
+        SkipDuplicatesDecision skipDecision,
         CancellationToken cancellationToken)
     {
         PrintGateConsult(manifest);
@@ -264,12 +322,30 @@ public sealed class PublishCommand : Command
             CliOutput.Note($"publish: dry run: would push to {sources.Length} sources: {string.Join(", ", sources)}.");
         }
 
+        // The plan states the resolved mode per source once for the whole plan, not once per
+        // target - the mode is source-specific and target-independent - and only when some
+        // target declares a package kind: with nothing to push, the mode a push would run
+        // under is noise beside the "nothing to publish" note below.
+        bool declaresPackageKind = manifest.Targets.Any(static target =>
+            target.Kinds.Contains(ArtifactKinds.LibPackage, StringComparer.Ordinal) ||
+            target.Kinds.Contains(ArtifactKinds.ToolPackage, StringComparer.Ordinal));
+
+        if (declaresPackageKind)
+        {
+            foreach (string source in sources)
+            {
+                CliOutput.Note(skipDecision.SkipEnabled
+                    ? $"publish: dry run: source '{source}': resolved skip mode: duplicates skipped; the push would pass --skip-duplicate."
+                    : $"publish: dry run: source '{source}': resolved skip mode: duplicates fail the stage; no --skip-duplicate would be passed.");
+            }
+        }
+
         int plannedCount = 0;
 
         foreach (ManifestTarget target in manifest.Targets)
         {
             plannedCount += await PlanTargetPushesAsync(
-                target, manifestDirectory, sources, environmentApiKey, cancellationToken).ConfigureAwait(true);
+                target, manifestDirectory, sources, environmentApiKey, skipDecision, cancellationToken).ConfigureAwait(true);
         }
 
         if (plannedCount == 0)
@@ -284,12 +360,15 @@ public sealed class PublishCommand : Command
 
     /// <summary>
     /// Prints one target's would-be pushes - one planned record per declared package kind per
-    /// resolved source, in the same manifest order a real run pushes in.
+    /// resolved source, in the same manifest order a real run pushes in. The resolved skip
+    /// mode each source would push under prints once per source in <see cref="PlanAsync"/>,
+    /// before any target's pushes, so a plan rehearses the same decision a real run consumes.
     /// </summary>
     /// <param name="target">The manifest target whose kinds are planned.</param>
     /// <param name="manifestDirectory">The manifest's directory, for resolving relative project paths.</param>
     /// <param name="sources">The resolved push sources.</param>
     /// <param name="environmentApiKey">Whether the installed SDK takes the key from the environment.</param>
+    /// <param name="skipDecision">The once-resolved skip decision this plan mirrors.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
     /// <returns>How many planned pushes printed for this target.</returns>
     private async Task<int> PlanTargetPushesAsync(
@@ -297,11 +376,13 @@ public sealed class PublishCommand : Command
         string manifestDirectory,
         string[] sources,
         bool environmentApiKey,
+        SkipDuplicatesDecision skipDecision,
         CancellationToken cancellationToken)
     {
         FileInfo projectFile = _manifestLoader.ResolveProjectFile(target.Project, manifestDirectory);
         string projectName = Path.GetFileNameWithoutExtension(projectFile.Name);
         int plannedCount = 0;
+        string skipFlag = skipDecision.SkipEnabled ? " --skip-duplicate" : string.Empty;
 
         foreach (string kind in target.Kinds)
         {
@@ -331,7 +412,7 @@ public sealed class PublishCommand : Command
                 PlannedCommand command = new()
                 {
                     CommandLine =
-                        $"publish: dotnet nuget push {packagesPath} --source {source} {CredentialText(environmentApiKey)} (kind '{kind}' for target '{projectName}').",
+                        $"publish: dotnet nuget push {packagesPath} --source {source} {CredentialText(environmentApiKey)}{skipFlag} (kind '{kind}' for target '{projectName}').",
                     ArtifactPaths = [packagesPath],
                 };
 
@@ -516,40 +597,35 @@ public sealed class PublishCommand : Command
     }
 
     /// <summary>
-    /// Plans one <c>dotnet nuget push</c> and hands it to the runner: the streamed-args note
+    /// Runs one <c>dotnet nuget push</c> and hands it to the runner: the streamed-args note
     /// with the credential redacted is the record's command line, so both printed modes show
     /// the same line without leaking it, and only a real run spawns the push. The key itself
     /// rides in the child's environment when the installed SDK reads <c>NUGET_API_KEY</c>
-    /// (10.0.300+) and on the argument list only for older SDKs. A nonzero exit fails fast
-    /// with <see cref="PublishStageException"/> naming the package, the source, and the exit
-    /// code; failure detail stays textual.
+    /// (10.0.300+) and on the argument list only for older SDKs. When the resolved decision
+    /// enables skipping, <c>--skip-duplicate</c> joins the argument list and the printed line
+    /// - the source alone judges duplicates, so nothing queries it first. A nonzero exit
+    /// fails fast with <see cref="PublishStageException"/> naming the package, the source,
+    /// and the exit code; failure detail stays textual. An exit-zero push whose merged
+    /// streams carry <see cref="SkipDuplicateMarker"/> counts as skipped instead of pushed:
+    /// the marker line re-emits as a note rather than a warning, and a stage note names the
+    /// package and the source.
     /// </summary>
     /// <param name="push">The package to push.</param>
     /// <param name="source">The resolved push source.</param>
     /// <param name="apiKey">The API key from the API-key channels; never printed.</param>
     /// <param name="environmentApiKey">Whether the installed SDK takes the key from NUGET_API_KEY.</param>
+    /// <param name="skipDecision">The once-resolved skip decision; its <c>SkipEnabled</c> appends the switch.</param>
     /// <param name="cancellationToken">The stage's cancellation token.</param>
-    private async Task PushAsync(
+    /// <returns>True when the source declared this push a duplicate and it counted as skipped; false when it counted as pushed.</returns>
+    private async Task<bool> PushAsync(
         PushEntry push,
         string source,
         string apiKey,
         bool environmentApiKey,
+        SkipDuplicatesDecision skipDecision,
         CancellationToken cancellationToken)
     {
-        PushInvocation invocation = BuildPushInvocation(push, source, apiKey, environmentApiKey);
-
-        PlannedCommand command = new()
-        {
-            CommandLine =
-                $"publish: dotnet nuget push {push.PackageFile.FullName} --source {source} {CredentialText(environmentApiKey)} (kind '{push.Kind}' for target '{push.TargetProject}').",
-            TargetFilePath = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet",
-            ArgumentList = invocation.ArgumentList,
-            EnvironmentVariables = invocation.EnvironmentVariables,
-            WorkingDirectory = Environment.CurrentDirectory,
-            ArtifactPaths = [push.PackageFile.FullName],
-            Diagnosis = () =>
-                $"publish: this push uploads '{push.PackageFile.Name}' (kind '{push.Kind}', target '{push.TargetProject}') to '{source}'; the first nonzero exit aborts the stage.",
-        };
+        PlannedCommand command = BuildPushCommand(push, source, apiKey, environmentApiKey, skipDecision);
 
         BufferedProcessResult? result = await _plannedCommandRunner.RunAsync(
             command, StageRunMode.Execute, CliOutput.Note, cancellationToken, CliOutput.Cause).ConfigureAwait(true);
@@ -558,42 +634,49 @@ public sealed class PublishCommand : Command
         {
             // Unreachable here - the dry-run branch returned before any push was planned -
             // but the runner's contract still decides per mode: no result means nothing ran.
-            return;
+            return false;
         }
 
-        if (result.WasTruncated)
-        {
-            CliOutput.Warning(
-                $"publish: push output for package '{push.PackageFile.Name}' to source '{source}' was truncated; some lines did not reach the console.");
-        }
-
-        await ReplayLines(result.StandardOutput, static line => CliOutput.Note(line), cancellationToken).ConfigureAwait(true);
-        await ReplayLines(result.StandardError, static line => CliOutput.Warning(line), cancellationToken).ConfigureAwait(true);
+        bool skipped = await ReplayPushOutputAsync(result, push, source, cancellationToken).ConfigureAwait(true);
 
         if (result.ExitCode != 0)
         {
+            // Unchanged fail-fast: only an exit-zero duplicate is a skip; a real nonzero
+            // push exit still aborts the stage.
             throw new PublishStageException(
                 $"publish: dotnet nuget push failed for package '{push.PackageFile.Name}' (kind '{push.Kind}', target '{push.TargetProject}') to source '{source}' (exit code {result.ExitCode}).");
         }
+
+        if (skipped)
+        {
+            CliOutput.Note(
+                $"publish: skipped package '{push.PackageFile.Name}' to source '{source}'; the source declared it a duplicate.");
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
-    /// Builds one push's spawn shape: the child's argument list plus the environment
-    /// variables it runs with. The key travels in the environment when the installed SDK
-    /// reads <c>NUGET_API_KEY</c> (10.0.300+), so it never reaches the argument list there;
-    /// older SDKs accept it only as <c>--api-key</c>, the fallback this channel exists to
-    /// avoid.
+    /// Builds the executed record for one <c>dotnet nuget push</c>: the argument list and
+    /// environment the process runs with, and the same command line with the credential
+    /// redacted for the console. The key travels in the environment when the installed SDK
+    /// reads <c>NUGET_API_KEY</c> (10.0.300+) and on the argument list only for older SDKs.
+    /// <c>--skip-duplicate</c> joins both exactly when the decision enables it - the switch
+    /// rides the existing push path with no pre-check and no source query of any kind.
     /// </summary>
     /// <param name="push">The package to push.</param>
     /// <param name="source">The resolved push source.</param>
-    /// <param name="apiKey">The API key from the API-key channels.</param>
+    /// <param name="apiKey">The API key from the API-key channels; carried, never printed.</param>
     /// <param name="environmentApiKey">Whether the installed SDK takes the key from NUGET_API_KEY.</param>
-    /// <returns>The child's arguments and environment variables.</returns>
-    private static PushInvocation BuildPushInvocation(
+    /// <param name="skipDecision">The once-resolved skip decision; its <c>SkipEnabled</c> appends the switch.</param>
+    /// <returns>The planned record the runner executes.</returns>
+    private static PlannedCommand BuildPushCommand(
         PushEntry push,
         string source,
         string apiKey,
-        bool environmentApiKey)
+        bool environmentApiKey,
+        SkipDuplicatesDecision skipDecision)
     {
         // No --non-interactive: the API key is always supplied through the API-key channels, so
         // no auth prompt can occur, and the flag makes NuGet's local-folder symbols probe fail
@@ -608,34 +691,108 @@ public sealed class PublishCommand : Command
             source,
         ];
 
+        IReadOnlyDictionary<string, string>? environmentVariables = null;
+
         if (environmentApiKey)
         {
             // NuGet 7.6+ (SDK 10.0.300+) reads NUGET_API_KEY, so the key stays off the
             // child's command line entirely: the push consumes it from the environment
             // instead of an argument, where the OS would expose it in the process listing.
-            return new(argumentList, new Dictionary<string, string>(StringComparer.Ordinal)
+            environmentVariables = new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 [ApiKeyEnvironmentVariable] = apiKey,
-            });
+            };
+        }
+        else
+        {
+            // Older SDKs accept the key only as --api-key: the argument list carries it -
+            // redacted from every printed line, but visible to the OS while the push runs.
+            argumentList.Add("--api-key");
+            argumentList.Add(apiKey);
         }
 
-        // Older SDKs accept the key only as --api-key: the argument list carries it -
-        // redacted from every printed line, but visible to the OS while the push runs.
-        argumentList.Add("--api-key");
-        argumentList.Add(apiKey);
+        string skipFlag = string.Empty;
 
-        return new(argumentList, null);
+        if (skipDecision.SkipEnabled)
+        {
+            argumentList.Add("--skip-duplicate");
+            skipFlag = " --skip-duplicate";
+        }
+
+        // The printed command line redacts the key; the argument list carries it only on the
+        // argument channel.
+        return new PlannedCommand
+        {
+            CommandLine =
+                $"publish: dotnet nuget push {push.PackageFile.FullName} --source {source} {CredentialText(environmentApiKey)}{skipFlag} (kind '{push.Kind}' for target '{push.TargetProject}').",
+            TargetFilePath = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet",
+            ArgumentList = argumentList,
+            EnvironmentVariables = environmentVariables,
+            WorkingDirectory = Environment.CurrentDirectory,
+            ArtifactPaths = [push.PackageFile.FullName],
+            Diagnosis = () =>
+                $"publish: this push uploads '{push.PackageFile.Name}' (kind '{push.Kind}', target '{push.TargetProject}') to '{source}'; the first nonzero exit aborts the stage.",
+        };
     }
 
     /// <summary>
-    /// One push's spawn shape: the child's argument list and the environment variables it
-    /// runs with - null when nothing beyond the inherited environment is set.
+    /// Replays one push's captured output to the console and reports whether the source
+    /// declared a duplicate: both streams are scanned for <see cref="SkipDuplicateMarker"/>
+    /// with a strict ordinal match, so counting never depends on which stream the notice
+    /// arrived on, and an exit-zero push without the marker still counts as pushed. A matched
+    /// stderr line leaves the warning path and re-emits as a note, so a skip never renders as
+    /// a warning.
     /// </summary>
-    /// <param name="ArgumentList">The child's argument list.</param>
-    /// <param name="EnvironmentVariables">The environment variables to set on the child.</param>
-    private sealed record PushInvocation(
-        List<string> ArgumentList,
-        IReadOnlyDictionary<string, string>? EnvironmentVariables);
+    /// <param name="result">The captured push result.</param>
+    /// <param name="push">The package that was pushed, for the truncation wording.</param>
+    /// <param name="source">The resolved push source, for the truncation wording.</param>
+    /// <param name="cancellationToken">The stage's cancellation token.</param>
+    /// <returns>True when either stream carried the skip marker.</returns>
+    private static async Task<bool> ReplayPushOutputAsync(
+        BufferedProcessResult result,
+        PushEntry push,
+        string source,
+        CancellationToken cancellationToken)
+    {
+        if (result.WasTruncated)
+        {
+            CliOutput.Warning(
+                $"publish: push output for package '{push.PackageFile.Name}' to source '{source}' was truncated; some lines did not reach the console.");
+        }
+
+        bool skipped = ContainsSkipMarker(result.StandardOutput) || ContainsSkipMarker(result.StandardError);
+
+        // stdout lines are stage notes already; a stderr marker line leaves the warning path
+        // and re-emits as a note, so a skip never renders as a warning.
+        await ReplayLines(result.StandardOutput, static line => CliOutput.Note(line), cancellationToken).ConfigureAwait(true);
+        await ReplayLines(
+            result.StandardError,
+            static line =>
+            {
+                if (ContainsSkipMarker(line))
+                {
+                    CliOutput.Note(line);
+                }
+                else
+                {
+                    CliOutput.Warning(line);
+                }
+            },
+            cancellationToken).ConfigureAwait(true);
+
+        return skipped;
+    }
+
+    /// <summary>
+    /// Whether the captured output carries the fixture-pinned skip marker. The match is strict
+    /// and ordinal - the exact marker text and nothing looser - so wording drift in
+    /// <c>dotnet nuget push</c> undercounts skipped pushes rather than inventing them, and no
+    /// source query ever substitutes for the marker.
+    /// </summary>
+    /// <param name="text">The captured stdout or stderr text, or a single line of it; null reads as no match.</param>
+    /// <returns>True when <paramref name="text"/> carries <see cref="SkipDuplicateMarker"/>.</returns>
+    private static bool ContainsSkipMarker(string? text) =>
+        !string.IsNullOrEmpty(text) && text.Contains(SkipDuplicateMarker, StringComparison.Ordinal);
 
     /// <summary>
     /// Replays captured process output to the sink one line at a time, dropping only empty

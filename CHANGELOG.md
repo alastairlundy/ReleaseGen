@@ -4,19 +4,43 @@ Notable changes to ReleaseGen, newest first. Package versions come from the stat
 `<Version>` property in each packable `.csproj`, bumped by hand before each release (see
 AGENTS.md) - git tags do not drive them.
 
-## 0.3.0 - Unreleased
+## 0.3.0 - 2026-11-04
 
-Routine dependency updates so far. No command, manifest, or behavior changes.
+### Added
+
+- **`--skip-duplicate` on `publish`**: when skipping is enabled, the flag is passed to
+  every `dotnet nuget push`. ReleaseGen performs no pre-check - the package source alone
+  decides what counts as a duplicate. A push that exits 0 with the skip marker in its
+  output is counted as skipped instead of pushed: the marker line is reported as a stage
+  note naming the package and the source, and the closing summary gives pushed and
+  skipped as two totals while the stage still exits 0. A push that exits nonzero still
+  fails the stage as before. A `--dry-run` plan shows the resolved skip mode once per
+  source (only for manifests with package kinds to publish) along with the flag in the
+  planned command line.
+- **`skipDuplicates` manifest key**: the publish section gains a nullable bool, so a
+  manifest can state its standing answer for duplicate pushes. The key is matched with
+  exact casing under the strict parse, so a wrong-cased key fails naming the property,
+  and an absent key keeps today's fail-fast behavior. When the manifest and the command
+  line both state a value and the two differ, `--skip-duplicate` wins and one conflict
+  line goes to standard error, at most once per run; a dry-run plan prints the same line
+  a real run would.
+- **`--skip-duplicate` forwarded from the chained run**: `releasegen run` accepts the
+  same flag and passes it to publish, so a chained run and a standalone
+  `releasegen publish` resolve one skip decision. The value survives the hop in all
+  three states, so a plain `releasegen run` can never conflict with the manifest: the
+  flag on its own or with `true` turns skipping on, and `--skip-duplicate false`
+  forwards an explicit "off" rather than collapsing into absence.
 
 ### Changed
 
 - Dependencies: System.CommandLine to 2.0.14, Microsoft.Extensions.DependencyInjection
   (and Abstractions) to 10.0.14, Meziantou.Analyzer to 3.0.318.
+- Documentation for commands, manifest schema, and the glossary now covers duplicate
+  pushes: the `skipDuplicates` key, the `--skip-duplicate` flag on `publish` and `run`,
+  how the two channels are reconciled into one decision per run, and the pushed/skipped
+  two-total summary.
 
 ## 0.2.0 - 2026-11-01
-
-One adoption-friction batch: two breaking renames, a new archive format, rehearsal and
-diagnostics flags, and a helpful `init`.
 
 ### Breaking changes
 

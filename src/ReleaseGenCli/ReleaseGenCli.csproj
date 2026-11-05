@@ -21,14 +21,27 @@
         <Description>Opinionated .NET CLI for building, packaging, and publishing .NET projects, with cross-platform packaging targets and project-file-prioritized build settings.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <!-- Package version; bump manually before each release. -->
-        <Version>0.2.0</Version>
+        <Version>0.3.0</Version>
         <Title>ReleaseGen</Title>
         <Authors>Alastair Lundy</Authors>
         <Copyright>Copyright (c) Alastair Lundy 2026</Copyright>
-        <PackageReleaseNotes>Breaking release: the build preset is now `aot` (was `aot-plus-trimming`), the target key is now `archiveFormats` (was `archive`), and an absent archive key defaults to zip plus tar.gz on Unix-based rids. New: `--dry-run`, `--verbose`, tar.xz archives, and a detection-seeded, `--interactive` init. See CHANGELOG.md.</PackageReleaseNotes>
+        <PackageReleaseNotes># Changes since 0.2.0
+
+## Added
+
+- **`--skip-duplicate` on `publish`** — an opt-in flag, forwarded to every `dotnet nuget push` for the run, that lets the feed itself decide whether a package is a duplicate. When a push exits zero and reports the skip marker, it counts as skipped rather than pushed: the stage logs a note naming the package and source, and the closing summary shows pushed and skipped as two separate totals while still exiting 0. Any other nonzero exit fails the stage as before. Without the flag and without a manifest key, behaviour is unchanged: a duplicate still fails the stage.
+- **`skipDuplicates` in the manifest** — set it in the publish section to make skipping your standing behaviour, so you don't have to pass the flag each time. It's absent by default, and the flag always wins over the manifest when both are given, with at most one conflict warning per run.
+- **`--skip-duplicate` on `releasegen run`** — the chained run passes the flag along to publish, so a chain and a standalone `releasegen publish` resolve the same decision. Omitting the flag forwards nothing and leaves the run on today's default; `--skip-duplicate` (or `=true`) turns skipping on, and `--skip-duplicate=false` keeps "declared off" distinct from "not specified".
+
+## Changed
+
+- Updated System.CommandLine to 2.0.14, Microsoft.Extensions.DependencyInjection (and Abstractions) to 10.0.14, and Meziantou.Analyzer to 3.0.318.
+- Docs for commands, manifest schema, and the glossary now cover the duplicate-push behaviour and the pushed/skipped summary.</PackageReleaseNotes>
         <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
         <AssemblyName>ReleaseGen</AssemblyName>
         <RootNamespace>ReleaseGen.Cli</RootNamespace>
+        <AssemblyVersion>0.3.0</AssemblyVersion>
+        <FileVersion>0.3.0</FileVersion>
     </PropertyGroup>
 
     <ItemGroup>

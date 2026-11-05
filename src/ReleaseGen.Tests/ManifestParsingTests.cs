@@ -117,6 +117,57 @@ public class ManifestParsingTests
     }
 
     [Test]
+    public async Task SkipDuplicates_key_parses_to_an_explicit_value()
+    {
+        Manifest manifest = _loader.Parse(
+            """{ "targets": [], "publish": { "sources": [], "skipDuplicates": true } }""");
+
+        // Boolean-with-default-false contract: the key is tri-state, and an explicit
+        // value must survive the strict parse.
+        await Assert.That(manifest.Publish.SkipDuplicates).IsTrue();
+    }
+
+    [Test]
+    public async Task Absent_skipDuplicates_key_parses_to_null()
+    {
+        Manifest manifest = _loader.Parse("""{ "targets": [] }""");
+
+        // Absent must stay distinguishable from an explicit false so the merge rules
+        // in SkipDuplicatesDecision can tell "never declared" from "declared off".
+        await Assert.That(manifest.Publish.SkipDuplicates).IsNull();
+    }
+
+    [Test]
+    public async Task The_skipDuplicates_key_requires_its_exact_casing()
+    {
+        // Casing is part of the contract: a misspelled key is an unknown member rather
+        // than an alias of the real one, so strict parse rejects it naming the offender -
+        // the accepting side of exact casing is the explicit-value test above.
+        ManifestException exception = Capture.Exception<ManifestException>(
+            () => _loader.Parse(
+                """{ "targets": [], "publish": { "sources": [], "SkipDuplicates": true } }"""));
+
+        await Assert.That(exception.Message).Contains("Manifest parse failed");
+        await Assert.That(exception.Message).Contains("SkipDuplicates");
+    }
+
+    [Test]
+    public async Task An_unknown_member_alongside_skipDuplicates_still_fails_strict_parse()
+    {
+        // Regression for the field's addition: declaring skipDuplicates does not open the
+        // publish section - a typo'd sibling still fails parse naming the typo, and the
+        // message never mistakes it for the valid key (no validation weakening around
+        // the new field).
+        ManifestException exception = Capture.Exception<ManifestException>(
+            () => _loader.Parse(
+                """{ "targets": [], "publish": { "sources": [], "skipDuplicates": true, "skipDuplicate": true } }"""));
+
+        await Assert.That(exception.Message).Contains("Manifest parse failed");
+        await Assert.That(exception.Message).Contains("skipDuplicate");
+        await Assert.That(exception.Message.Contains("skipDuplicates", StringComparison.Ordinal)).IsFalse();
+    }
+
+    [Test]
     public async Task Target_with_an_unknown_artifact_kind_fails_validation_naming_it()
     {
         Manifest manifest = _loader.Parse(
