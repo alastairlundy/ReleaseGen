@@ -4,6 +4,32 @@ Notable changes to ReleaseGen, newest first. Package versions come from the stat
 `<Version>` property in each packable `.csproj`, bumped by hand before each release (see
 AGENTS.md) - git tags do not drive them.
 
+## 0.4.0 - Unreleased
+
+### Added
+
+- **NuGet API key via environment on SDK 10.0.300+**: `publish` probes the installed SDK
+  (`dotnet --version`) and, on 10.0.300 or newer (NuGet 7.6), delivers the API key to each
+  spawned `dotnet nuget push` through the `NUGET_API_KEY` environment variable, so it never
+  appears on the command line or in the process listing. On older SDKs - or when the probe
+  cannot answer - it falls back to `--api-key`, which every SDK accepts. The probe runs only
+  after every refused condition (missing key, blocked test gate, empty push list), so a stage
+  that stops early never spawns it. Printed push lines name the channel instead of an
+  argument and never show the key value in either mode. `PlannedCommand` gains an optional
+  `EnvironmentVariables` dictionary, applied by the runner through the init-only initializer so
+  a null value keeps the inherited environment.
+- **`dotnet-releaser` migration skill**: `skills/dotnet-releaser-to-releasegen-migration/`
+  guides migrating a dotnet-releaser (TOML) pipeline to ReleaseGen - TOML config inventory,
+  manifest translation, a coverage report, a dry-run validation gate, and a CI rewrite -
+  backed by a mapping table that classifies each dotnet-releaser surface as Mapped, Manual
+  action required, or No ReleaseGen equivalent.
+
+### Changed
+
+- Dependencies: Meziantou.Analyzer to 3.0.320.
+- Documentation for commands, stage handoff, and trusted publishing now describes how the API
+  key reaches the spawned push (environment on SDK 10.0.300+, `--api-key` argument otherwise).
+
 ## 0.3.0 - 2026-11-04
 
 ### Added
