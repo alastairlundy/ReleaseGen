@@ -159,7 +159,7 @@ public class PublishIntegrationTests
         {
             StageContext.Reset();
 
-            // T015's stderr-side match: the entire captured stdout re-delivered on stderr.
+            // The stderr-side match: the entire captured stdout re-delivered on stderr.
             // The real capture observed the notice on stdout with stderr empty, so this
             // stream placement is constructed - counting must not depend on which stream
             // dotnet chose for the notice.
@@ -228,7 +228,7 @@ public class PublishIntegrationTests
     }
 
     /// <summary>
-    /// The evidence pin for the constant and its stream (#T009, #T015): the captured
+    /// The evidence pin for the constant and its stream: the captured
     /// payload must carry <see cref="PublishCommand.SkipDuplicateMarker"/> verbatim, and
     /// the fixture must record which stream the notice arrived on - stdout for this
     /// capture. Wording drift fails here instead of hiding behind a loose match.
@@ -253,7 +253,7 @@ public class PublishIntegrationTests
     /// <summary>
     /// The captured notice line itself - the evidence <see cref="PublishCommand.SkipDuplicateMarker"/>
     /// must match. Fails with a reconciliation pointer when the constant has drifted off
-    /// the capture (#T009).
+    /// the capture.
     /// </summary>
     private static string CapturedMarkerLine()
     {
