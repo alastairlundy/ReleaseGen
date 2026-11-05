@@ -15,6 +15,7 @@
       ["src/ReleaseGen.Tests/ReleaseGen.Tests.csproj"]
   },
   "publish": {
+    "skipDuplicates": true,
     "sources": []
   }
 }
