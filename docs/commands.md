@@ -213,12 +213,13 @@ zip for Windows-class and portable `any-*` rids, zip plus tar.gz for Unix-based 
 `tar.xz` is opt-in and never a default. Output stays local - nothing is uploaded.
 
 ```
-releasegen build [--preset <name>] [--dry-run] [--verbose]
+releasegen build [--preset <name>] [--rids <rids>] [--dry-run] [--verbose]
 ```
 
 | Flag | Effect |
 |------|--------|
 | `--preset <name>` | Overrides the Manifest's `build.preset` for this invocation only. Never writes the Manifest. |
+| `--rids <rids>` | Builds a comma-separated subset of the Manifest's `runtimeIdentifiers` for this invocation only, for example `--rids win-x64,win-arm64`. Entries are matched case-insensitively and de-duplicated, and output paths use the Manifest's spelling. The subset can only narrow what the Manifest declares - it never adds a rid the Manifest does not name. An empty value, a blank entry, or a value outside the Manifest's set is refused with an error naming the value (blank entries name their position) and the Manifest's set, exit 1, before any publish is planned. Never writes the Manifest. |
 | `--dry-run` | Prints each publish and archive the stage would run, writes nothing under `release/`, and exits on Manifest validation alone. See [Dry run](#dry-run). |
 | `--verbose` | Shows each publish's command line, its raw output, and its cause line during a real run. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
