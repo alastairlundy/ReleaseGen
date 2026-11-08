@@ -7,7 +7,6 @@ AGENTS.md) - git tags do not drive them.
 ## 0.4.0 - Unreleased
 
 ### Added
-
 - **NuGet API key via environment on SDK 10.0.300+**: `publish` probes the installed SDK
   (`dotnet --version`) and, on 10.0.300 or newer (NuGet 7.6), delivers the API key to each
   spawned `dotnet nuget push` through the `NUGET_API_KEY` environment variable, so it never
@@ -23,9 +22,18 @@ AGENTS.md) - git tags do not drive them.
   manifest translation, a coverage report, a dry-run validation gate, and a CI rewrite -
   backed by a mapping table that classifies each dotnet-releaser surface as Mapped, Manual
   action required, or No ReleaseGen equivalent.
+  - **`releasegen build --rids <rids>`**: a comma-separated subset of the Manifest's
+  `runtimeIdentifiers` for this invocation only (for example
+  `--rids win-x64,win-arm64`), the same escape posture as `--preset` - the flag never
+  writes the Manifest, and it can only narrow what the Manifest declares, never add a rid
+  the Manifest does not name. Entries match case-insensitively, de-duplicate, and output
+  paths use the Manifest's spelling. An empty value, a blank entry (naming its position),
+  or a value outside the Manifest's set is refused with an error naming the value and the
+  Manifest's set, exit 1, before any publish is planned. Combined with a per-OS CI matrix
+  (Windows for `win-*`, Linux for `linux-*`, macOS for `osx-*`) it builds a self-contained
+  NativeAOT rid matrix that one runner cannot.
 
 ### Changed
-
 - Dependencies: Meziantou.Analyzer to 3.0.320.
 - Documentation for commands, stage handoff, and trusted publishing now describes how the API
   key reaches the spawned push (environment on SDK 10.0.300+, `--api-key` argument otherwise).
@@ -33,7 +41,6 @@ AGENTS.md) - git tags do not drive them.
 ## 0.3.0 - 2026-11-04
 
 ### Added
-
 - **`--skip-duplicate` on `publish`**: when skipping is enabled, the flag is passed to
   every `dotnet nuget push`. ReleaseGen performs no pre-check - the package source alone
   decides what counts as a duplicate. A push that exits 0 with the skip marker in its

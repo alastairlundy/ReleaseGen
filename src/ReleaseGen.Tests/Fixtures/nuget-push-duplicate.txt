@@ -1,0 +1,22 @@
+# Real capture of a duplicate push: the raw stdout of `dotnet nuget push --skip-duplicate`
+# when nuget.org answers 409 Conflict for an already-published package. The publish stage's
+# marker scan pins PublishCommand.SkipDuplicateMarker against this file; the comment lines
+# are provenance, not process output, and the scanner tests strip them before replaying the
+# payload below.
+#
+# Source: GitHub Actions run https://github.com/alastairlundy/ReleaseGen/actions/runs/41900746380
+#   workflow: .github/workflows/publish.yml (the raw workflow), branch main
+#   dispatched 2026-11-04 with no version bump, so the push of the already-published
+#   ReleaseGen 0.3.0 was a true duplicate: nuget.org answered 409 Conflict, the push
+#   exited 0, and --skip-duplicate skipped it.
+#   push command: dotnet nuget push src/ReleaseGenCli/bin/Release/*.nupkg --api-key ***
+#     -s https://api.nuget.org/v3/index.json --skip-duplicate
+# stream: stdout - the skip notice arrived on stdout and this capture's stderr was empty.
+#   GitHub Actions merges both streams into one log, so the stream was pinned separately:
+#   re-running the same push shape locally with stdout and stderr redirected to different
+#   files printed the notice to stdout and left stderr empty (NuGet's CommandOutputLogger
+#   writes every log level through Console.WriteLine).
+Pushing ReleaseGen.0.3.0.nupkg to 'https://www.nuget.org/api/v2/package'...
+  PUT https://www.nuget.org/api/v2/package/
+  Conflict https://www.nuget.org/api/v2/package/ 301ms
+Package '/home/runner/work/ReleaseGen/ReleaseGen/src/ReleaseGenCli/bin/Release/ReleaseGen.0.3.0.nupkg' already exists at feed 'https://www.nuget.org/api/v2/package'.

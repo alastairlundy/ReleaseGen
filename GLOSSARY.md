@@ -20,6 +20,10 @@ The rule that publishing blocks when the manifest carries a test section and tha
 
 A named set of build settings (aot, trimming, ready-to-run, self-contained, and the single-file rules) applied to a rid's publish when the manifest or the user selects it.
 
+## Rid subset
+
+A per-invocation comma-separated narrowing of the manifest's runtimeIdentifiers, chosen with build's --rids flag: it can only leave out rids, never add one, and the manifest's spelling wins for output paths.
+
 ## Target
 
 A manifest entry naming one project and the artifacts it produces.
