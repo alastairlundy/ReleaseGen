@@ -21,27 +21,26 @@
         <Description>Opinionated .NET CLI for building, packaging, and publishing .NET projects, with cross-platform packaging targets and project-file-prioritized build settings.</Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <!-- Package version; bump manually before each release. -->
-        <Version>0.3.0</Version>
+        <Version>0.4.0</Version>
         <Title>ReleaseGen</Title>
         <Authors>Alastair Lundy</Authors>
         <Copyright>Copyright (c) Alastair Lundy 2026</Copyright>
-        <PackageReleaseNotes># Changes since 0.2.0
+        <PackageReleaseNotes># Changes since 0.3.0
 
-## Added
+            ## Added
+            - **NuGet API key via environment on .NET SDK 10.0.300+** — `publish` now delivers the API key to `dotnet nuget push` through the `NUGET_API_KEY` environment variable on .NET SDK 10.0.300+ (NuGet 7.6), so it never appears on the command line or in the process listing; older .NET SDKs (or an unresponsive probe) fall back to `--api-key`. The .NET SDK probe runs only after every early-exit condition, and printed push lines name the channel, never the key value.
+            - **`dotnet-releaser` migration skill** — `skills/dotnet-releaser-to-releasegen-migration/` guides migrating a dotnet-releaser (TOML) pipeline to ReleaseGen: TOML config inventory, manifest translation, a coverage report, a dry-run validation gate, and a CI rewrite. It is backed by a mapping table that classifies each surface as Mapped, Manual action required, or No ReleaseGen equivalent.
+            - **`releasegen build --rids &lt;rids&gt;`** — a comma-separated subset of the manifest's `runtimeIdentifiers` for the current invocation only (same escape posture as `--preset`): it is never written to the manifest and may only narrow the manifest's declared set, never adding a RID the manifest does not specify. Entries match case-insensitively, de-duplicate, and keep the manifest's spelling; an empty/blank/out-of-set value is refused with a named error before any publish is planned.
 
-- **`--skip-duplicate` on `publish`** — an opt-in flag, forwarded to every `dotnet nuget push` for the run, that lets the feed itself decide whether a package is a duplicate. When a push exits zero and reports the skip marker, it counts as skipped rather than pushed: the stage logs a note naming the package and source, and the closing summary shows pushed and skipped as two separate totals while still exiting 0. Any other nonzero exit fails the stage as before. Without the flag and without a manifest key, behaviour is unchanged: a duplicate still fails the stage.
-- **`skipDuplicates` in the manifest** — set it in the publish section to make skipping your standing behaviour, so you don't have to pass the flag each time. It's absent by default, and the flag always wins over the manifest when both are given, with at most one conflict warning per run.
-- **`--skip-duplicate` on `releasegen run`** — the chained run passes the flag along to publish, so a chain and a standalone `releasegen publish` resolve the same decision. Omitting the flag forwards nothing and leaves the run on today's default; `--skip-duplicate` (or `=true`) turns skipping on, and `--skip-duplicate=false` keeps "declared off" distinct from "not specified".
-
-## Changed
-
-- Updated System.CommandLine to 2.0.14, Microsoft.Extensions.DependencyInjection (and Abstractions) to 10.0.14, and Meziantou.Analyzer to 3.0.318.
-- Docs for commands, manifest schema, and the glossary now cover the duplicate-push behaviour and the pushed/skipped summary.</PackageReleaseNotes>
+            ## Changed
+            - Pinned `Microsoft.Build` package to 18.9.6 since newer versions don't support .NET 10
+            - Dependencies: Meziantou.Analyzer to 3.0.322.
+            - Documentation for commands, stage handoff, and trusted publishing now describes how the API key reaches the spawned push (environment on .NET SDK 10.0.300+, `--api-key` argument otherwise).</PackageReleaseNotes>
         <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
         <AssemblyName>ReleaseGen</AssemblyName>
         <RootNamespace>ReleaseGen.Cli</RootNamespace>
-        <AssemblyVersion>0.3.0</AssemblyVersion>
-        <FileVersion>0.3.0</FileVersion>
+        <AssemblyVersion>0.4.0</AssemblyVersion>
+        <FileVersion>0.4.0</FileVersion>
     </PropertyGroup>
 
     <ItemGroup>
