@@ -50,6 +50,12 @@ behavior change.
   - Central Package Management via `src/Directory.Packages.props` — add new package
     versions there, not inline in `.csproj` files.
   - Target framework is `net10.0` only.
+  - **`Microsoft.Build` is pinned to the version currently listed in
+    `src/Directory.Packages.props`.** From 18.10.1 that package ships only
+    `net11.0` and `net472` assets — the `net10.0` build was dropped — so a
+    `net10.0` project falls back to the .NET Framework assemblies (NU1701)
+    instead. Do not bump it for as long as ReleaseGen targets `net10.0`;
+    only revisit the pin when the target framework moves off .NET 10.
 
 ## AI usage disclosure
 
