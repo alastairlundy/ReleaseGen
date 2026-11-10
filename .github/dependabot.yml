@@ -11,7 +11,7 @@ updates:
       interval: weekly
       day: monday
     cooldown:
-      default-days: 14
+      default-days: 3
     groups:
       nuget-minor-patch:
         patterns:
