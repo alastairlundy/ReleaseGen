@@ -3,30 +3,30 @@
 ReleaseGen ships six commands: five stage commands plus the chained run. The tool
 command name is `releasegen`. Every command shares the global `--quiet` option, every
 stage command and the chained run also accept `--verbose`, and bare `releasegen` prints
-command help - no stage executes without an explicit verb.
+command help, and no stage executes without an explicit verb.
 
 ## Global behavior
 
-- **Manifest discovery** - every stage command (except `init`) discovers `releasegen.json` by
+- **Manifest discovery.** every stage command (except `init`) discovers `releasegen.json` by
   walking up from the current directory to the repository root, stopping at the first manifest
   found. When none is found, the error names every searched directory.
-- **`--quiet`** - suppresses stage notes and progress while warnings and errors stay visible.
+- **`--quiet`.** suppresses stage notes and progress while warnings and errors stay visible.
   It composes with every flag except `--verbose`, which contradicts it (see below).
-- **`--verbose`** - accepted by every stage command and the chained run (not by `init`). A
+- **`--verbose`.** accepted by every stage command and the chained run (not by `init`). A
   real run shows each spawned command line, its raw output, and a ReleaseGen cause line; see
   [Verbose](#verbose).
-- **`--quiet` with `--verbose`** - an error, not an ambiguity: the command fails with one
+- **`--quiet` with `--verbose`.** an error, not an ambiguity: the command fails with one
   line naming the conflict plus the diagnostics tip and exits 1 before any stage work starts,
   rather than silently choosing an output mode.
-- **The hint line** - every failure outside `--verbose` gains one `hint:` line, "run with
+- **The hint line.** every failure outside `--verbose` gains one `hint:` line, "run with
   --verbose for full detail", naming the escape hatch at the point of failure. Under
-  `--verbose` the hint is dropped - the run is already in full detail. `init` registers no
+  `--verbose` the hint is dropped, and the run is already in full detail. `init` registers no
   `--verbose`, so its errors carry their own next step instead.
-- **`--dry-run`** - accepted by every stage command and the chained run (not by `init`). The
+- **`--dry-run`.** accepted by every stage command and the chained run (not by `init`). The
   stage prints its would-be actions and writes nothing anywhere; see [Dry run](#dry-run).
-- **Exit codes** - `0` on success, `1` on any failure. Errors are one-line messages naming the
+- **Exit codes.** `0` on success, `1` on any failure. Errors are one-line messages naming the
   offending thing.
-- **Output routing** - MSBuild diagnostic lines (the shape the SDK's IL3000-family analyzer
+- **Output routing.** MSBuild diagnostic lines (the shape the SDK's IL3000-family analyzer
   warnings arrive in) and all stderr lines surface as warnings so they survive `--quiet`.
 
 ## Dry run
@@ -35,24 +35,24 @@ command help - no stage executes without an explicit verb.
 full planning and read-only steps and prints what a real run would have done, stage by stage,
 while every write and outward side effect is suppressed. It composes with `--quiet`.
 
-- **Zero writes** - nothing is written anywhere, including the `release/` tree (no stale-output
+- **Zero writes.** nothing is written anywhere, including the `release/` tree (no stale-output
   cleanup, no publish folders, no archives, no packages) and `TestResults/`. Archives and
   package contents stay invisible: the report describes them instead of producing them.
-- **One plan, both modes** - each spawned command appears as the exact command line a real run
+- **One plan, both modes.** each spawned command appears as the exact command line a real run
   would execute, with one `  artifact: <path>` line under it for each artifact the command
   writes or pushes. Side effects a real run guards at run time (for example archiving a publish
   output folder) print as `(<command line>) (conditional: <guard>)`, so the report may describe
   work a real run would later skip.
-- **Publish prints the gate consult** - instead of running tests, publish prints the would-be
+- **Publish prints the gate consult.** instead of running tests, publish prints the would-be
   gate consult (`tests would run for: …`) naming the test projects a real run's gate would
   execute, then the would-be pushes with the API key redacted. A dry run needs no API key.
-- **Publish mirrors the skip decision** - each source prints the resolved skip mode a real run
+- **Publish mirrors the skip decision.** each source prints the resolved skip mode a real run
   would push under (with `--skip-duplicate` shown in the planned command line when skipping is
   enabled), and conflicting skip channels print the same conflict line a real run would. See
   [Duplicate pushes](#publish).
-- **Exit code = manifest validation only** - a valid manifest exits `0`; a manifest that fails
+- **Exit code = manifest validation only.** a valid manifest exits `0`; a manifest that fails
   validation (or an unknown preset) exits `1`. No other condition can fail a dry run.
-- **A plan, not a certification** - a zero-exit dry run proves the manifest is valid and the
+- **A plan, not a certification.** a zero-exit dry run proves the manifest is valid and the
   plan reads as expected. It is not a test result and not a release: run the stages for real
   before pushing anything.
 
@@ -68,16 +68,16 @@ report into the full detail behind each spawned command. It reads the same plann
 dry-run report prints, so neither flag can show a stale picture of what ReleaseGen runs. It
 composes with `--dry-run` (nothing runs either way) but never with `--quiet`.
 
-- **Command line** - every spawned command prints its full command line and its artifact paths
-  before it runs - the exact lines a dry run would print, read from the one shared record.
-- **Raw output** - the spawned command's captured stdout and stderr replay line by line as
+- **Command line.** every spawned command prints its full command line and its artifact paths
+  before it runs: the exact lines a dry run would print, read from the one shared record.
+- **Raw output.** the spawned command's captured stdout and stderr replay line by line as
   the tool emitted them, with no content filtering: MSBuild diagnostic lines and stderr keep
   their warning styling so nothing is dropped.
-- **Cause line** - a `cause:` line adds ReleaseGen's diagnosis of what the command means, for
+- **Cause line.** a `cause:` line adds ReleaseGen's diagnosis of what the command means, for
   example why a `dotnet test` run produced "Specify a project or solution file". A cause line
   only ever follows an executed command; the dry-run report never prints one, because nothing
   has been verified.
-- **No hint** - errors under `--verbose` print without the `hint:` line naming the flag: the
+- **No hint.** errors under `--verbose` print without the `hint:` line naming the flag: the
   run is already in full detail.
 
 ```
@@ -114,7 +114,7 @@ releasegen init [--preset <name>] [--overwrite] [--interactive]
 
 | Detected | Seeded as |
 |----------|-----------|
-| Project whose evaluated `OutputType` is `Exe` or `WinExe` | a `targets` entry with the `executables` kind, plus `tool-package` when the expanded `PackAsTool` is `true`, and an explicit `archiveFormats` list of `zip` and `tar.gz` - the absent-key default set made visible in the file (`tar.xz` stays opt-in) |
+| Project whose evaluated `OutputType` is `Exe` or `WinExe` | a `targets` entry with the `executables` kind, plus `tool-package` when the expanded `PackAsTool` is `true`, and an explicit `archiveFormats` list of `zip` and `tar.gz`, the absent-key default set made visible in the file (`tar.xz` stays opt-in) |
 | Project name ending `.Tests` or `.Test` | a `test.projects` entry |
 | Library-shaped project with expanded `PackAsTool=true` | a `targets` entry with the `tool-package` kind |
 | Packable library (the SDK's default `IsPackable`) | a `targets` entry with the `lib-package` kind |
@@ -134,7 +134,7 @@ Each uncertain classification emits exactly one warning and seeds nothing for it
 
 When detection fails outright (or finds no projects at all), init writes today's minimal
 skeleton: an empty `targets` array, an empty rid list, and an empty publish source list. The
-`test` section is omitted unless test projects were detected - an absent section keeps the
+`test` section is omitted unless test projects were detected. An absent section keeps the
 [test gate](manifest-schema.md#test-section) warn-and-pass, while an empty one would run
 `dotnet test` from the current directory.
 
@@ -143,31 +143,31 @@ skeleton: an empty `targets` array, an empty rid list, and an empty publish sour
 `--interactive` replaces the detected skeleton with five questions, asked in this fixed
 order, each showing the detected default in brackets and accepting it on Enter:
 
-1. **build preset** - the known preset set (`aot`, `ready-to-run`, `trimming-only`,
+1. **build preset.** the known preset set (`aot`, `ready-to-run`, `trimming-only`,
    `framework-dependent`, `none`), defaulting to `--preset`'s value or `none`. An unknown
    answer is refused and the question is asked again.
-2. **projects to release** - the detected projects, listed and numbered, defaulting to all of
+2. **projects to release.** the detected projects, listed and numbered, defaulting to all of
    them. Enter comma-separated numbers to keep a subset, or `none` to release nothing; a
    number outside the listing is refused rather than dropped.
-3. **runtime identifiers** - written to `build.runtimeIdentifiers`. The default is the rid
+3. **runtime identifiers.** written to `build.runtimeIdentifiers`. The default is the rid
    set below; `none` clears it, except that a selection including an `executables` target
    must keep at least one rid, and an answer without one is refused at the prompt.
-4. **archive formats** - written to each chosen `executables` target's `archiveFormats`.
+4. **archive formats.** written to each chosen `executables` target's `archiveFormats`.
    Defaults to `zip, tar.gz` (the absent-key default set made explicit); `tar.xz` is offered
    but stays opt-in and never a default; `none` means archive nothing and cannot be combined
    with other formats. A lone `tar.xz` answer is refused when the chosen rids include rids
    tar.xz cannot be produced for (Windows-class and `any-*`), so the questionnaire never
    writes a manifest validation would reject. Targets without an `executables` kind get no
    key, as on the default path.
-5. **test projects** - the detected test projects, numbered and defaulting to all of them.
+5. **test projects.** the detected test projects, numbered and defaulting to all of them.
    `none` omits the `test` section entirely, keeping the gate's warn-and-pass default.
 
 An answer that does not parse prints the reason and the same question is asked again; stdin
 ending before the fifth answer aborts with an explanatory error and writes nothing. Both
-write paths - the detected skeleton and the questionnaire's answers - parse and validate the
+write paths: the detected skeleton and the questionnaire's answers. They parse and validate the
 composed manifest through the same strict loader the stages use before it reaches disk, so a
 validation failure writes nothing and exits 1. The
-questions themselves print even under `--quiet` - they are the interaction - while init's
+questions themselves print even under `--quiet`. They are the interaction, while init's
 notes stay suppressed. Without the flag, no question is ever asked: the default path stays
 non-interactive.
 
@@ -177,23 +177,23 @@ The rid default is where `--interactive` reads the machine. The set always holds
 `win-arm64`, `linux-x64`, `linux-arm64`, and `osx-arm64`, and joins `osx-x64` when either
 clause of the union rule holds:
 
-- **the TFM clause** - some project under the root declares a TFM that pins a required
+- **the TFM clause.** some project under the root declares a TFM that pins a required
   platform version older than macOS 26 (for example `net10.0-macos.15`); a `-maccatalyst.N`
   pin is read the same way, with no translation between them. macOS (and iOS) dropped
-  sequential majors at macOS 15 - 26 shipped in late 2025, 27 in late 2026 - so every pin
+  sequential majors at macOS 15, and 26 shipped in late 2025, 27 in late 2026, so every pin
   below 26 is a pre-jump version and every model year is at or above it; Mac Catalyst
   versions mirrored iOS before that jump and unified with macOS from 26 on. Only an explicit
   pin settles the clause: a TFM that names no such platform (`net10.0`, `net10.0-windows`) or
   names one without a version (`net10.0-macos`, `net10.0-maccatalyst`) states no required
-  version, so it never satisfies this clause - the run checks the installed SDK's supported
+  version, so it never satisfies this clause. The run checks the installed SDK's supported
   rids instead.
-- **the installed-SDK clause** - any installed SDK's RID catalog
+- **the installed-SDK clause.** any installed SDK's RID catalog
   (`sdk/<version>/RuntimeIdentifierGraph.json` under the dotnet root, declared via
   `DOTNET_ROOT` or derived from the running runtime) still lists `osx-x64`.
 
 **The default set therefore depends on the machine**: the SDK version installed, and the
 TFMs the repository declares, both change what Enter accepts here. `any-x64` and `any-arm64`
-are always offered but never default - they resolve to the zip-only archive rule everywhere
+are always offered but never default. They resolve to the zip-only archive rule everywhere
 ([absent-key defaults](manifest-schema.md#absent-key-defaults)).
 
 **Aftercare**
@@ -210,7 +210,7 @@ runtime identifier, writing each (target, rid) publish to `release/<rid>/<projec
 attaching one archive per (target, rid) for each resolved format (`release/<project-name>-<rid>.zip`,
 `.tar.gz`, or `.tar.xz`). With no `archiveFormats` key the default set resolves per rid class:
 zip for Windows-class and portable `any-*` rids, zip plus tar.gz for Unix-based rids.
-`tar.xz` is opt-in and never a default. Output stays local - nothing is uploaded.
+`tar.xz` is opt-in and never a default. Output stays local, and nothing is uploaded.
 
 ```
 releasegen build [--preset <name>] [--rids <rids>] [--dry-run] [--verbose]
@@ -219,7 +219,7 @@ releasegen build [--preset <name>] [--rids <rids>] [--dry-run] [--verbose]
 | Flag | Effect |
 |------|--------|
 | `--preset <name>` | Overrides the Manifest's `build.preset` for this invocation only. Never writes the Manifest. |
-| `--rids <rids>` | Builds a comma-separated subset of the Manifest's `runtimeIdentifiers` for this invocation only, for example `--rids win-x64,win-arm64`. Entries are matched case-insensitively and de-duplicated, and output paths use the Manifest's spelling. The subset can only narrow what the Manifest declares - it never adds a rid the Manifest does not name. An empty value, a blank entry, or a value outside the Manifest's set is refused with an error naming the value (blank entries name their position) and the Manifest's set, exit 1, before any publish is planned. Never writes the Manifest. |
+| `--rids <rids>` | Builds a comma-separated subset of the Manifest's `runtimeIdentifiers` for this invocation only, for example `--rids win-x64,win-arm64`. Entries are matched case-insensitively and de-duplicated, and output paths use the Manifest's spelling. The subset can only narrow what the Manifest declares. It never adds a rid the Manifest does not name. An empty value, a blank entry, or a value outside the Manifest's set is refused with an error naming the value (blank entries name their position) and the Manifest's set, exit 1, before any publish is planned. Never writes the Manifest. |
 | `--dry-run` | Prints each publish and archive the stage would run, writes nothing under `release/`, and exits on Manifest validation alone. See [Dry run](#dry-run). |
 | `--verbose` | Shows each publish's command line, its raw output, and its cause line during a real run. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
 
@@ -233,7 +233,7 @@ warning: build: target '<project>' with runtime identifier '<rid>' skips archive
 
 A target whose only declared format is `tar.xz` fails manifest validation before any publish
 runs when the Manifest declares those rids: the error names the target, the conflicting rids,
-and the fix - see the [manifest schema](manifest-schema.md).
+and the fix. See the [manifest schema](manifest-schema.md).
 
 `tar.xz` is written by piping the tar stream through the system `xz` binary, so the machine
 running the stage must have `xz` on PATH. A machine without it fails the stage before any
@@ -251,7 +251,7 @@ code; either way nothing half-written is left under `release/`.
 Runs `dotnet test` on the projects the Manifest's test section names, or once from the current
 directory when the section lists none. A declared section that exits nonzero fails the
 stage, so a chained run aborts before publish and the test gate blocks publish.
-A Manifest with no test section warns and exits 0 - the test gate passes by default. Named
+A Manifest with no test section warns and exits 0. The test gate passes by default. Named
 projects run fail-fast: the first nonzero exit stops the stage.
 
 ```
@@ -277,7 +277,7 @@ target declaring `tool-package` whose project does not evaluate to `PackAsTool=t
 Manifest validation with an error naming the target, the project, and the property to set in
 the project's MSBuild properties (the `.csproj` or an imported props file such as
 `Directory.Build.props`). The property is read expanded, and ReleaseGen never passes the
-switch itself - see the [manifest schema](manifest-schema.md).
+switch itself. See the [manifest schema](manifest-schema.md).
 
 ```
 releasegen package [--dry-run] [--verbose]
@@ -303,7 +303,7 @@ releasegen publish [--api-key <key>] [--skip-duplicate] [--dry-run] [--verbose]
 
 | Flag | Effect |
 |------|--------|
-| `--api-key <key>` | The NuGet API key. Falls back to the `NUGET_API_KEY` environment variable. The Manifest is never consulted for keys - no key ever lives on disk. |
+| `--api-key <key>` | The NuGet API key. Falls back to the `NUGET_API_KEY` environment variable. The Manifest is never consulted for keys, and no key ever lives on disk. |
 | `--skip-duplicate` | Skip a push the source declares a duplicate instead of failing the stage. Overrides `publish.skipDuplicates` for this invocation; a conflict with the Manifest prints one line to standard error and this switch wins. |
 | `--dry-run` | Prints the would-be gate consult (the test projects the gate would run) and the would-be pushes, runs no tests, writes no `TestResults/`, pushes nothing, and needs no API key. See [Dry run](#dry-run). |
 | `--verbose` | Shows each `dotnet nuget push` command line (key redacted), its raw output, and its cause line during a real run, and forwards to the test gate consult. Errors print without the hint line. Cannot be combined with `--quiet`. See [Verbose](#verbose). |
@@ -311,7 +311,7 @@ releasegen publish [--api-key <key>] [--skip-duplicate] [--dry-run] [--verbose]
 The key is redacted from console output. It reaches the spawned `dotnet nuget push` in
 the child process's `NUGET_API_KEY` environment variable on SDKs from 10.0.300 (NuGet 7.6
 reads it there, so it stays off the command line), and as a `--api-key` argument on older
-SDKs - visible in the process listing while the push runs, which the environment channel
+SDKs, visible in the process listing while the push runs, which the environment channel
 exists to avoid. In CI, prefer trusted publishing; see
 [trusted publishing](trusted-publishing.md).
 
@@ -321,11 +321,11 @@ The skip decision resolves once per invocation, from the Manifest's
 [`publish.skipDuplicates`](manifest-schema.md#publish-section) key merged with
 `--skip-duplicate`, and both the dry-run plan and the real run consume that one result:
 
-- **The switch rides the push** - when the decision enables skipping, every
+- **The switch rides the push.** when the decision enables skipping, every
   `dotnet nuget push` gains `--skip-duplicate`. ReleaseGen performs no pre-check and never
   queries a source about an existing package id and version: the source alone judges
   duplicates, so a local-folder source and nuget.org may judge re-pushes differently.
-- **Skipped is not failed, and not pushed** - a push the source declares a duplicate counts
+- **Skipped is not failed, and not pushed.** a push the source declares a duplicate counts
   as skipped instead of pushed, reports as a stage note naming the package and the source,
   and never fails the stage:
 
@@ -333,7 +333,7 @@ The skip decision resolves once per invocation, from the Manifest's
   note: publish: skipped package 'MyLib.1.0.0.nupkg' to source 'https://api.nuget.org/v3/index.json'; the source declared it a duplicate.
   ```
 
-- **Two totals, exit 0** - the closing summary reports pushed and skipped separately, and
+- **Two totals, exit 0.** the closing summary reports pushed and skipped separately, and
   the stage exits `0` when skips were the only outcome. A real nonzero push exit still fails
   the stage as before:
 
@@ -341,7 +341,7 @@ The skip decision resolves once per invocation, from the Manifest's
   note: publish: pushed 1 package(s) of kind(s) lib-package across 1 target(s) to 1 source(s) in manifest target order; skipped 1 package(s).
   ```
 
-- **A conflict prints once and the switch wins** - when both channels carry explicit,
+- **A conflict prints once and the switch wins.** when both channels carry explicit,
   differing values, one line goes to standard error before any push, in a real run and in a
   dry-run plan alike:
 
@@ -350,8 +350,8 @@ The skip decision resolves once per invocation, from the Manifest's
   ```
 
 Under `--dry-run` the plan mirrors the resolved decision instead of pushing: each source
-prints the mode a real run would push under - once per source, and only when some target
-declares a package kind - the planned command line carries
+prints the mode a real run would push under, once per source, and only when some target
+declares a package kind. The planned command line carries
 `--skip-duplicate` exactly when the decision enables it, and a conflicting pair prints the
 same conflict line a real run would. The plan's exit code stays manifest-validation-only.
 
@@ -363,7 +363,7 @@ note: publish: dry run: source 'https://api.nuget.org/v3/index.json': resolved s
 ## `run`
 
 The chained run: executes the stages the Manifest names in Manifest order -
-`build`, `test`, `package`, `publish` - aborting at the first failed stage and reporting each
+`build`, `test`, `package`, `publish`, aborting at the first failed stage and reporting each
 skipped unnamed stage with a console note. Stage selection follows the Manifest: build always
 runs; test is named by a declared test section; package and publish are named by targets
 declaring package kinds. The test stage's gate outcome is carried to publish within the chain,
@@ -388,5 +388,5 @@ releasegen run [--preset <name>] [--skip-duplicate] [--dry-run] [--verbose]
 
 - [Manifest schema](manifest-schema.md)
 - [Build presets](presets.md)
-- [Stage handoff contract](stage-handoff.md) - the artifact-location story behind separately
+- [Stage handoff contract](stage-handoff.md), the artifact-location story behind separately
   invoked stages

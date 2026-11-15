@@ -38,7 +38,7 @@ multiple artifact kinds.
 |-----|------|----------|---------|
 | `project` | string | Yes | Path to the project file or directory. Relative paths resolve from the Manifest's directory. |
 | `kinds` | string[] | Yes | The artifact kinds this target declares. Only declared kinds are produced. |
-| `archiveFormats` | string or string[] | No (default resolves per rid) | The archive formats for this target's executables-kind outputs: `zip`, `tar.gz`, `tar.xz`, or `none`. Accepts a bare string or a list, and each declared format produces one archive per (target, rid); a format may appear at most once - a duplicate fails validation. Archiving is opt-out, not opt-in. Package kinds are never archived. |
+| `archiveFormats` | string or string[] | No (default resolves per rid) | The archive formats for this target's executables-kind outputs: `zip`, `tar.gz`, `tar.xz`, or `none`. Accepts a bare string or a list, and each declared format produces one archive per (target, rid); a format may appear at most once. A duplicate fails validation. Archiving is opt-out, not opt-in. Package kinds are never archived. |
 
 `archiveFormats` accepts either JSON spelling, and both normalize to one list at parse time:
 
@@ -64,14 +64,14 @@ Archiving stays opt-out, and `tar.xz` is never a default on any platform:
 | RID class | Example rids | Default `archiveFormats` |
 |-----------|--------------|--------------------------|
 | Windows-class | `win-x64`, `win-arm64` | `zip` |
-| Portable `any-*` (carve-out) | `any-x64`, `any-arm64` | `zip` - the portable rids follow the Windows rule regardless of host OS |
+| Portable `any-*` (carve-out) | `any-x64`, `any-arm64` | `zip`; the portable rids follow the Windows rule regardless of host OS |
 | Unix-based | `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64` | `zip`, `tar.gz` |
 
 An explicit `archiveFormats` key overrides this table for every rid of the target.
 Each resolved format produces one archive per (target, rid).
 
 `releasegen init` seeds the full default set explicitly for a target whose project is an
-executable - `"archiveFormats": ["zip", "tar.gz"]` - so the default is visible in the written
+executable, `"archiveFormats": ["zip", "tar.gz"]`, so the default is visible in the written
 file instead of hiding behind an absent key; trim the list to the rid class you actually
 declare. `tar.xz` is never seeded. See the [command reference](commands.md#init).
 
@@ -85,7 +85,7 @@ Two outcomes follow when a manifest declares it:
   declare another format such as `zip`, or remove those runtime identifiers.
 - A target declaring `tar.xz` **alongside** another format (for example `["zip", "tar.xz"]`)
   validates; the build stage skips `tar.xz` for each Windows-class or portable rid and prints
-  one warning per skipped (target, rid) pair - see the [command reference](commands.md#build).
+  one warning per skipped (target, rid) pair. See the [command reference](commands.md#build).
   Unix-based rids in the same target are unaffected by the skip.
 
 The artifact kind vocabulary is exactly:
@@ -97,7 +97,7 @@ The artifact kind vocabulary is exactly:
 | `tool-package` | The package stage: a dotnet tool NuGet package. |
 
 ReleaseGen evaluates each target's project file with MSBuild to read its **expanded**
-properties - never raw project text - and cross-checks them against the declared kinds:
+properties, never raw project text, and cross-checks them against the declared kinds:
 
 - A target declaring `executables` whose project evaluates to a library output fails Manifest
   validation, naming the target and the mismatch.
@@ -146,22 +146,22 @@ stage exits nonzero. Omitting it makes the gate pass by default with a warning.
 | `sources` | string[] | Yes | The NuGet source URLs to publish to. Empty means the nuget.org default. A blank entry fails with an error naming its position. |
 | `skipDuplicates` | bool | No (default `false`) | The standing answer for duplicate pushes: `true` skips a push the source declares a duplicate instead of failing the stage. |
 
-Sources only - credentials never live on disk.
+Sources only: credentials never live on disk.
 
 **`skipDuplicates`**
 
-- **Name and casing** - the key is `skipDuplicates` in exactly that spelling, matching the
+- **Name and casing.** The key is `skipDuplicates` in exactly that spelling, matching the
   publish command's `--skip-duplicate` switch. Casing is part of the contract: the strict
   parse rejects `SkipDuplicates` or `skipDuplicate` with an error naming the offending
-  property, and the key joins the strict parse like every other field - declaring it opens no
+  property, and the key joins the strict parse like every other field. Declaring it opens no
   exception for unknown members beside it.
-- **Boolean, default false** - the value is a JSON boolean and the default is `false`. A
+- **Boolean, default false.** The value is a JSON boolean and the default is `false`. A
   manifest without the key behaves exactly as before the key existed: a duplicate push fails
   the stage, and no `--skip-duplicate` is passed.
-- **Absent key** - an absent key is not an explicit `false`. It reads as "the Manifest never
+- **Absent key.** An absent key is not an explicit `false`. It reads as "the Manifest never
   declared an answer", so the publish command's switch alone decides for that invocation and
   an ordinary `--skip-duplicate` run against a keyless manifest reports no conflict.
-- **Conflict semantics** - the Manifest key and the `--skip-duplicate` switch are two
+- **Conflict semantics.** The Manifest key and the `--skip-duplicate` switch are two
   channels for one decision. When both channels carry explicit, differing values the switch
   wins for that invocation and one line is written to standard error, at most once per run -
   a dry-run plan prints the same line a real run would:

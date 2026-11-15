@@ -1,8 +1,8 @@
 # Stage handoff contract
 
-This contract is the load-bearing artifact-location story behind (stage commands remain
-invocable separately) and (the two-job trusted-publishing CI procedure). It is referenced
-by the chained run (`releasegen run`), which writes the identical tree in one process.
+This contract is the artifact-location story behind separately invocable stage commands
+and the two-job trusted-publishing CI procedure. It is referenced by the chained run
+(`releasegen run`), which writes the identical tree in one process.
 
 ## The invocation-directory rule
 
@@ -22,10 +22,10 @@ directory or move the `release/` tree intact between them, preserving the layout
 | Stage | Inputs | Outputs (under the invocation directory) |
 |-------|--------|------------------------------------------|
 | `init` | None; `--preset` seeds the manifest. Not part of the chained run. | `releasegen.json` in the current directory. |
-| `build` | Manifest targets and build section; `--preset` overrides `build.preset` per invocation. | `release/<rid>/<project-name>/` holds one target's publish binaries for that rid; `release/<project-name>-<rid>.zip` (or `.tar.gz`/`.tar.xz`) sits beside the per-rid folders for executables-kind targets - one archive per format the target resolves for that rid (absent `archiveFormats` resolves per rid class: zip for Windows-class and portable `any-*` rids, zip plus tar.gz for Unix-based rids). Package-kind-only targets produce no archives. |
+| `build` | Manifest targets and build section; `--preset` overrides `build.preset` per invocation. | `release/<rid>/<project-name>/` holds one target's publish binaries for that rid; `release/<project-name>-<rid>.zip` (or `.tar.gz`/`.tar.xz`) sits beside the per-rid folders for executables-kind targets. One archive per format the target resolves for that rid (absent `archiveFormats` resolves per rid class: zip for Windows-class and portable `any-*` rids, zip plus tar.gz for Unix-based rids). Package-kind-only targets produce no archives. |
 | `test` | The manifest's test section projects, or the current directory when none are listed. | None on disk. The test gate outcome is in-process state: a separately invoked `publish` consults the gate by running the test stage itself. |
 | `package` | Each target's declared package kinds. | `release/packages/lib/<project-name>/*.nupkg` for `lib-package`, `release/packages/tool/<project-name>/*.nupkg` for `tool-package`, plus any `.snupkg` pack emits beside them. The `executables` kind is the build stage's product and produces no package. |
-| `publish` | The `.nupkg` files under `release/packages/…` (the package stage's output), the manifest's `publish.sources` or the nuget.org default, and the API key from `--api-key` or the `NUGET_API_KEY` environment variable - delivered to the spawned push in its environment on SDKs from 10.0.300, as a `--api-key` argument on older ones. | None on disk. Push results are textual. The push list is collected from the artifact tree before the first push, so `publish` needs the tree present, not the stages re-run. |
+| `publish` | The `.nupkg` files under `release/packages/…` (the package stage's output), the manifest's `publish.sources` or the nuget.org default, and the API key from `--api-key` or the `NUGET_API_KEY` environment variable, delivered to the spawned push in its environment on SDKs from 10.0.300, as a `--api-key` argument on older ones. | None on disk. Push results are textual. The push list is collected from the artifact tree before the first push, so `publish` needs the tree present, not the stages re-run. |
 
 ## One archive per declared format, per (target, rid)
 
@@ -65,10 +65,10 @@ the chain before `publish`.
 NuGet's trusted-publishing posture puts credential acquisition with the CI platform, not the
 release tool; ReleaseGen performs no OIDC token acquisition. The safe pattern is two jobs:
 
-1. **Job 1 - build through package**: check out the repository and run `releasegen run`'s
+1. **Job 1, build through package**: check out the repository and run `releasegen run`'s
    stages up to packaging (`releasegen build`, `releasegen test`, `releasegen package`), then
    upload the `release/` tree as a pipeline artifact.
-2. **Job 2 - publish**: download the `release/` tree into the same directory layout, exchange
+2. **Job 2, publish**: download the `release/` tree into the same directory layout, exchange
    the CI credentials for a fresh short-lived nuget.org key (valid about one hour), deliver it
    through the `NUGET_API_KEY` environment channel, and run `releasegen publish`. When the
    manifest declares a test section, this consults the test gate by running the test stage in
@@ -83,8 +83,8 @@ the `aot` preset needs one build job per OS family. Each job runs the build stag
 `--rids` carrying its own subset (Windows runner for `win-*`, Linux runner for `linux-*`,
 macOS runner for `osx-*`) and uploads its `release/` tree as its own pipeline artifact; the
 publish job downloads the legs into the same layout, merges them into one `release/` tree
-(archive and artifact paths are (target, rid)-unique, so legs cannot collide), and continues
-as above. The `test` and `package` stages are rid-independent - run each once, on one leg's
+(archive and artifact paths are unique per target and rid, so legs cannot collide), and continues
+as above. The `test` and `package` stages are rid-independent. Run each once, on one leg's
 job. The gate and artifact-location story above are unchanged: only the build stage splits,
 and it stays the only stage that cannot cross OS families.
 

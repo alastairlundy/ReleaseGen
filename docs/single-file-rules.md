@@ -2,17 +2,17 @@
 
 Single-file deployment bundles an app's dependencies into one executable. ReleaseGen applies
 single-file defaults per the build preset rules, exposes the opt-out key, and
-surfaces the .NET SDK's incompatible-API diagnostics - ReleaseGen performs no IL-level
+surfaces the .NET SDK's incompatible-API diagnostics. ReleaseGen performs no IL-level
 detection of its own.
 
 ## When single-file applies
 
 - For the four named [build presets](presets.md), single-file defaults **on** on Unix-based OSes,
-  and **on Windows only when that rid's resolved archive format is zip** - declared through
+  and **on Windows only when that rid's resolved archive format is zip**, declared through
   the target's `archiveFormats` key (a list counts when it carries `zip` anywhere), or
   defaulted to zip. The absent-key default resolves per rid class: zip for Windows-class and
   portable `any-*` rids; zip plus tar.gz for Unix-based rids. Every default set includes zip,
-  so an undeclared key is always zip-archived - see the [manifest schema](manifest-schema.md).
+  so an undeclared key is always zip-archived. See the [manifest schema](manifest-schema.md).
 - Archiving is opt-out, not opt-in: a target with no `archiveFormats` key still archives by
   the per-rid defaults above, and each declared format produces one archive per (target, rid).
   The single-file tie-in only asks whether any of those formats is zip.
@@ -73,4 +73,4 @@ This page's incompatible-API reference is sourced from the official .NET documen
 ## See also
 
 - [Build presets](presets.md)
-- [Manifest schema](manifest-schema.md) - the `singleFile` key
+- [Manifest schema](manifest-schema.md), the `singleFile` key

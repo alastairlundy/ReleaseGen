@@ -2,8 +2,7 @@
 
 A build preset is a named set of build settings (AOT, trimming, ready-to-run, self-contained,
 and the single-file rules) applied to a rid's publish when the Manifest or the user selects it.
-Presets make ReleaseGen's opinionated defaults named and selectable instead of buried
-in code.
+Presets make ReleaseGen's opinionated defaults named and selectable.
 
 ## The shipped set
 
@@ -16,7 +15,7 @@ is the shipped set.
 | `ready-to-run` | Ready-to-run compilation, self-contained, without trimming. |
 | `trimming-only` | Assembly trimming, self-contained, without ready-to-run. |
 | `framework-dependent` | Framework-dependent deployment with runtime roll-forward enabled for minor versions and patch versions (`RollForward=Minor`). |
-| `none` | No preset applied: only what the Manifest's build section specifies runs - no ReleaseGen-implicit switches. |
+| `none` | No preset applied: only what the Manifest's build section specifies runs, with no ReleaseGen-implicit switches. |
 
 Unknown preset names fail with an error listing the known set.
 
@@ -38,22 +37,22 @@ wherever ReleaseGen has no opinion.
 
 ## Selection and precedence
 
-- **Manifest key** - `build.preset` holds the global preset. Absent or `none` means
+- **Manifest key.** `build.preset` holds the global preset. Absent or `none` means
   preset none.
-- **Invocation escape** - `--preset <name>` on `releasegen build` and `releasegen run`
+- **Invocation escape.** `--preset <name>` on `releasegen build` and `releasegen run`
   overrides the Manifest key for that invocation only. The flag never writes the file:
   strict-manifest rules stay intact, and one-off releases stay cheap.
-- **`init` seeding** - `releasegen init --preset <name>` writes the chosen preset into the
+- **`init` seeding.** `releasegen init --preset <name>` writes the chosen preset into the
   skeleton's `build.preset` key; `none`, or omitting the flag, seeds no key.
-- **Per-key overrides** - any explicit bool key in the build section (`publishAot`,
+- **Per-key overrides.** Any explicit bool key in the build section (`publishAot`,
   `publishTrimmed`, `readyToRun`, `selfContained`, `singleFile`) beats the preset default. See the [manifest schema](manifest-schema.md).
 
 ## Single-file defaults
 
-Single-file deployment is part of the preset surface:
+Single-file deployment is covered by the presets:
 
 - For the four named presets, single-file publishing defaults to **on on Unix-based OSes**,
-  and **on Windows only when the target's resolved archive format is zip** - declared, or
+  and **on Windows only when the target's resolved archive format is zip**, declared or
   defaulted to zip. See the [single-file rules](single-file-rules.md) page for the
   incompatible-API reference behind the opt-out.
 - Preset `none` contributes no implicit single-file switch.
@@ -62,6 +61,6 @@ Single-file deployment is part of the preset surface:
 
 ## See also
 
-- [Manifest schema](manifest-schema.md) - the `build` section keys
+- [Manifest schema](manifest-schema.md), the `build` section keys
 - [Single-file rules](single-file-rules.md)
-- [Command reference](commands.md) - the `--preset` flags
+- [Command reference](commands.md), the `--preset` flags

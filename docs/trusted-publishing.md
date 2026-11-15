@@ -10,20 +10,20 @@ manual route.**
 ## The two-job procedure
 
 The safe pattern under ReleaseGen is two CI jobs. The
-[stage handoff contract](stage-handoff.md) is load-bearing here: both jobs preserve the
+[stage handoff contract](stage-handoff.md) is central here: both jobs preserve the
 `release/` tree layout and the `releasegen.json` Manifest.
 
-1. **Job 1 - build through package.** Check out the repository and run the stages up to
+1. **Job 1, build through package.** Check out the repository and run the stages up to
    packaging: `releasegen build`, `releasegen test`, `releasegen package` (or the equivalent
    up to packaging). Then upload the `release/` tree as a pipeline artifact.
-2. **Job 2 - publish.** Download the `release/` tree into the same directory layout, have the
+2. **Job 2, publish.** Download the `release/` tree into the same directory layout, have the
    CI platform exchange its credentials for a fresh, short-lived nuget.org key (valid about
    one hour), deliver that key through the `NUGET_API_KEY` environment channel, and run
    `releasegen publish`. When the Manifest declares a test section, a standalone publish
    consults the test gate by running the test stage in the publish job, so the gate holds even
    across the job boundary.
 
-The credential exchange itself - GitHub's or GitLab's trusted-publishing setup - stays on the
+The credential exchange itself, GitHub's or GitLab's trusted-publishing setup, stays on the
 CI platform's side and outside ReleaseGen's scope.
 
 NativeAOT manifests spanning several OS families split the build stage across one job per OS
@@ -45,6 +45,6 @@ reaches the spawned push through the `NUGET_API_KEY` environment variable on SDK
 
 ## See also
 
-- [Stage handoff contract](stage-handoff.md) - the artifact-location story both jobs preserve
-- [Command reference](commands.md) - the `publish` command and its flag
-- [Manifest schema](manifest-schema.md) - `publish.sources`
+- [Stage handoff contract](stage-handoff.md), the artifact-location story both jobs preserve
+- [Command reference](commands.md), the `publish` command and its flag
+- [Manifest schema](manifest-schema.md), `publish.sources`
