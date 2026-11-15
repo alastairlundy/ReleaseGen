@@ -1,22 +1,16 @@
 # Manifest schema
 
-The Manifest is the root configuration file that drives every stage of a ReleaseGen run.
-In v1 it is exactly one JSON file per repository, named `releasegen.json`, parsed with
-System.Text.Json. There is no per-solution manifest.
+The Manifest is the root configuration file that drives every stage of a ReleaseGen run. In v1 it is exactly one JSON file per repository, named `releasegen.json`, parsed with System.Text.Json. There is no per-solution manifest.
 
 ## Strictness
 
-- **Unknown fields fail parse** with an error naming the field. A misspelled key fails
-  loudly rather than silently dropping.
+- **Unknown fields fail parse** with an error naming the field. A misspelled key fails loudly rather than silently dropping.
 - **No inline comments** by design.
-- **No secret ever lives here.** The Manifest has no key-bearing field, and a stray one fails
-  the strict parse: API keys travel only through the `--api-key` option or the `NUGET_API_KEY`
+- **No secret ever lives here.** The Manifest has no key-bearing field, and a stray one fails the strict parse: API keys travel only through the `--api-key` option or the `NUGET_API_KEY`
   environment variable.
-- The file is discovered by walking up from the current directory to the repository root,
-  stopping at the first `releasegen.json`.
+- The file is discovered by walking up from the current directory to the repository root, stopping at the first `releasegen.json`.
 
 ## Sections
-
 Keys are organized one section per stage: `targets`, `build`, `test`, `publish`.
 
 ### Root keys
@@ -30,8 +24,7 @@ Keys are organized one section per stage: `targets`, `build`, `test`, `publish`.
 
 ### `targets` entries
 
-Each target is a Manifest entry naming one project and the release artifacts it produces.
-One project may be named by more than one target, so a single project can produce
+Each target is a Manifest entry naming one project and the release artifacts it produces. One project may be named by more than one target, so a single project can produce
 multiple artifact kinds.
 
 | Key | Type | Required | Meaning |
@@ -50,43 +43,28 @@ multiple artifact kinds.
 "archiveFormats": ["zip", "tar.gz"]
 ```
 
-Every list entry must be a known format; an unknown value fails validation with an error
-naming the target, the value, and the known set. A token shape other than a string or a
-string list (for example a number, an object, or an explicit `null`) fails parse naming the
-key. The key was named `archive` (single string only) in earlier releases: that name is a
-breaking rename and now fails strict parse like any unknown field.
+Every list entry must be a known format; an unknown value fails validation with an error naming the target, the value, and the known set. A token shape other than a string or a string list (for example a number, an object, or an explicit `null`) fails parse naming the key. The key was named `archive` (single string only) in earlier releases: that name is a breaking rename and now fails strict parse like any unknown field.
 
 ### Absent-key defaults
 
-When a target declares no `archiveFormats` key, the default set resolves from the rid class.
-Archiving stays opt-out, and `tar.xz` is never a default on any platform:
+When a target declares no `archiveFormats` key, the default set resolves from the rid class. Archiving stays opt-out, and `tar.xz` is never a default on any platform:
 
 | RID class | Example rids | Default `archiveFormats` |
 |-----------|--------------|--------------------------|
 | Windows-class | `win-x64`, `win-arm64` | `zip` |
-| Portable `any-*` (carve-out) | `any-x64`, `any-arm64` | `zip`; the portable rids follow the Windows rule regardless of host OS |
+| Portable `any-*` (carve-out) | `any-x64`, `any-arm64` | `zip`; the portable RIDs follow the Windows rule regardless of host OS |
 | Unix-based | `linux-x64`, `linux-arm64`, `osx-x64`, `osx-arm64` | `zip`, `tar.gz` |
 
-An explicit `archiveFormats` key overrides this table for every rid of the target.
-Each resolved format produces one archive per (target, rid).
+An explicit `archiveFormats` key overrides this table for every RID of the target. Each resolved format produces one archive per (target, RID).
 
-`releasegen init` seeds the full default set explicitly for a target whose project is an
-executable, `"archiveFormats": ["zip", "tar.gz"]`, so the default is visible in the written
-file instead of hiding behind an absent key; trim the list to the rid class you actually
-declare. `tar.xz` is never seeded. See the [command reference](commands.md#init).
+`releasegen init` seeds the full default set explicitly for a target whose project is an executable, `"archiveFormats": ["zip", "tar.gz"]`, so the default is visible in the written file instead of hiding behind an absent key; trim the list to the RID class you actually declare. `tar.xz` is never seeded. See the [command reference](commands.md#init).
 
 ### `tar.xz` and Windows-class or portable rids
 
-`tar.xz` is opt-in only: neither Windows-class (`win-*`) nor portable (`any-*`) rids produce it.
-Two outcomes follow when a manifest declares it:
+`tar.xz` is opt-in only: neither Windows-class (`win-*`) nor portable (`any-*`) rids produce it. Two outcomes follow when a manifest declares it:
 
-- A target declaring `tar.xz` as its **only** format fails validation when the Manifest names a
-  Windows-class or portable rid: the error names the target, the conflicting rids, and the fix -
-  declare another format such as `zip`, or remove those runtime identifiers.
-- A target declaring `tar.xz` **alongside** another format (for example `["zip", "tar.xz"]`)
-  validates; the build stage skips `tar.xz` for each Windows-class or portable rid and prints
-  one warning per skipped (target, rid) pair. See the [command reference](commands.md#build).
-  Unix-based rids in the same target are unaffected by the skip.
+- A target declaring `tar.xz` as its **only** format fails validation when the Manifest names a Windows-class or portable rid: the error names the target, the conflicting rids, and the fix - declare another format such as `zip`, or remove those runtime identifiers.
+- A target declaring `tar.xz` **alongside** another format (for example `["zip", "tar.xz"]`) validates; the build stage skips `tar.xz` for each Windows-class or portable rid and prints one warning per skipped (target, RID) pair. See the [command reference](commands.md#build). Unix-based RIDs in the same target are unaffected by the skip.
 
 The artifact kind vocabulary is exactly:
 
@@ -96,23 +74,16 @@ The artifact kind vocabulary is exactly:
 | `lib-package` | The package stage: a library NuGet package. |
 | `tool-package` | The package stage: a dotnet tool NuGet package. |
 
-ReleaseGen evaluates each target's project file with MSBuild to read its **expanded**
-properties, never raw project text, and cross-checks them against the declared kinds:
+ReleaseGen evaluates each target's project file with MSBuild to read its **expanded** properties, never raw project text, and cross-checks them against the declared kinds:
 
-- A target declaring `executables` whose project evaluates to a library output fails Manifest
-  validation, naming the target and the mismatch.
-- A target declaring `tool-package` whose project does not evaluate to `PackAsTool=true` fails
-  Manifest validation naming the fix. The property is read expanded, so a declaration in a
-  `Directory.Build.props` or any other imported props file counts exactly like one in the
-  project file, and the message names the declaration site generically rather than assuming
-  the project file:
+- A target declaring `executables` whose project evaluates to a library output fails Manifest validation, naming the target and the mismatch.
+- A target declaring `tool-package` whose project does not evaluate to `PackAsTool=true` fails Manifest validation naming the fix. The property is read expanded, so a declaration in a `Directory.Build.props` or any other imported props file counts exactly like one in the project file, and the message names the declaration site generically rather than assuming the project file:
 
 ```
 error: Manifest validation failed: the target 'src/MyCli/MyCli.csproj' declares the 'tool-package' kind but MSBuild evaluation of '...MyCli.csproj' reports PackAsTool '(unset)' (expected 'true'). Fix: set PackAsTool to true where the project's MSBuild properties are declared - the project file or an imported props file such as Directory.Build.props. ReleaseGen reads the expanded property and never passes the switch itself.
 ```
 
-ReleaseGen never passes `PackAsTool` as a build switch: the project file stays authoritative,
-and a project not configured as a dotnet tool can only be fixed there.
+ReleaseGen never passes `PackAsTool` as a build switch: the project file stays authoritative, and a project not configured as a dotnet tool can only be fixed there.
 
 ### `build` section
 
@@ -126,9 +97,7 @@ and a project not configured as a dotnet tool can only be fixed there.
 | `selfContained` | bool | No | Per-key override: self-contained deployment. |
 | `singleFile` | bool | No | The single-file opt-out key: `false` disables the single-file defaults; absent leaves the OS rules in force. |
 
-The bool keys are tri-state: absent means the Manifest does not override the preset default.
-An explicit key always beats the selected preset. See [build presets](presets.md) and
-[single-file rules](single-file-rules.md).
+The bool keys are tri-state: absent means the Manifest does not override the preset default. An explicit key always beats the selected preset. See [build presets](presets.md) and [single-file rules](single-file-rules.md).
 
 ### `test` section
 
@@ -136,8 +105,7 @@ An explicit key always beats the selected preset. See [build presets](presets.md
 |-----|------|----------|---------|
 | `projects` | string[] | Yes | The named test projects. Empty means the test stage runs `dotnet test` from the current directory. |
 
-Declaring this section arms the test gate: publishing blocks when the test
-stage exits nonzero. Omitting it makes the gate pass by default with a warning.
+Declaring this section arms the test gate: publishing blocks when the test stage exits nonzero. Omitting it makes the gate pass by default with a warning.
 
 ### `publish` section
 
@@ -150,28 +118,17 @@ Sources only: credentials never live on disk.
 
 **`skipDuplicates`**
 
-- **Name and casing.** The key is `skipDuplicates` in exactly that spelling, matching the
-  publish command's `--skip-duplicate` switch. Casing is part of the contract: the strict
-  parse rejects `SkipDuplicates` or `skipDuplicate` with an error naming the offending
-  property, and the key joins the strict parse like every other field. Declaring it opens no
-  exception for unknown members beside it.
-- **Boolean, default false.** The value is a JSON boolean and the default is `false`. A
-  manifest without the key behaves exactly as before the key existed: a duplicate push fails
-  the stage, and no `--skip-duplicate` is passed.
+- **Name and casing.** The key is `skipDuplicates` in exactly that spelling, matching the publish command's `--skip-duplicate` switch. Casing is part of the contract: the strict parse rejects `SkipDuplicates` or `skipDuplicate` with an error naming the offending property, and the key joins the strict parse like every other field. Declaring it opens no exception for unknown members beside it.
+- **Boolean, default false.** The value is a JSON boolean and the default is `false`. A manifest without the key behaves exactly as before the key existed: a duplicate push fails the stage, and no `--skip-duplicate` is passed.
 - **Absent key.** An absent key is not an explicit `false`. It reads as "the Manifest never
-  declared an answer", so the publish command's switch alone decides for that invocation and
-  an ordinary `--skip-duplicate` run against a keyless manifest reports no conflict.
-- **Conflict semantics.** The Manifest key and the `--skip-duplicate` switch are two
-  channels for one decision. When both channels carry explicit, differing values the switch
-  wins for that invocation and one line is written to standard error, at most once per run -
-  a dry-run plan prints the same line a real run would:
+  declared an answer", so the publish command's switch alone decides for that invocation and an ordinary `--skip-duplicate` run against a keyless manifest reports no conflict.
+- **Conflict semantics.** The Manifest key and the `--skip-duplicate` switch are two channels for one decision. When both channels carry explicit, differing values the switch wins for that invocation and one line is written to standard error, at most once per run - a dry-run plan prints the same line a real run would:
 
   ```
   error: skipDuplicates conflict: --skip-duplicate (command line) wins over publish.skipDuplicates
   ```
 
-  Equal explicit values never conflict, and an absent channel on either side is never a
-  conflict. See the [command reference](commands.md#publish).
+  Equal explicit values never conflict, and an absent channel on either side is never a conflict. See the [command reference](commands.md#publish).
 
 ## Example
 

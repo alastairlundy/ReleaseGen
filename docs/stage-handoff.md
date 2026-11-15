@@ -1,21 +1,15 @@
 # Stage handoff contract
 
-This contract is the artifact-location story behind separately invocable stage commands
-and the two-job trusted-publishing CI procedure. It is referenced by the chained run
-(`releasegen run`), which writes the identical tree in one process.
+This contract is the artifact-location story behind separately invocable stage commands and the two-job trusted-publishing CI procedure. It is referenced by the chained run (`releasegen run`), which writes the identical tree in one process.
 
 ## The invocation-directory rule
 
 Every stage:
 
-- discovers `releasegen.json` by walking up from the **current directory** to the repository
-  root, and
-- reads and writes its artifacts under `<current directory>/release/` (local output
-  only; nothing uploads from the build, test, or package stages).
+- discovers `releasegen.json` by walking up from the **current directory** to the repository root, and
+- reads and writes its artifacts under `<current directory>/release/` (local output only; nothing uploads from the build, test, or package stages).
 
-Separately invoked stages therefore hand artifacts to each other by running from the same
-directory. A pipeline that splits stages across processes or jobs must either keep the working
-directory or move the `release/` tree intact between them, preserving the layout below.
+Separately invoked stages therefore hand artifacts to each other by running from the same directory. A pipeline that splits stages across processes or jobs must either keep the working directory or move the `release/` tree intact between them, preserving the layout below.
 
 ## Per-stage inputs and outputs
 
@@ -29,8 +23,7 @@ directory or move the `release/` tree intact between them, preserving the layout
 
 ## One archive per declared format, per (target, rid)
 
-A (target, rid) pair hands off a **set** of archives, not a single file: each resolved format
-writes its own file beside the per-rid folders, so a consumer of the tree reads them all.
+A (target, rid) pair hands off a **set** of archives, not a single file: each resolved format writes its own file beside the per-rid folders, so a consumer of the tree reads them all.
 
 | Format | Written by | Reachable for |
 |--------|-----------|---------------|
@@ -46,51 +39,24 @@ stream. When `xz` is missing, the stage fails before producing anything and name
 error: build: cannot create archive '<release>/<project-name>-<rid>.tar.xz': the 'xz' binary was not found on PATH. Install xz (for example 'apt-get install xz-utils', 'brew install xz', or 'pacman -S xz') to produce 'tar.xz' archives, or declare 'zip' or 'tar.gz' instead.
 ```
 
-An `xz` run that exits nonzero fails in the same shape, naming the tool and its exit code, and
-neither failure leaves a staging file or a partial archive in the tree. A pipeline that moves
-the `release/` tree between jobs (below) therefore needs `xz` on whichever job declares
-`tar.xz`; jobs that never declare it are unaffected.
+An `xz` run that exits nonzero fails in the same shape, naming the tool and its exit code, and neither failure leaves a staging file or a partial archive in the tree. A pipeline that moves the `release/` tree between jobs (below) therefore needs `xz` on whichever job declares `tar.xz`; jobs that never declare it are unaffected.
 
 ## Stage order and the test gate
 
-The stages form one pipeline in manifest order: `build` → `test` → `package` → `publish`.
-`package` depends only on the manifest (it packs from source), not on `build` output; `publish`
-depends only on the package tree. The test gate blocks `publish` when the manifest
-declares a test section and the test stage exits nonzero; a manifest with no test section
-publishes with a warning. `run` aborts at the first failed stage, so a failed test stage stops
-the chain before `publish`.
+The stages form one pipeline in manifest order: `build` → `test` → `package` → `publish`.`package` depends only on the manifest (it packs from source), not on `build` output; `publish` depends only on the package tree. The test gate blocks `publish` when the manifest declares a test section and the test stage exits nonzero; a manifest with no test section publishes with a warning. `run` aborts at the first failed stage, so a failed test stage stops the chain before `publish`.
 
 ## Two-job CI procedure
 
-NuGet's trusted-publishing posture puts credential acquisition with the CI platform, not the
-release tool; ReleaseGen performs no OIDC token acquisition. The safe pattern is two jobs:
+NuGet's trusted-publishing posture puts credential acquisition with the CI platform, not the release tool; ReleaseGen performs no OIDC token acquisition. The safe pattern is two jobs:
 
-1. **Job 1, build through package**: check out the repository and run `releasegen run`'s
-   stages up to packaging (`releasegen build`, `releasegen test`, `releasegen package`), then
-   upload the `release/` tree as a pipeline artifact.
-2. **Job 2, publish**: download the `release/` tree into the same directory layout, exchange
-   the CI credentials for a fresh short-lived nuget.org key (valid about one hour), deliver it
-   through the `NUGET_API_KEY` environment channel, and run `releasegen publish`. When the
-   manifest declares a test section, this consults the test gate by running the test stage in
-   the publish job, so the gate holds even across the job boundary.
+1. **Job 1, build through package**: check out the repository and run `releasegen run`'s stages up to packaging (`releasegen build`, `releasegen test`, `releasegen package`), then upload the `release/` tree as a pipeline artifact.
+2. **Job 2, publish**: download the `release/` tree into the same directory layout, exchange the CI credentials for a fresh short-lived nuget.org key (valid about one hour), deliver it through the `NUGET_API_KEY` environment channel, and run `releasegen publish`. When the manifest declares a test section, this consults the test gate by running the test stage in the publish job, so the gate holds even across the job boundary.
 
-Trusted publishing is preferred in CI; the API key path documented above remains the local and
-manual route.
+Trusted publishing is preferred in CI; the API key path documented above remains the local and manual route.
 
-**Per-OS build matrices.** NativeAOT compiles release binaries only for the runner's own OS
-family, so a manifest whose `runtimeIdentifiers` span `win-*`, `linux-*`, and `osx-*` with
-the `aot` preset needs one build job per OS family. Each job runs the build stage once with
-`--rids` carrying its own subset (Windows runner for `win-*`, Linux runner for `linux-*`,
-macOS runner for `osx-*`) and uploads its `release/` tree as its own pipeline artifact; the
-publish job downloads the legs into the same layout, merges them into one `release/` tree
-(archive and artifact paths are unique per target and rid, so legs cannot collide), and continues
-as above. The `test` and `package` stages are rid-independent. Run each once, on one leg's
-job. The gate and artifact-location story above are unchanged: only the build stage splits,
-and it stays the only stage that cannot cross OS families.
+**Per-OS build matrices.** NativeAOT compiles release binaries only for the runner's own OS family, so a manifest whose `runtimeIdentifiers` span `win-*`, `linux-*`, and `osx-*` with the `aot` preset needs one build job per OS family. Each job runs the build stage once with `--rids` carrying its own subset (Windows runner for `win-*`, Linux runner for `linux-*`, macOS runner for `osx-*`) and uploads its `release/` tree as its own pipeline artifact; the publish job downloads the legs into the same layout, merges them into one `release/` tree (archive and artifact paths are unique per target and rid, so legs cannot collide), and continues as above. The `test` and `package` stages are rid-independent. Run each once, on one leg's job. The gate and artifact-location story above are unchanged: only the build stage splits, and it stays the only stage that cannot cross OS families.
 
 ## What is not part of the contract
 
-- In-process state (`StageContext`) is never shared across processes; only the `release/` tree
-  and `releasegen.json` cross process boundaries.
-- No stage uploads build binaries or archives anywhere; the only network destination in
-  v1 is the publish stage's NuGet source.
+- In-process state (`StageContext`) is never shared across processes; only the `release/` tree and `releasegen.json` cross process boundaries.
+- No stage uploads build binaries or archives anywhere; the only network destination in v1 is the publish stage's NuGet source.

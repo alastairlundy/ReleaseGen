@@ -1,13 +1,10 @@
 # Build presets
 
-A build preset is a named set of build settings (AOT, trimming, ready-to-run, self-contained,
-and the single-file rules) applied to a rid's publish when the Manifest or the user selects it.
-Presets make ReleaseGen's opinionated defaults named and selectable.
+A build preset is a named set of build settings (AOT, trimming, ready-to-run, self-contained, and the single-file rules) applied to a rid's publish when the Manifest or the user selects it. Presets make ReleaseGen's opinionated defaults named and selectable.
 
 ## The shipped set
 
-Four named presets ship in v1, plus none. No preset combines ready-to-run with trimming; this
-is the shipped set.
+Four named presets ship in v1, plus none. No preset combines ready-to-run with trimming; this is the shipped set.
 
 | Preset name | What it applies |
 |--------------|-----------------|
@@ -21,8 +18,7 @@ Unknown preset names fail with an error listing the known set.
 
 ## How presets map to publish
 
-The build stage runs `dotnet publish -c Release -r <rid>` once per declared runtime
-identifier, and the selected preset resolves to publish switches per rid:
+The build stage runs `dotnet publish -c Release -r <rid>` once per declared runtime identifier, and the selected preset resolves to publish switches per rid:
 
 | Preset | Emitted switches |
 |--------|------------------|
@@ -51,13 +47,9 @@ wherever ReleaseGen has no opinion.
 
 Single-file deployment is covered by the presets:
 
-- For the four named presets, single-file publishing defaults to **on on Unix-based OSes**,
-  and **on Windows only when the target's resolved archive format is zip**, declared or
-  defaulted to zip. See the [single-file rules](single-file-rules.md) page for the
-  incompatible-API reference behind the opt-out.
+- For the four named presets, single-file publishing defaults to **on on Unix-based OSes**, and **on Windows only when the target's resolved archive format is zip**, declared or defaulted to zip. See the [single-file rules](single-file-rules.md) page for the incompatible-API reference behind the opt-out.
 - Preset `none` contributes no implicit single-file switch.
-- The `build.singleFile` key disables the defaults (opt-out) or forces them on; the
-  explicit key always wins.
+- The `build.singleFile` key disables the defaults (opt-out) or forces them on; the explicit key always wins.
 
 ## See also
 
