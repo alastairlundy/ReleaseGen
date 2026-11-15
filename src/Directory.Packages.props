@@ -10,12 +10,12 @@
          .NET Framework build (NU1701). Keep this at 18.9.6 — the newest published
          net10.0 build — for as long as ReleaseGen targets net10.0 (see CONTRIBUTING.md). -->
     <PackageVersion Include="Microsoft.Build" Version="18.9.6" />
-    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.322" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.340" />
     <PackageVersion Include="Microsoft.Build.Locator" Version="1.11.2" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0" />
     <PackageVersion Include="Spectre.Console" Version="0.57.2" />
     <PackageVersion Include="System.CommandLine" Version="2.0.14" />
-    <PackageVersion Include="TUnit" Version="1.81.10" />
+    <PackageVersion Include="TUnit" Version="1.85.0" />
   </ItemGroup>
 </Project>
