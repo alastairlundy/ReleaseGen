@@ -2,6 +2,13 @@
 Notable changes to ReleaseGen, newest first. Package versions come from the static
 `<Version>` property in each packable `.csproj`, bumped by hand before each release (see AGENTS.md) - git tags do not drive them.
 
+## 0.4.1 - 2026-11-23
+
+### Changed
+- Dependencies: CliInvoke to 3.2.0 Beta 1, Meziantou.Analyzer to 3.0.342, Microsoft.Extensions.DependencyInjection (and Abstractions) to 11.0.0, System.CommandLine to 3.0.0, TUnit to 1.87.12.
+- Documentation: condensed the command, manifest, preset, single-file, stage-handoff, and trusted-publishing docs; removed the redundant agent issue-tracker and triage-labels docs; applied an unslop sweep across docs/.
+- Repository: added an OpenSSF Scorecard workflow and reduced the Dependabot cooldown to 3 days.
+
 ## 0.4.0 - 2026-11-09
 
 ### Added
