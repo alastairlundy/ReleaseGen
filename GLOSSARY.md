@@ -22,7 +22,7 @@ A named set of build settings (aot, trimming, ready-to-run, self-contained, and 
 
 ## Rid subset
 
-A per-invocation comma-separated narrowing of the manifest's runtimeIdentifiers, chosen with build's --rids flag: it can only leave out rids, never add one, and the manifest's spelling wins for output paths.
+A per-invocation comma-separated narrowing of the manifest's runtimeIdentifiers, chosen with build's --rids flag. It can only leave out rids, never add one, and the manifest's spelling wins for output paths.
 
 ## Target
 

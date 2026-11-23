@@ -58,10 +58,11 @@ names its completion signal.
 
 1. **Detect.** Search the repository root and config locations for
    `dotnet-releaser.toml`, and grep `.github/workflows/` plus build scripts (`*.sh`,
-   `*.ps1`, `*.yml`) for the string `dotnet-releaser`. Found config: record its path
-   as the migration input. No config but an explicit migration request: proceed and
-   record "source config absent" for the report. Neither: do not run the skill; state
-   the reason in one line. Completion: a migration input path, or a one-line refusal.
+   `*.ps1`, `*.yml`) for the string `dotnet-releaser`. If you find a config, record
+   its path as the migration input. If there is no config but the user explicitly
+   asked to migrate, proceed and record "source config absent" for the report. If
+   neither applies, do not run the skill and state the reason in one line.
+   Completion: a migration input path, or a one-line refusal.
 
 2. **Load the mapping reference.** When translation (Step 4) is about to begin,
    load `references/mapping-table.md` once and keep its contents for Steps 3 and 4.
@@ -69,20 +70,20 @@ names its completion signal.
    yourself in the running notes.
 
 3. **Inventory.** Read the source TOML config end to end and write an inventory
-   listing every source feature: each `[msbuild]` key, every `[[pack]]` entry (RID,
-   kinds, publish flag, renamer), each `[test]`, `[coverage]`, `[github]`, `[nuget]`,
-   `[brew]`, `[scoop]`, `[changelog]`, `[service]`, and `[[deb.depends]]`/`[[rpm.depends]]`
-   section, plus every other top-level key, marking keys absent from the mapping
-   table as `unknown`. On the config-absent path, check for an existing
-   `releasegen.json` at the repository root before running `releasegen init`: init
-   refuses an existing manifest and exits 1 unless `--overwrite` is passed. When
-   one exists, load it and merge its contents into the inventory (its keys are
-   already Manifest keys, so carry them through instead of marking them `unknown`)
-   and ask the user before Step 4 replaces it; when none exists, check that the
-   `releasegen` CLI is available (`releasegen --version`) before running
-   `releasegen init`. If it is missing, stop and give the Step 6 installation
-   guidance: point the user at `dotnet tool install -g ReleaseGen` (long form
-   `--global`) and continue only after they run it. Otherwise run `releasegen init`
+   listing every source feature, including each `[msbuild]` key, every `[[pack]]`
+   entry (RID, kinds, publish flag, renamer), each `[test]`, `[coverage]`, `[github]`,
+   `[nuget]`, `[brew]`, `[scoop]`, `[changelog]`, `[service]`, and
+   `[[deb.depends]]`/`[[rpm.depends]]` section, plus every other top-level key. Mark
+   keys absent from the mapping table as `unknown`. On the config-absent path, check
+   for an existing `releasegen.json` at the repository root before running
+   `releasegen init`, because init refuses an existing manifest and exits 1 unless
+   `--overwrite` is passed. When one exists, load it and merge its contents into the
+   inventory (its keys are already Manifest keys, so carry them through instead of
+   marking them `unknown`) and ask the user before Step 4 replaces it; when none
+   exists, check that the `releasegen` CLI is available (`releasegen --version`)
+   before running `releasegen init`. If it is missing, stop and point the user at
+   the Step 6 installation command, `dotnet tool install -g ReleaseGen` (long form
+   `--global`), and continue only after they run it. Otherwise run `releasegen init`
    and use its seeded skeleton plus the user's description as the inventory.
    Completion: an inventory covering every source section at least once.
 
@@ -100,20 +101,21 @@ names its completion signal.
 5. **Classify.** Write `releasegen-migration-report.md` at the repository root with
    three headings: `Mapped`, `Manual action required`, and `No ReleaseGen
    equivalent`. Place every Step 3 inventory item under exactly one heading, each
-   entry carrying its source key, its target key or suggested next action, and —
-   for CI invocations found in Step 1 — a `Pending CI rewrite` note resolved in
-   Step 7. Completion: the report file exists with all three headings and one entry
-   per inventory item.
+   entry carrying its source key, its target key or suggested next action, and, for
+   CI invocations found in Step 1, a `Pending CI rewrite` note resolved in Step 7.
+   Completion: the report file exists with all three headings and one entry per
+   inventory item.
 
 6. **Validate.** This step requires the `releasegen` CLI, which the skill never
-   installs: if it is missing, point the user at
+   installs. If it is missing, point the user at
    `dotnet tool install -g ReleaseGen` (long form `--global`) and continue only
    after they run it. From the repository root, run `releasegen build --dry-run`
-   (or `releasegen run --dry-run` when staged invocations were detected). Exit 0:
-   the manifest passes strict parse and validation; proceed to Step 7. Nonzero:
-   fix `releasegen.json` per the error message naming the offending field, then
-   re-run. After three consecutive failed loops, stop and present the remaining
-   errors to the user. Completion: exit code 0, or three recorded failure loops.
+   (or `releasegen run --dry-run` when staged invocations were detected). An exit
+   code of 0 means the manifest passes strict parse and validation, so proceed to
+   Step 7. A nonzero exit means you fix `releasegen.json` per the error message that
+   names the offending field, then re-run. After three consecutive failed loops,
+   stop and present the remaining errors to the user. Completion: exit code 0, or
+   three recorded failure loops.
 
 7. **Rewrite CI.** Run only after Step 6 exits 0. For each CI invocation from
    Step 1, apply the fixed command mapping in the CI section of
@@ -129,9 +131,9 @@ names its completion signal.
    rewritten CI files returns zero `dotnet-releaser` matches outside flagged
    comment lines.
 
-8. **Audit.** Verify and state, in one summary message to the user: the files
-   changed (`releasegen.json`, `releasegen-migration-report.md`, each CI file),
-   the count of entries in each report bucket, and the Step 6 gate result.
+8. **Audit.** Verify and state, in one summary message to the user, the files
+   changed (`releasegen.json`, `releasegen-migration-report.md`, each CI file), the
+   count of entries in each report bucket, and the Step 6 gate result.
    Completion: the summary message names all three.
 
 ## Gotchas

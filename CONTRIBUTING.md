@@ -31,13 +31,13 @@ behavior change.
 
 ## Project layout
 
-- `src/ReleaseGenCli/` — the tool entry point (`releasegen` command, `Program.cs`).
-- `src/ReleaseGenLib/` — core library (build/test/package/publish stages, manifest
+- `src/ReleaseGenCli/`: the tool entry point (`releasegen` command, `Program.cs`).
+- `src/ReleaseGenLib/`: core library (build/test/package/publish stages, manifest
   model, presets, archiving).
-- `src/ReleaseGen.Tests/` — TUnit test suite.
-- `docs/` — command reference, manifest schema, presets, single-file rules, trusted
+- `src/ReleaseGen.Tests/`: TUnit test suite.
+- `docs/`: command reference, manifest schema, presets, single-file rules, trusted
   publishing, stage handoff contract.
-- `GLOSSARY.md` — domain vocabulary (Manifest, Stage, Chained run, Test gate, etc.).
+- `GLOSSARY.md`: domain vocabulary (Manifest, Stage, Chained run, Test gate, etc.).
 
 ## Making changes
 
@@ -47,14 +47,14 @@ behavior change.
 - Keep commits focused and small.
 - Follow the existing conventions:
   - Nullable reference types are enabled; implicit usings are per-project.
-  - Central Package Management via `src/Directory.Packages.props` — add new package
+  - Central Package Management via `src/Directory.Packages.props`: add new package
     versions there, not inline in `.csproj` files.
   - Target framework is `net10.0` only.
   - **`Microsoft.Build` is pinned to the version currently listed in
     `src/Directory.Packages.props`.** From 18.10.1 that package ships only
-    `net11.0` and `net472` assets — the `net10.0` build was dropped — so a
-    `net10.0` project falls back to the .NET Framework assemblies (NU1701)
-    instead. Do not bump it for as long as ReleaseGen targets `net10.0`;
+    `net11.0` and `net472` assets, because the `net10.0` build was dropped. A
+    `net10.0` project therefore falls back to the .NET Framework assemblies
+    (NU1701) instead. Do not bump it for as long as ReleaseGen targets `net10.0`;
     only revisit the pin when the target framework moves off .NET 10.
 
 ## AI usage disclosure
@@ -63,8 +63,8 @@ If you use AI tooling (Copilot, ChatGPT, Claude, etc.) to produce any part of a
 commit or pull request, **disclose it**:
 
 - In commit messages, note AI assistance (e.g. `Co-authored-by` or a short
-  `AI-assisted:` note). Note that GitHub attributes `Co-authored-by` trailers to
-  GitHub user names, not display names — use the AI/bot account's GitHub username
+  `AI-assisted:` note). GitHub attributes `Co-authored-by` trailers to
+  GitHub user names, not display names. Use the AI/bot account's GitHub username
   (e.g. `Co-authored-by: your-bot <your-bot@users.noreply.github.com>`).
 - In the body of the pull request, disclose how much of the change was
   AI-assisted and the nature of that assistance (e.g. which parts were

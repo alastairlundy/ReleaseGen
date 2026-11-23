@@ -4,17 +4,17 @@ ReleaseGen is an opinionated .NET CLI tool (`releasegen`) for building, packagin
 
 ## Commands
 
-- Build: `dotnet build src/ReleaseGen.slnx` — the solution file is `.slnx` (XML format), not `.sln`.
-- Tests: `dotnet test --project src/ReleaseGen.Tests/ReleaseGen.Tests.csproj` — TUnit on Microsoft.Testing.Platform, selected by the root `global.json`; not VSTest, so VSTest-era options like `--logger trx` don't apply (reports land in `TestResults/` as `*.tunit-report.json`/`.html`).
-- CI (`.github/workflows/ci.yml`) runs: restore → `dotnet build src/ReleaseGen.slnx --configuration Release --no-restore` → `dotnet test ... --no-build`. Match this order locally before opening a PR.
+- Build: `dotnet build src/ReleaseGen.slnx`. The solution file is `.slnx` (XML format), not `.sln`.
+- Tests: `dotnet test --project src/ReleaseGen.Tests/ReleaseGen.Tests.csproj`. Runs TUnit on Microsoft.Testing.Platform, selected by the root `global.json`. It is not VSTest, so VSTest-era options like `--logger trx` don't apply (reports land in `TestResults/` as `*.tunit-report.json`/`.html`).
+- CI (`.github/workflows/ci.yml`) runs restore, then `dotnet build src/ReleaseGen.slnx --configuration Release --no-restore`, then `dotnet test ... --no-build`. Match this order locally before opening a PR.
 
 ## Conventions and gotchas
 
 - Central Package Management: add or change package versions only in `src/Directory.Packages.props`; `PackageReference`s in `.csproj` files omit versions.
 - Target framework is `net10.0` only; `LangVersion` 14.
-- `ReleaseGenLib` has `ImplicitUsings` **disabled** — write explicit `using` statements after the namespace declaration. The CLI and test projects have implicit usings enabled.
+- `ReleaseGenLib` has `ImplicitUsings` **disabled**. Write explicit `using` statements after the namespace declaration. The CLI and test projects have implicit usings enabled.
 - Adding or renaming a manifest field requires updating `ManifestJsonContext` (source-generated `System.Text.Json` context with strict `UnmappedMemberHandling.Disallow`) alongside the model in `src/ReleaseGenLib/Models/`.
-- Versioning is static: the `<Version>` property in each packable `.csproj` is authoritative (MinVer was removed) and must be bumped manually before each release. Git tags do not drive package versions.
+- Versioning is static. The `<Version>` property in each packable `.csproj` is authoritative (MinVer was removed) and must be bumped manually before each release. Git tags do not drive package versions.
 
 ## Hard constraints
 

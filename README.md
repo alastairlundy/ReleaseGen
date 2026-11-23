@@ -34,10 +34,10 @@ Notes:
 
 - `init` is a one-shot command and takes no part in the chained run. It refuses to overwrite an existing manifest unless you pass `--overwrite`; `--preset <name>` seeds the manifest's
   `build.preset` key.
-- `run` is the chained run: it executes the stages the manifest names - build always, test when a test section is declared, package and publish when targets declare package kinds - in manifest order, aborting at the first failed stage and noting each skipped stage. The test outcome is carried to publish, so tests never run twice.
-- Each stage is also its own command - `releasegen build`, `releasegen test`, `releasegen package`, `releasegen publish` - and all of them share the same manifest, discovered by walking up from the current directory.
+- `run` is the chained run. It executes the stages the manifest names in manifest order: build always, test when a test section is declared, and package and publish when targets declare package kinds. It aborts at the first failed stage and notes each skipped stage. The test outcome is carried to publish, so tests never run twice.
+- Each stage is also its own command: `releasegen build`, `releasegen test`, `releasegen package`, `releasegen publish`. All of them share the same manifest, discovered by walking up from the current directory.
 
-Build output stays local under a `release/` directory; the only network destination is the publish stage's NuGet source. Publishing is gated on your tests: a manifest declaring a test section blocks publish when that stage fails.
+Build output stays local under a `release/` directory; the only network destination is the publish stage's NuGet source. Publishing is gated on your tests. A manifest declaring a test section blocks publish when that stage fails.
 
 ## Commands
 
@@ -69,6 +69,6 @@ on any failure. See the [command reference](docs/commands.md) for flags and beha
 
 - A changelog or release notes generator/formatter.
 - A test coverage checker.
-- An artifact uploader: ReleaseGen writes release binaries and archives to a local `release/`
+- An artifact uploader. ReleaseGen writes release binaries and archives to a local `release/`
   directory and performs no upload of them.
-- A token broker: ReleaseGen performs no OIDC token acquisition; see the trusted publishing page for the CI-side procedure.
+- A token broker. ReleaseGen performs no OIDC token acquisition; see the trusted publishing page for the CI-side procedure.

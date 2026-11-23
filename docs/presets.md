@@ -4,7 +4,7 @@ A build preset is a named set of build settings (AOT, trimming, ready-to-run, se
 
 ## The shipped set
 
-Four named presets ship in v1, plus none. No preset combines ready-to-run with trimming; this is the shipped set.
+Four named presets ship in v1, plus none. No preset combines ready-to-run with trimming.
 
 | Preset name | What it applies |
 |--------------|-----------------|
@@ -29,15 +29,15 @@ The build stage runs `dotnet publish -c Release -r <rid>` once per declared runt
 | `none` | Nothing implicit |
 
 Only enabling switches are emitted, so a project file's own settings stay authoritative
-wherever ReleaseGen has no opinion.
+wherever ReleaseGen emits no switch.
 
 ## Selection and precedence
 
 - **Manifest key.** `build.preset` holds the global preset. Absent or `none` means
   preset none.
-- **Invocation escape.** `--preset <name>` on `releasegen build` and `releasegen run`
-  overrides the Manifest key for that invocation only. The flag never writes the file:
-  strict-manifest rules stay intact, and one-off releases stay cheap.
+- **Invocation override.** `--preset <name>` on `releasegen build` and `releasegen run`
+  overrides the Manifest key for that invocation only. The flag never writes the file.
+  Strict-manifest rules stay intact, and one-off releases stay cheap.
 - **`init` seeding.** `releasegen init --preset <name>` writes the chosen preset into the
   skeleton's `build.preset` key; `none`, or omitting the flag, seeds no key.
 - **Per-key overrides.** Any explicit bool key in the build section (`publishAot`,
@@ -47,7 +47,7 @@ wherever ReleaseGen has no opinion.
 
 Single-file deployment is covered by the presets:
 
-- For the four named presets, single-file publishing defaults to **on on Unix-based OSes**, and **on Windows only when the target's resolved archive format is zip**, declared or defaulted to zip. See the [single-file rules](single-file-rules.md) page for the incompatible-API reference behind the opt-out.
+- For the four named presets, single-file publishing defaults to **on** for Unix-based OSes, and for Windows only when the target's resolved archive format is zip, declared or defaulted to zip. See the [single-file rules](single-file-rules.md) page for the incompatible-API reference behind the opt-out.
 - Preset `none` contributes no implicit single-file switch.
 - The `build.singleFile` key disables the defaults (opt-out) or forces them on; the explicit key always wins.
 
