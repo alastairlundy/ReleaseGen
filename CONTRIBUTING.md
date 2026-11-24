@@ -48,8 +48,8 @@ behavior change.
   - Nullable reference types are enabled; implicit usings are per-project.
   - Central Package Management via `src/Directory.Packages.props`: add new package
     versions there, not inline in `.csproj` files.
-  - `ReleaseGenLib` multi-targets `net10.0;net11.0`; the CLI and test projects
-    target `net10.0` only. `LangVersion` is 14.
+  - `ReleaseGenLib` and the CLI multi-target `net10.0;net11.0`; the test project
+    targets `net10.0` only. `LangVersion` is 14.
   - **`Microsoft.Build` is versioned per TFM in `src/Directory.Packages.props`**
     (18.9.6 for `net10.0`, 18.12.2 for `net11.0`). From 18.10.1 that package
     ships only `net11.0` and `net472` assets, because the `net10.0` build was
