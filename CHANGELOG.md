@@ -5,7 +5,7 @@ Notable changes to ReleaseGen, newest first. Package versions come from the stat
 ## Unreleased
 
 ### Added
-- **`net11.0` target**: `ReleaseGenLib` and the ReleaseGen CLI now multi-target `net10.0;net11.0`. The library is not published directly — the `ReleaseGen` CLI tool package is the only published artefact, and it now ships both `tools/net10.0` and `tools/net11.0` assets. The test project stays on `net10.0`.
+- **`net11.0` target**: `ReleaseGenLib`, the ReleaseGen CLI, and the test suite now multi-target `net10.0;net11.0`, so both flavors are built and tested. The library is not published directly — the `ReleaseGen` CLI tool package is the only published artefact, and it now ships both `tools/net10.0` and `tools/net11.0` assets.
 
 ### Changed
 - `Microsoft.Build` is versioned per TFM in `src/Directory.Packages.props`: 18.9.6 on `net10.0` — the newest published net10.0 build, since from 18.10.1 the package ships only `net11.0` + `net472` assets — and 18.12.2 on `net11.0`.

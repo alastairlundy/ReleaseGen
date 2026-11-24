@@ -11,7 +11,7 @@ ReleaseGen is an opinionated .NET CLI tool (`releasegen`) for building, packagin
 ## Conventions and gotchas
 
 - Central Package Management: add or change package versions only in `src/Directory.Packages.props`; `PackageReference`s in `.csproj` files omit versions.
-- Target frameworks: `ReleaseGenLib` and `ReleaseGenCli` multi-target `net10.0;net11.0` (with `Microsoft.Build` versioned per TFM in `src/Directory.Packages.props` — 18.9.6 on net10.0, current release on net11.0); the test project targets `net10.0` only; `LangVersion` 14.
+- Target frameworks: all three projects multi-target `net10.0;net11.0` (with `Microsoft.Build` versioned per TFM in `src/Directory.Packages.props` — 18.9.6 on net10.0, current release on net11.0); `LangVersion` 14.
 - `ReleaseGenLib` has `ImplicitUsings` **disabled**. Write explicit `using` statements after the namespace declaration. The CLI and test projects have implicit usings enabled.
 - Adding or renaming a manifest field requires updating `ManifestJsonContext` (source-generated `System.Text.Json` context with strict `UnmappedMemberHandling.Disallow`) alongside the model in `src/ReleaseGenLib/Models/`.
 - Versioning is static. The `<Version>` property in each packable `.csproj` is authoritative (MinVer was removed) and must be bumped manually before each release. Git tags do not drive package versions.

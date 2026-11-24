@@ -4,9 +4,10 @@ Thanks for your interest in contributing. The guidelines below keep changes revi
 
 ## Prerequisites
 
-- .NET SDK 11.0.x (needed to target `net11.0`; it also builds `net10.0`. CI installs
-  `10.0.x` and `11.0.x`; the repo's `global.json` selects the Microsoft.Testing.Platform
-  runner).
+- Both the .NET 10 and .NET 11 SDKs are required: SDK 11.0.x builds the solution, and
+  the test suite runs on `net10.0` and `net11.0`, so both runtimes must be installed.
+  CI installs `10.0.x` and `11.0.x`; the repo's `global.json` selects the
+  Microsoft.Testing.Platform runner.
 - git.
 
 ## Clone and build
@@ -48,8 +49,7 @@ behavior change.
   - Nullable reference types are enabled; implicit usings are per-project.
   - Central Package Management via `src/Directory.Packages.props`: add new package
     versions there, not inline in `.csproj` files.
-  - `ReleaseGenLib` and the CLI multi-target `net10.0;net11.0`; the test project
-    targets `net10.0` only. `LangVersion` is 14.
+  - All three projects multi-target `net10.0;net11.0`. `LangVersion` is 14.
   - **`Microsoft.Build` is versioned per TFM in `src/Directory.Packages.props`**
     (18.9.6 for `net10.0`, 18.12.2 for `net11.0`). From 18.10.1 that package
     ships only `net11.0` and `net472` assets, because the `net10.0` build was
