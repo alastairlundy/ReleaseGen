@@ -4,11 +4,10 @@ Thanks for your interest in contributing. The guidelines below keep changes revi
 
 ## Prerequisites
 
-- .NET SDK 10.0.x (the CI pins `10.0.x`; the repo's `global.json` selects the
-  Microsoft.Testing.Platform runner).
+- .NET SDK 11.0.x (needed to target `net11.0`; it also builds `net10.0`. CI installs
+  `10.0.x` and `11.0.x`; the repo's `global.json` selects the Microsoft.Testing.Platform
+  runner).
 - git.
-
-A newer SDK (e.g. the 11.0 preview) will build the project fine; the warning about using a preview SDK is harmless.
 
 ## Clone and build
 
