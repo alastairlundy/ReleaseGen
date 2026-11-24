@@ -13,6 +13,7 @@ namespace ReleaseGen.Cli.Commands;
 
 using System.Text;
 using System.Text.Json;
+using ReleaseGen.Cli.Contexts;
 using ReleaseGenLib.Exceptions;
 
 /// <summary>
@@ -366,5 +367,5 @@ public sealed class InitCommand : Command
     /// </summary>
     /// <param name="value">The raw value.</param>
     /// <returns>The quoted, escaped JSON string.</returns>
-    private static string Json(string value) => JsonSerializer.Serialize(value);
+    private static string Json(string value) => JsonSerializer.Serialize(value, CliJsonContext.Default.String);
 }
