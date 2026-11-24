@@ -2,6 +2,14 @@
 Notable changes to ReleaseGen, newest first. Package versions come from the static
 `<Version>` property in each packable `.csproj`, bumped by hand before each release (see AGENTS.md). Git tags do not drive them.
 
+## Unreleased
+
+### Added
+- **`net11.0` target for ReleaseGenLib**: the library now multi-targets `net10.0;net11.0`, so consumers on .NET 11 reference it natively. The CLI and test projects stay on `net10.0`.
+
+### Changed
+- `Microsoft.Build` is versioned per TFM in `src/Directory.Packages.props`: 18.9.6 on `net10.0` — the newest published net10.0 build, since from 18.10.1 the package ships only `net11.0` + `net472` assets — and 18.12.2 on `net11.0`.
+
 ## 0.4.1 - 2026-11-23
 
 ### Changed
