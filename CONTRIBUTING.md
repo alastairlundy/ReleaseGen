@@ -49,13 +49,15 @@ behavior change.
   - Nullable reference types are enabled; implicit usings are per-project.
   - Central Package Management via `src/Directory.Packages.props`: add new package
     versions there, not inline in `.csproj` files.
-  - Target framework is `net10.0` only.
-  - **`Microsoft.Build` is pinned to the version currently listed in
-    `src/Directory.Packages.props`.** From 18.10.1 that package ships only
-    `net11.0` and `net472` assets, because the `net10.0` build was dropped. A
-    `net10.0` project therefore falls back to the .NET Framework assemblies
-    (NU1701) instead. Do not bump it for as long as ReleaseGen targets `net10.0`;
-    only revisit the pin when the target framework moves off .NET 10.
+  - `ReleaseGenLib` multi-targets `net10.0;net11.0`; the CLI and test projects
+    target `net10.0` only. `LangVersion` is 14.
+  - **`Microsoft.Build` is versioned per TFM in `src/Directory.Packages.props`**
+    (18.9.6 for `net10.0`, 18.12.2 for `net11.0`). From 18.10.1 that package
+    ships only `net11.0` and `net472` assets, because the `net10.0` build was
+    dropped. A `net10.0` project therefore falls back to the .NET Framework
+    assemblies (NU1701) instead. Keep the `net10.0` condition at 18.9.6 — the
+    newest published `net10.0` build — for as long as the library targets
+    `net10.0`; bump the `net11.0` condition freely as new MSBuild releases ship.
 
 ## AI usage disclosure
 
