@@ -15,7 +15,7 @@ ReleaseGen is an opinionated .NET CLI for building, packaging, and publishing .N
 dotnet tool install ReleaseGen -g
 ```
 
-Requires the .NET 10 SDK. The tool command is `releasegen`. Running bare `releasegen` prints command help; no stage executes without an explicit verb.
+Requires a .NET SDK: for consumers, either the .NET 10 or the .NET 11 SDK is sufficient to run the tool; building ReleaseGen from source requires both. The tool command is `releasegen`. Running bare `releasegen` prints command help; no stage executes without an explicit verb.
 
 ## Quickstart
 

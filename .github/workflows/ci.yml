@@ -26,8 +26,11 @@ jobs:
       - name: Set up the .NET SDK
         uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
-          # Everything targets net10.0 only, and the TUnit suite runs on that TFM.
-          dotnet-version: 10.0.x
+          # All three projects multi-target net10.0;net11.0 (SDK 11 builds both TFMs);
+          # the TUnit suite runs on both TFMs, so both runtimes must be present.
+          dotnet-version: |
+            10.0.x
+            11.0.x
 
       - name: Restore
         run: dotnet restore src/ReleaseGen.slnx

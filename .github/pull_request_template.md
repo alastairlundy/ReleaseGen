@@ -19,8 +19,8 @@ the rationale obvious.
 ## Testing
 
 <!--
-Describe how you verified the change. Mention the TFM you tested on
-(net10.0), the test framework (TUnit), and any new or
+Describe how you verified the change. Mention the TFM(s) you tested on
+(net10.0 and net11.0 across all three projects), the test framework (TUnit), and any new or
 updated tests added under src/ReleaseGen.Tests/. If you could not run the
 full suite locally, say so and call out which platforms still need
 verification.

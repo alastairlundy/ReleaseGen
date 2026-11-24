@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
+        <!-- net10.0 keeps the package consumable on the current LTS; net11.0 lets the
+             library compile against the current Microsoft.Build (see Directory.Packages.props). -->
+        <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
         <LangVersion>14</LangVersion>
         <ImplicitUsings>disable</ImplicitUsings>
         <Nullable>enable</Nullable>

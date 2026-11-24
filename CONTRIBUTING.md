@@ -4,11 +4,11 @@ Thanks for your interest in contributing. The guidelines below keep changes revi
 
 ## Prerequisites
 
-- .NET SDK 10.0.x (the CI pins `10.0.x`; the repo's `global.json` selects the
-  Microsoft.Testing.Platform runner).
+- Both the .NET 10 and .NET 11 SDKs are required: SDK 11.0.x builds the solution, and
+  the test suite runs on `net10.0` and `net11.0`, so both runtimes must be installed.
+  CI installs `10.0.x` and `11.0.x`; the repo's `global.json` selects the
+  Microsoft.Testing.Platform runner.
 - git.
-
-A newer SDK (e.g. the 11.0 preview) will build the project fine; the warning about using a preview SDK is harmless.
 
 ## Clone and build
 
@@ -49,13 +49,14 @@ behavior change.
   - Nullable reference types are enabled; implicit usings are per-project.
   - Central Package Management via `src/Directory.Packages.props`: add new package
     versions there, not inline in `.csproj` files.
-  - Target framework is `net10.0` only.
-  - **`Microsoft.Build` is pinned to the version currently listed in
-    `src/Directory.Packages.props`.** From 18.10.1 that package ships only
-    `net11.0` and `net472` assets, because the `net10.0` build was dropped. A
-    `net10.0` project therefore falls back to the .NET Framework assemblies
-    (NU1701) instead. Do not bump it for as long as ReleaseGen targets `net10.0`;
-    only revisit the pin when the target framework moves off .NET 10.
+  - All three projects multi-target `net10.0;net11.0`. `LangVersion` is 14.
+  - **`Microsoft.Build` is versioned per TFM in `src/Directory.Packages.props`**
+    (18.9.6 for `net10.0`, 18.12.2 for `net11.0`). From 18.10.1 that package
+    ships only `net11.0` and `net472` assets, because the `net10.0` build was
+    dropped. A `net10.0` project therefore falls back to the .NET Framework
+    assemblies (NU1701) instead. Keep the `net10.0` condition at 18.9.6 — the
+    newest published `net10.0` build — for as long as the library targets
+    `net10.0`; bump the `net11.0` condition freely as new MSBuild releases ship.
 
 ## AI usage disclosure
 
